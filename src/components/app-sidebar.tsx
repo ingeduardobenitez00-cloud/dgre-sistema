@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { BookMarked, Settings, ImageIcon, Users } from "lucide-react";
+import { BookMarked, Settings, ImageIcon, Users, FileText } from "lucide-react";
 
 export default function AppSidebar() {
   const pathname = usePathname();
@@ -20,6 +20,11 @@ export default function AppSidebar() {
       href: "/",
       label: "Fotos",
       icon: ImageIcon,
+    },
+    {
+      href: "/ficha",
+      label: "Vista de Ficha",
+      icon: FileText,
     },
     {
       href: "/users",

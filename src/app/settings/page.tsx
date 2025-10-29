@@ -39,7 +39,7 @@ type PreviewData = {
   distrito: string;
 };
 
-type ReportPreviewData = {
+export type ReportData = {
   departamento?: string;
   distrito?: string;
   'estado-fisico'?: string;
@@ -56,7 +56,7 @@ export default function SettingsPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData[]>([]);
-  const [reportPreviewData, setReportPreviewData] = useState<ReportPreviewData[]>([]);
+  const [reportPreviewData, setReportPreviewData] = useState<ReportData[]>([]);
   const [savedData, setSavedData] = useState<Department[]>([]);
   const { toast } = useToast();
   
@@ -173,7 +173,7 @@ export default function SettingsPage() {
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json: ReportPreviewData[] = XLSX.utils.sheet_to_json(worksheet);
+        const json: ReportData[] = XLSX.utils.sheet_to_json(worksheet);
         
         setReportPreviewData(json);
         toast({
@@ -319,15 +319,26 @@ export default function SettingsPage() {
   };
 
   const handleSaveReportData = () => {
-    console.log("Saving report data:", reportPreviewData);
-    // Here you would typically save the data to your backend or state management
-    toast({
-      title: 'Datos del informe guardados',
-      description: 'Los datos del informe se han procesado (simulado).',
-      action: <CheckCircle2 className="text-green-500" />,
-    });
-    setReportPreviewData([]);
-    setFileName(null);
+    try {
+      const existingDataString = localStorage.getItem('imported_reports');
+      const existingData: ReportData[] = existingDataString ? JSON.parse(existingDataString) : [];
+      const newData = [...existingData, ...reportPreviewData];
+      localStorage.setItem('imported_reports', JSON.stringify(newData));
+
+      toast({
+        title: 'Datos del informe guardados',
+        description: 'Los nuevos datos del informe se han añadido con éxito.',
+        action: <CheckCircle2 className="text-green-500" />,
+      });
+      setReportPreviewData([]);
+      setFileName(null);
+    } catch (error) {
+       toast({
+          variant: 'destructive',
+          title: 'Error al guardar el informe',
+          description: 'No se pudieron guardar los datos del informe en el almacenamiento local.',
+      });
+    }
   }
 
 
