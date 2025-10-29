@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function FichaPage() {
   const { firestore } = useFirebase();
@@ -66,9 +68,16 @@ export default function FichaPage() {
       setSelectedDept(selectedDepartment?.name || '');
 
       const districtsQuery = collection(firestore, 'departamentos', deptId, 'distritos');
-      const districtsSnapshot = await getDocs(districtsQuery);
-      const fetchedDistricts = districtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
-      setDistricts(fetchedDistricts);
+      getDocs(districtsQuery).then(districtsSnapshot => {
+        const fetchedDistricts = districtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
+        setDistricts(fetchedDistricts);
+      }).catch(error => {
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: `departamentos/${deptId}/distritos`,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+      });
     } else {
       setSelectedDept('');
       setDistricts([]);

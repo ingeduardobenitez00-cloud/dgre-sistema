@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,8 @@ import {
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch, getDocs, deleteDoc, setDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 type PreviewData = {
@@ -60,22 +63,31 @@ export default function SettingsPage() {
 
   const [departmentsWithDistricts, setDepartmentsWithDistricts] = useState<(Department & {districts: District[]})[]>([]);
 
-  useState(() => {
+  useEffect(() => {
     if (savedData && firestore) {
       const fetchDistricts = async () => {
         const deptsWithDists = await Promise.all(
           savedData.map(async (dept) => {
             const districtsQuery = collection(firestore, 'departamentos', dept.id, 'distritos');
-            const districtsSnapshot = await getDocs(districtsQuery);
-            const districts = districtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
-            return { ...dept, districts };
+            try {
+              const districtsSnapshot = await getDocs(districtsQuery);
+              const districts = districtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
+              return { ...dept, districts };
+            } catch (error) {
+               const contextualError = new FirestorePermissionError({
+                operation: 'list',
+                path: `departamentos/${dept.id}/distritos`,
+               });
+               errorEmitter.emit('permission-error', contextualError);
+               return { ...dept, districts: [] };
+            }
           })
         );
         setDepartmentsWithDistricts(deptsWithDists);
       };
       fetchDistricts();
     }
-  });
+  }, [savedData, firestore]);
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -550,7 +562,7 @@ export default function SettingsPage() {
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteItem('district', department.id, district.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                            <AlertDialogAction onClick={() => handleDeleteItem('district', department.id, district.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</Action>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
