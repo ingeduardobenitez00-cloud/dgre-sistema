@@ -59,10 +59,26 @@ export function UploadDialog({ isOpen, onOpenChange, onImageUploaded }: UploadDi
     if (selectedFile) {
       setFile(selectedFile);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUri = reader.result as string;
-        setPreview(dataUri);
-        handleTagGeneration(dataUri);
+      reader.onload = (e) => {
+        const img = document.createElement('img');
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const dataUri = canvas.toDataURL(selectedFile.type, 0.7);
+            setPreview(dataUri);
+            handleTagGeneration(dataUri);
+          } else {
+             toast({ variant: 'destructive', title: 'Error', description: 'No se pudo procesar la imagen.' });
+          }
+        };
+        img.src = e.target?.result as string;
       };
       reader.readAsDataURL(selectedFile);
     }
