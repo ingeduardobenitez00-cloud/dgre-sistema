@@ -11,52 +11,77 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, ImageIcon } from 'lucide-react';
-import { type Department, type ImageData } from '@/lib/data';
+import { type Department, type District, type ImageData } from '@/lib/data';
 import { UploadDialog } from '@/components/upload-dialog';
 import { ImageViewerDialog } from '@/components/image-viewer-dialog';
+import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, doc, getDocs, addDoc } from 'firebase/firestore';
 
 export default function PhotoGallery() {
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const { firestore } = useFirebase();
+
+  const departmentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'departamentos') : null, [firestore]);
+  const { data: departmentsData, isLoading } = useCollection<Department>(departmentsQuery);
+
+  const [departments, setDepartments] = useState<(Department & { districts: (District & { images: ImageData[] })[] })[]>([]);
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [activeDistrict, setActiveDistrict] = useState<{deptId: string, distId: string} | null>(null);
 
   useEffect(() => {
-    // On component mount, check for imported data in localStorage
-    const storedData = localStorage.getItem('imported_departments');
-    if (storedData) {
-      try {
-        const importedDepartments = JSON.parse(storedData);
-        setDepartments(importedDepartments);
-      } catch (error) {
-        console.error("Failed to parse imported departments from localStorage", error);
-      }
+    if (departmentsData && firestore) {
+      const fetchSubCollections = async () => {
+        const fullDepts = await Promise.all(
+          departmentsData.map(async (dept) => {
+            const districtsQuery = collection(firestore, 'departamentos', dept.id, 'distritos');
+            const districtsSnapshot = await getDocs(districtsQuery);
+            const districts = await Promise.all(districtsSnapshot.docs.map(async (distDoc) => {
+              const imagesQuery = collection(distDoc.ref, 'imagenes');
+              const imagesSnapshot = await getDocs(imagesQuery);
+              const images = imagesSnapshot.docs.map(imgDoc => ({ id: imgDoc.id, ...imgDoc.data() } as ImageData));
+              return { id: distDoc.id, name: distDoc.data().name, images };
+            }));
+            return { ...dept, districts };
+          })
+        );
+        setDepartments(fullDepts);
+      };
+      fetchSubCollections();
     }
-  }, []);
+  }, [departmentsData, firestore]);
 
   const handleOpenUpload = (deptId: string, distId: string) => {
     setActiveDistrict({ deptId, distId });
     setUploadOpen(true);
   };
 
-  const handleImagesUploaded = (newImages: ImageData[]) => {
-    if (!activeDistrict) return;
+  const handleImagesUploaded = async (newImages: Omit<ImageData, 'id'>[]) => {
+    if (!activeDistrict || !firestore) return;
     
-    const updatedDepartments = departments.map(dept => 
-      dept.id === activeDistrict.deptId
-        ? {
-            ...dept,
-            districts: dept.districts.map(dist => 
-              dist.id === activeDistrict.distId
-                ? { ...dist, images: [...dist.images, ...newImages] }
-                : dist
-            ),
-          }
-        : dept
-    );
+    const { deptId, distId } = activeDistrict;
+    const imagesCollectionRef = collection(firestore, 'departamentos', deptId, 'distritos', distId, 'imagenes');
 
-    setDepartments(updatedDepartments);
-    localStorage.setItem('imported_departments', JSON.stringify(updatedDepartments));
+    const addedImages: ImageData[] = [];
+    for (const newImage of newImages) {
+        const docRef = await addDoc(imagesCollectionRef, newImage);
+        addedImages.push({ id: docRef.id, ...newImage });
+    }
+
+    setDepartments(prevDepts =>
+        prevDepts.map(dept =>
+            dept.id === deptId
+                ? {
+                    ...dept,
+                    districts: dept.districts.map(dist =>
+                        dist.id === distId
+                            ? { ...dist, images: [...dist.images, ...addedImages] }
+                            : dist
+                    ),
+                }
+                : dept
+        )
+    );
     setUploadOpen(false);
   };
 

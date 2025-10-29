@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { FileUp, Loader2, CheckCircle2, TableIcon, Database, PlusCircle, Trash2,
 import Header from '@/components/header';
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Department, District } from '@/lib/data';
+import { type Department, type District, type ReportData } from '@/lib/data';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   Dialog,
@@ -32,6 +32,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirebase, useMemoFirebase } from '@/firebase';
+import { collection, doc, writeBatch, getDocs, deleteDoc, setDoc, addDoc, updateDoc } from 'firebase/firestore';
 
 
 type PreviewData = {
@@ -39,46 +42,40 @@ type PreviewData = {
   distrito: string;
 };
 
-export type ReportData = {
-  departamento?: string;
-  distrito?: string;
-  'estado-fisico'?: string;
-  'descripcion-situacion'?: string;
-  'cantidad-habitaciones'?: string;
-  'habitacion-segura'?: string;
-  'caracteristicas-habitacion'?: string;
-  'dimensiones-habitacion'?: string;
-  'cantidad-maquinas'?: string;
-  'lugar-resguardo'?: string;
-}
-
 export default function SettingsPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData[]>([]);
   const [reportPreviewData, setReportPreviewData] = useState<ReportData[]>([]);
-  const [savedData, setSavedData] = useState<Department[]>([]);
   const { toast } = useToast();
   
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<{type: 'department' | 'district', deptId: string, distId?: string, name: string} | null>(null);
   const [newItemName, setNewItemName] = useState('');
 
-  useEffect(() => {
-    const storedData = localStorage.getItem('imported_departments');
-    if (storedData) {
-      try {
-        setSavedData(JSON.parse(storedData));
-      } catch (error) {
-        console.error("Error parsing stored data:", error);
-      }
-    }
-  }, []);
+  const { firestore } = useFirebase();
 
-  const updateAndPersistData = (newData: Department[]) => {
-    setSavedData(newData);
-    localStorage.setItem('imported_departments', JSON.stringify(newData));
-  };
+  const departmentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'departamentos') : null, [firestore]);
+  const { data: savedData, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
+
+  const [departmentsWithDistricts, setDepartmentsWithDistricts] = useState<(Department & {districts: District[]})[]>([]);
+
+  useState(() => {
+    if (savedData && firestore) {
+      const fetchDistricts = async () => {
+        const deptsWithDists = await Promise.all(
+          savedData.map(async (dept) => {
+            const districtsQuery = collection(firestore, 'departamentos', dept.id, 'distritos');
+            const districtsSnapshot = await getDocs(districtsQuery);
+            const districts = districtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
+            return { ...dept, districts };
+          })
+        );
+        setDepartmentsWithDistricts(deptsWithDists);
+      };
+      fetchDistricts();
+    }
+  });
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -203,41 +200,67 @@ export default function SettingsPage() {
   };
 
 
-  const handleSaveData = () => {
-    let currentData = [...savedData];
+  const handleSaveData = async () => {
+    if (!firestore) return;
 
-    previewData.forEach(item => {
-      let dept = currentData.find(d => d.name.toLowerCase() === item.departamento.toLowerCase());
-      if (!dept) {
-        dept = {
-          id: `d_${Date.now()}_${currentData.length}`,
-          name: item.departamento,
-          districts: []
-        };
-        currentData.push(dept);
-      }
-
-      const distExists = dept.districts.some(d => d.name.toLowerCase() === item.distrito.toLowerCase());
-      if (!distExists) {
-        const newDistrict: District = {
-          id: `dist_${Date.now()}_${dept.districts.length}`,
-          name: item.distrito,
-          images: []
-        };
-        dept.districts.push(newDistrict);
-      }
-    });
-
-    updateAndPersistData(currentData);
+    const batch = writeBatch(firestore);
+    const deptsMap = new Map<string, { id: string; districts: Map<string, string> }>();
     
-    toast({
-      title: 'Datos importados',
-      description: 'Los nuevos departamentos y distritos se han añadido con éxito.',
-      action: <CheckCircle2 className="text-green-500" />,
-    });
+    // Pre-fill map with existing data to avoid duplicates
+    for (const dept of departmentsWithDistricts) {
+      const distsMap = new Map(dept.districts.map(d => [d.name.toLowerCase(), d.id]));
+      deptsMap.set(dept.name.toLowerCase(), { id: dept.id, districts: distsMap });
+    }
 
-    setPreviewData([]);
-    setFileName(null);
+    for (const item of previewData) {
+        let deptLower = item.departamento.toLowerCase();
+        let distLower = item.distrito.toLowerCase();
+
+        let deptEntry = deptsMap.get(deptLower);
+        if (!deptEntry) {
+            const newDeptRef = doc(collection(firestore, 'departamentos'));
+            batch.set(newDeptRef, { name: item.departamento });
+            deptEntry = { id: newDeptRef.id, districts: new Map() };
+            deptsMap.set(deptLower, deptEntry);
+        }
+
+        if (!deptEntry.districts.has(distLower)) {
+            const newDistRef = doc(collection(firestore, 'departamentos', deptEntry.id, 'distritos'));
+            batch.set(newDistRef, { name: item.distrito });
+            deptEntry.districts.set(distLower, newDistRef.id);
+        }
+    }
+
+    try {
+        await batch.commit();
+        toast({
+            title: 'Datos importados',
+            description: 'Los nuevos departamentos y distritos se han añadido con éxito a Firestore.',
+            action: <CheckCircle2 className="text-green-500" />,
+        });
+        setPreviewData([]);
+        setFileName(null);
+    } catch (error) {
+        console.error("Error saving to Firestore:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error al guardar',
+            description: 'No se pudieron guardar los datos en Firestore.',
+        });
+    }
+  };
+
+
+  const handleAddItem = async (type: 'department' | 'district', deptId?: string) => {
+      if (!firestore) return;
+      const name = prompt(`Introduce el nombre del nuevo ${type === 'department' ? 'departamento' : 'distrito'}`);
+      if (name) {
+          if (type === 'department') {
+              await addDoc(collection(firestore, 'departamentos'), { name });
+          } else if (type === 'district' && deptId) {
+              await addDoc(collection(firestore, 'departamentos', deptId, 'distritos'), { name });
+          }
+      }
   };
 
   const handleOpenEditModal = (type: 'department' | 'district', deptId: string, distId?: string, name: string) => {
@@ -246,88 +269,56 @@ export default function SettingsPage() {
     setEditModalOpen(true);
   };
   
-  const handleAddItem = (type: 'department' | 'district', deptId?: string) => {
-      const name = prompt(`Introduce el nombre del nuevo ${type === 'department' ? 'departamento' : 'distrito'}`);
-      if (name) {
-          if (type === 'department') {
-              const newDept: Department = {
-                  id: `d_${Date.now()}`,
-                  name,
-                  districts: [],
-              };
-              updateAndPersistData([...savedData, newDept]);
-          } else if (type === 'district' && deptId) {
-              const newData = savedData.map(dept => {
-                  if (dept.id === deptId) {
-                      const newDistrict: District = {
-                          id: `dist_${Date.now()}_${dept.districts.length}`,
-                          name,
-                          images: [],
-                      };
-                      return { ...dept, districts: [...dept.districts, newDistrict] };
-                  }
-                  return dept;
-              });
-              updateAndPersistData(newData);
-          }
-      }
-  };
-
-  const handleUpdateItem = () => {
-    if (!editingItem || !newItemName) return;
+  const handleUpdateItem = async () => {
+    if (!editingItem || !newItemName || !firestore) return;
 
     const { type, deptId, distId } = editingItem;
-    let newData: Department[] = [];
-
-    if (type === 'department') {
-      newData = savedData.map(dept => 
-        dept.id === deptId ? { ...dept, name: newItemName } : dept
-      );
-    } else if (type === 'district') {
-      newData = savedData.map(dept => 
-        dept.id === deptId 
-          ? { 
-              ...dept, 
-              districts: dept.districts.map(dist => 
-                dist.id === distId ? { ...dist, name: newItemName } : dist
-              ) 
-            } 
-          : dept
-      );
-    }
     
-    updateAndPersistData(newData);
-    setEditModalOpen(false);
-    setEditingItem(null);
-    toast({ title: 'Elemento actualizado', description: 'El nombre ha sido cambiado con éxito.' });
+    try {
+      if (type === 'department') {
+        const deptRef = doc(firestore, 'departamentos', deptId);
+        await updateDoc(deptRef, { name: newItemName });
+      } else if (type === 'district' && distId) {
+        const distRef = doc(firestore, 'departamentos', deptId, 'distritos', distId);
+        await updateDoc(distRef, { name: newItemName });
+      }
+      setEditModalOpen(false);
+      setEditingItem(null);
+      toast({ title: 'Elemento actualizado', description: 'El nombre ha sido cambiado con éxito.' });
+    } catch (error) {
+       toast({ title: 'Error al actualizar', variant: 'destructive' });
+    }
   };
   
-  const handleDeleteItem = (type: 'department' | 'district', deptId: string, distId?: string) => {
-      let newData: Department[] = [];
-      if (type === 'department') {
-          newData = savedData.filter(dept => dept.id !== deptId);
-      } else {
-          newData = savedData.map(dept => {
-              if (dept.id === deptId) {
-                  return { ...dept, districts: dept.districts.filter(dist => dist.id !== distId) };
-              }
-              return dept;
-          });
+  const handleDeleteItem = async (type: 'department' | 'district', deptId: string, distId?: string) => {
+      if (!firestore) return;
+      try {
+        if (type === 'department') {
+            // Note: This does not delete subcollections in Firestore. A more robust solution is needed for production.
+            await deleteDoc(doc(firestore, 'departamentos', deptId));
+        } else if (distId) {
+            await deleteDoc(doc(firestore, 'departamentos', deptId, 'distritos', distId));
+        }
+        toast({ title: 'Elemento eliminado', variant: 'destructive' });
+      } catch (error) {
+        toast({ title: 'Error al eliminar', variant: 'destructive' });
       }
-      updateAndPersistData(newData);
-      toast({ title: 'Elemento eliminado', variant: 'destructive' });
   };
 
-  const handleSaveReportData = () => {
+  const handleSaveReportData = async () => {
+    if (!firestore) return;
+    const batch = writeBatch(firestore);
+    const reportsCollection = collection(firestore, 'reports');
+    reportPreviewData.forEach(report => {
+      const newReportRef = doc(reportsCollection);
+      batch.set(newReportRef, report);
+    });
+    
     try {
-      const existingDataString = localStorage.getItem('imported_reports');
-      const existingData: ReportData[] = existingDataString ? JSON.parse(existingDataString) : [];
-      const newData = [...existingData, ...reportPreviewData];
-      localStorage.setItem('imported_reports', JSON.stringify(newData));
-
+      await batch.commit();
       toast({
         title: 'Datos del informe guardados',
-        description: 'Los nuevos datos del informe se han añadido con éxito.',
+        description: 'Los nuevos datos del informe se han añadido con éxito a Firestore.',
         action: <CheckCircle2 className="text-green-500" />,
       });
       setReportPreviewData([]);
@@ -336,7 +327,7 @@ export default function SettingsPage() {
        toast({
           variant: 'destructive',
           title: 'Error al guardar el informe',
-          description: 'No se pudieron guardar los datos del informe en el almacenamiento local.',
+          description: 'No se pudieron guardar los datos del informe en Firestore.',
       });
     }
   }
@@ -473,7 +464,7 @@ export default function SettingsPage() {
                         <TableBody>
                             {reportPreviewData.map((row, index) => (
                                 <TableRow key={index}>
-                                    {Object.values(row).map((value, i) => <TableCell key={i}>{value}</TableCell>)}
+                                    {Object.values(row).map((value, i) => <TableCell key={i}>{String(value)}</TableCell>)}
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -487,7 +478,7 @@ export default function SettingsPage() {
         )}
 
 
-        {savedData.length > 0 && previewData.length === 0 && (
+        {departmentsWithDistricts.length > 0 && previewData.length === 0 && (
           <Card className="w-full max-w-4xl">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -506,7 +497,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <Accordion type="single" collapsible className="w-full">
-                {savedData.map((department) => (
+                {departmentsWithDistricts.map((department) => (
                   <AccordionItem value={department.id} key={department.id}>
                     <div className="flex items-center w-full">
                       <AccordionTrigger className="flex-1 text-base">{department.name}</AccordionTrigger>

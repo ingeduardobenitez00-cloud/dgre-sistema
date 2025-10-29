@@ -20,4 +20,18 @@ export interface Department {
   districts: District[];
 }
 
+export type ReportData = {
+  id: string;
+  departamento?: string;
+  distrito?: string;
+  'estado-fisico'?: string;
+  'descripcion-situacion'?: string;
+  'cantidad-habitaciones'?: string;
+  'habitacion-segura'?: string;
+  'caracteristicas-habitacion'?: string;
+  'dimensiones-habitacion'?: string;
+  'cantidad-maquinas'?: string;
+  'lugar-resguardo'?: string;
+}
+
 export const initialDepartments: Department[] = [];

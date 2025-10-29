@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -11,70 +11,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { type Department } from '@/lib/data';
-import { type ReportData } from '@/app/settings/page';
+import { type Department, type District, type ReportData } from '@/lib/data';
 import { Label } from '@/components/ui/label';
+import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function FichaPage() {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [reports, setReports] = useState<ReportData[]>([]);
+  const { firestore } = useFirebase();
+
+  const departmentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'departamentos') : null, [firestore]);
+  const { data: departments } = useCollection<Department>(departmentsQuery);
+
+  const [districts, setDistricts] = useState<District[]>([]);
   const [selectedDept, setSelectedDept] = useState<string>('');
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('');
-  const [filteredReports, setFilteredReports] = useState<ReportData[]>([]);
 
-  useEffect(() => {
-    // Cargar datos de departamentos y distritos
-    const storedDepts = localStorage.getItem('imported_departments');
-    if (storedDepts) {
-      try {
-        setDepartments(JSON.parse(storedDepts));
-      } catch (e) {
-        console.error('Error parsing departments:', e);
-      }
+  const reportsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    let q = collection(firestore, 'reports');
+    if (selectedDept) {
+      q = query(q, where('departamento', '==', selectedDept));
     }
-
-    // Cargar datos de reportes
-    const storedReports = localStorage.getItem('imported_reports');
-    if (storedReports) {
-      try {
-        const allReports = JSON.parse(storedReports);
-        setReports(allReports);
-        setFilteredReports(allReports); // Mostrar todos al inicio
-      } catch (e) {
-        console.error('Error parsing reports:', e);
-      }
+    if (selectedDistrict) {
+      q = query(q, where('distrito', '==', selectedDistrict));
     }
-  }, []);
+    return q;
+  }, [firestore, selectedDept, selectedDistrict]);
 
-  const handleDeptChange = (deptName: string) => {
-    setSelectedDept(deptName);
-    setSelectedDistrict(''); // Reset district filter
-    if (deptName) {
-      const filtered = reports.filter(
-        (r) => r.departamento?.toLowerCase() === deptName.toLowerCase()
-      );
-      setFilteredReports(filtered);
+  const { data: filteredReports } = useCollection<ReportData>(reportsQuery);
+
+  const handleDeptChange = async (deptId: string) => {
+    setSelectedDistrict('');
+    setSelectedDeptId(deptId);
+
+    if (deptId && firestore) {
+      const selectedDepartment = departments?.find(d => d.id === deptId);
+      setSelectedDept(selectedDepartment?.name || '');
+
+      const districtsQuery = collection(firestore, 'departamentos', deptId, 'distritos');
+      const districtsSnapshot = await getDocs(districtsQuery);
+      const fetchedDistricts = districtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
+      setDistricts(fetchedDistricts);
     } else {
-      setFilteredReports(reports); // Si no hay departamento, mostrar todos
+      setSelectedDept('');
+      setDistricts([]);
     }
   };
 
   const handleDistrictChange = (distName: string) => {
     setSelectedDistrict(distName);
-    if (distName) {
-      const filtered = reports.filter(
-        (r) =>
-          r.departamento?.toLowerCase() === selectedDept.toLowerCase() &&
-          r.distrito?.toLowerCase() === distName.toLowerCase()
-      );
-      setFilteredReports(filtered);
-    } else {
-       handleDeptChange(selectedDept); // Si se deselecciona distrito, volver a filtrar por departamento
-    }
   };
   
-  const currentDistricts = departments.find(d => d.name === selectedDept)?.districts || [];
-
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header title="Vista de Ficha" />
@@ -89,14 +78,14 @@ export default function FichaPage() {
           <CardContent className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 space-y-2">
               <Label>Departamento</Label>
-              <Select onValueChange={handleDeptChange} value={selectedDept}>
+              <Select onValueChange={handleDeptChange} value={selectedDeptId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar Departamento" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Todos los Departamentos</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.name}>
+                  {departments?.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
                       {dept.name}
                     </SelectItem>
                   ))}
@@ -115,7 +104,7 @@ export default function FichaPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Todos los Distritos</SelectItem>
-                  {currentDistricts.map((dist) => (
+                  {districts.map((dist) => (
                     <SelectItem key={dist.id} value={dist.name}>
                       {dist.name}
                     </SelectItem>
@@ -127,7 +116,7 @@ export default function FichaPage() {
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto">
-            {filteredReports.length > 0 ? (
+            {filteredReports && filteredReports.length > 0 ? (
                 filteredReports.map((report, index) => (
                     <Card key={index}>
                         <CardHeader>
@@ -135,11 +124,11 @@ export default function FichaPage() {
                         </CardHeader>
                         <CardContent className="space-y-3 text-sm">
                            {Object.entries(report).map(([key, value]) => {
-                             if (key === 'departamento' || key === 'distrito') return null;
+                             if (key === 'departamento' || key === 'distrito' || key === 'id') return null;
                              return (
                                <div key={key}>
                                  <p className="font-semibold capitalize text-muted-foreground">{key.replace(/-/g, ' ')}:</p>
-                                 <p>{value}</p>
+                                 <p>{String(value)}</p>
                                </div>
                              );
                            })}

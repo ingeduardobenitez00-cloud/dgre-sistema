@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -36,11 +36,10 @@ import { Card, CardContent } from '@/components/ui/card';
 type UploadDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onImagesUploaded: (newImages: ImageData[]) => void;
+  onImagesUploaded: (newImages: Omit<ImageData, 'id'>[]) => void;
 };
 
 type FormData = {
-  tags: string;
   category: string;
   date: Date;
 };
@@ -58,7 +57,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
   const { toast } = useToast();
 
   const form = useForm<FormData>({
-    defaultValues: { tags: '', category: 'Fachada', date: new Date() },
+    defaultValues: { category: 'Fachada', date: new Date() },
   });
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,7 +73,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
     
     setFiles(prev => [...prev, ...newFilePreviews]);
 
-    Array.from(selectedFiles).forEach((file, index) => {
+    Array.from(selectedFiles).forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = document.createElement('img');
@@ -139,8 +138,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
       return;
     }
     startTransition(() => {
-      const newImages: ImageData[] = files.map(f => ({
-        id: `img_${Date.now()}_${Math.random()}`,
+      const newImages: Omit<ImageData, 'id'>[] = files.map(f => ({
         src: f.previewUrl,
         alt: f.file.name,
         tags: f.tags.split(',').map(tag => tag.trim()).filter(Boolean),
