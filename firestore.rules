@@ -1,99 +1,60 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model.
- *
- * Data Structure:
- * - /departamentos/{departamentoId}: Publicly readable department data.
- * - /departamentos/{departamentoId}/distritos/{distritoId}: Publicly readable district data nested under departments.
- * - /departamentos/{departamentoId}/distritos/{distritoId}/imagenes/{imagenId}: Images nested under districts. Accessible only by authenticated users.
- * - /users/{userId}: User profile data, accessible only by the owning user.
- * - /reports/{reportId}: Publicly readable report data.
- *
- * Key Security Decisions:
- * - User listing is disabled.
- * - Read-only access to departments, districts and reports.
- *
- * Denormalization for Authorization:
- * - Not used in this configuration.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Allows public read access to department information. Write access is denied.
-     * @path /departamentos/{departamentoId}
-     * @allow (get, list): Any user can read department information.
-     * @deny (create, update, delete): No one can create, update, or delete departments.
-     * @principle Public read access, no write access.
-     */
-    match /departamentos/{departamentoId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
-
-    /**
-     * @description Allows public read access to district information nested under a specific department. Write access is denied.
-     * @path /departamentos/{departamentoId}/distritos/{distritoId}
-     * @allow (get, list): Any user can read district information.
-     * @deny (create, update, delete): No one can create, update, or delete districts.
-     * @principle Public read access, no write access.
-     */
-    match /departamentos/{departamentoId}/distritos/{distritoId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
-
-    /**
-     * @description Allows authenticated users to create images. Read access is public. Update and delete are not allowed.
-     * @path /departamentos/{departamentoId}/distritos/{distritoId}/imagenes/{imagenId}
-     * @allow (get, list): Any user can read images.
-     * @allow (create): Any signed-in user can create images.
-     * @deny (update, delete): No one can update or delete images.
-     * @principle Requires authentication for image creation; public read access.
-     */
-    match /departamentos/{departamentoId}/distritos/{distritoId}/imagenes/{imagenId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false;
-    }
-
-    /**
-     * @description Allows a user to read and write their own profile data.
-     * @path /users/{userId}
-     * @allow (get): The user with matching {userId} can read their profile.
-     * @allow (list): Listing all users is denied.
-     * @allow (create): A user can create their own profile.
-     * @allow (update): The user with matching {userId} can update their profile.
-     * @allow (delete): The user with matching {userId} can delete their profile.
-     * @principle Enforces document ownership for user profiles.
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
-    }
-
-     /**
-      * @description Allows public read access to report information. Write access is denied.
-      * @path /reports/{reportId}
-      * @allow (get, list): Any user can read report information.
-      * @deny (create, update, delete): No one can create, update, or delete reports.
-      * @principle Public read access, no write access.
-      */
-    match /reports/{reportId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
+    // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    // Check user role from their profile in /users collection
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function isRole(role) {
+      return isSignedIn() && getUserData(request.auth.uid).role == role;
+    }
+
+    function isOneOfRoles(roles) {
+      return isSignedIn() && getUserData(request.auth.uid).role in roles;
+    }
+
+    // --- Collection Rules ---
+
+    // /users/{userId}
+    match /users/{userId} {
+      // Admins can manage any user profile
+      allow read, write: if isRole('admin');
+
+      // Any authenticated user can create their own profile
+      allow create: if isSignedIn() && request.auth.uid == userId;
+
+      // Users can only read and update their own profile
+      allow get, update: if isSignedIn() && request.auth.uid == userId;
+      
+      // Prevent listing all users for security
+      allow list: if false;
+    }
+
+    // /departamentos and subcollections (distritos, imagenes)
+    match /departamentos/{docId=**} {
+        // Any authenticated user can read departments, districts and images
+        allow get, list: if isSignedIn();
+        
+        // Only admins and editors can create, update, or delete
+        allow write: if isOneOfRoles(['admin', 'editor']);
+    }
+
+    // /reports/{reportId}
+    match /reports/{reportId} {
+        // Any authenticated user can create and read reports
+        allow get, list, create: if isSignedIn();
+
+        // Only admins can update or delete reports
+        allow update, delete: if isRole('admin');
     }
   }
 }
