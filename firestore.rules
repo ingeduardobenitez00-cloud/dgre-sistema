@@ -3,58 +3,51 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-
+    // Helper functions for roles
+    function isRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    function isOneOfRoles(roles) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
+    }
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Check user role from their profile in /users collection
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    function isRole(role) {
-      return isSignedIn() && getUserData(request.auth.uid).role == role;
-    }
-
-    function isOneOfRoles(roles) {
-      return isSignedIn() && getUserData(request.auth.uid).role in roles;
-    }
-
-    // --- Collection Rules ---
-
-    // /users/{userId}
+    // Rules for /users collection
     match /users/{userId} {
-      // Admins can manage any user profile
-      allow read, write: if isRole('admin');
-
-      // Any authenticated user can create their own profile
+      // Admins can read/write any user document
+      allow read, write: if isOneOfRoles(['admin']);
+      // Users can create their own profile
       allow create: if isSignedIn() && request.auth.uid == userId;
-
-      // Users can only read and update their own profile
-      allow get, update: if isSignedIn() && request.auth.uid == userId;
-      
-      // Prevent listing all users for security
-      allow list: if false;
+      // Users can only get, update, delete their own document
+      allow get, update, delete: if isSignedIn() && request.auth.uid == userId;
+       // Listing users is not allowed for non-admins
+      allow list: if isOneOfRoles(['admin']);
     }
 
-    // /departamentos and subcollections (distritos, imagenes)
-    match /departamentos/{docId=**} {
-        // Any authenticated user can read departments, districts and images
-        allow get, list: if isSignedIn();
-        
-        // Only admins and editors can create, update, or delete
+    // Rules for /departamentos and its subcollections
+    match /departamentos/{document=**} {
+        // Admins and Editors can write
         allow write: if isOneOfRoles(['admin', 'editor']);
+        // Any signed-in user can read
+        allow read: if isSignedIn();
     }
 
-    // /reports/{reportId}
+    // Rules for /reports collection
     match /reports/{reportId} {
-        // Any authenticated user can create and read reports
-        allow get, list, create: if isSignedIn();
-
-        // Only admins can update or delete reports
-        allow update, delete: if isRole('admin');
+      // Admins can do anything
+      allow read, write: if isOneOfRoles(['admin']);
+      // Any signed-in user can create and read reports
+      allow create, list, get: if isSignedIn();
+    }
+    
+    // Rules for /datos collection
+    match /datos/{datoId} {
+      // Any signed-in user can create (import) data
+      allow create: if isSignedIn();
+      // Only admins and editors can read or delete
+      allow read, delete: if isOneOfRoles(['admin', 'editor']);
     }
   }
 }
