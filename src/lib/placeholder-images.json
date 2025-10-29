@@ -1,3 +1,52 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "building-1",
+      "description": "Exterior view of a modern government building.",
+      "imageUrl": "https://images.unsplash.com/photo-1567505477286-9c7269119db7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxidWlsZGluZyUyMGZhY2FkZXxlbnwwfHx8fDE3NjE3MzkyMDJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "building facade"
+    },
+    {
+      "id": "building-2",
+      "description": "Side view of an administrative building with large windows.",
+      "imageUrl": "https://images.unsplash.com/photo-1600531529272-023c4b821f14?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxvZmZpY2UlMjBidWlsZGluZ3xlbnwwfHx8fDE3NjE3MzA1ODV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "office building"
+    },
+    {
+      "id": "building-3",
+      "description": "Entrance of a public services building.",
+      "imageUrl": "https://images.unsplash.com/photo-1709220890274-c72368788d3e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxidWlsZGluZyUyMGVudHJhbmNlfGVufDB8fHx8MTc2MTczNTc0NXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "building entrance"
+    },
+    {
+      "id": "interior-1",
+      "description": "Well-lit interior of an office space.",
+      "imageUrl": "https://picsum.photos/seed/int1/600/400",
+      "imageHint": "office interior"
+    },
+    {
+      "id": "interior-2",
+      "description": "Hallway of a government facility.",
+      "imageUrl": "https://images.unsplash.com/photo-1599580597997-e89e876a0164?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8YnVpbGRpbmclMjBoYWxsd2F5fGVufDB8fHx8MTc2MTczOTIwM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "building hallway"
+    },
+    {
+      "id": "interior-3",
+      "description": "Reception area of a municipal office.",
+      "imageUrl": "https://images.unsplash.com/photo-1505410603994-c3ac6269711f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxyZWNlcHRpb24lMjBkZXNrfGVufDB8fHx8MTc2MTY2MDA2OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "reception desk"
+    },
+    {
+      "id": "detail-1",
+      "description": "Close-up of architectural details on a building.",
+      "imageUrl": "https://images.unsplash.com/photo-1671632991795-3a5990ab5d1e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8YXJjaGl0ZWN0dXJhbCUyMGRldGFpbHxlbnwwfHx8fDE3NjE3MTM5NDJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "architectural detail"
+    },
+    {
+      "id": "detail-2",
+      "description": "Signage on a government building.",
+      "imageUrl": "https://images.unsplash.com/photo-1466894321952-7766ffa7443d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxidWlsZGluZyUyMHNpZ258ZW58MHx8fHwxNzYxNzM5MjAyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "building sign"
+    }
+  ]
 }
