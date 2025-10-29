@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { FileUp, Loader2, CheckCircle2, TableIcon } from 'lucide-react';
+import { FileUp, Loader2, CheckCircle2, TableIcon, Database } from 'lucide-react';
 import Header from '@/components/header';
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Department, District } from '@/lib/data';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type PreviewData = {
   departamento: string;
@@ -20,7 +21,20 @@ export default function SettingsPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData[]>([]);
+  const [savedData, setSavedData] = useState<Department[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Cargar datos guardados al montar el componente
+    const storedData = localStorage.getItem('imported_departments');
+    if (storedData) {
+      try {
+        setSavedData(JSON.parse(storedData));
+      } catch (error) {
+        console.error("Error parsing stored data:", error);
+      }
+    }
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -117,6 +131,7 @@ export default function SettingsPage() {
     });
 
     localStorage.setItem('imported_departments', JSON.stringify(newDepartments));
+    setSavedData(newDepartments); // Actualizar los datos guardados en el estado
     
     toast({
       title: 'Datos guardados',
@@ -205,6 +220,36 @@ export default function SettingsPage() {
                  <Button onClick={handleSaveData} className="w-full mt-6" size="lg">
                     Guardar Datos
                 </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {savedData.length > 0 && previewData.length === 0 && (
+          <Card className="w-full max-w-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-2xl">
+                <Database className="h-6 w-6" />
+                Datos Guardados
+              </CardTitle>
+              <CardDescription>
+                Estos son los departamentos y distritos actualmente en el sistema.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible className="w-full">
+                {savedData.map((department) => (
+                  <AccordionItem value={department.id} key={department.id}>
+                    <AccordionTrigger>{department.name}</AccordionTrigger>
+                    <AccordionContent>
+                      <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                        {department.districts.map((district) => (
+                          <li key={district.id}>{district.name}</li>
+                        ))}
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </CardContent>
           </Card>
         )}
