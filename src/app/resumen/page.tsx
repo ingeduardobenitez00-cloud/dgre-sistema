@@ -9,7 +9,7 @@ import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query } from 'firebase/firestore';
 import { type Dato, type ReportData } from '@/lib/data';
-import { Loader2, Building, CheckCircle, Shield, Landmark } from 'lucide-react';
+import { Loader2, Building, CheckCircle, Shield, Landmark, FileText } from 'lucide-react';
 
 type DistrictWithReport = {
   name: string;
@@ -21,8 +21,16 @@ type DepartmentWithDistricts = {
   districts: DistrictWithReport[];
 };
 
+type SummaryCounts = {
+    totalReports: number;
+    habitacionSegura: number;
+    comisaria: number;
+    registroElectoral: number;
+    otros: number;
+};
+
 const ResguardoIcon = ({ lugar }: { lugar: string }) => {
-  const normalizedLugar = lugar.toLowerCase();
+  const normalizedLugar = lugar ? lugar.toLowerCase() : '';
 
   if (normalizedLugar.includes('habitacion segura')) {
     return <CheckCircle className="h-5 w-5 text-green-600" />;
@@ -47,9 +55,17 @@ export default function ResumenPage() {
   const { data: reportsData, isLoading: isLoadingReports } = useCollection<ReportData>(reportsQuery);
 
   const [structuredData, setStructuredData] = useState<DepartmentWithDistricts[]>([]);
+  const [summaryCounts, setSummaryCounts] = useState<SummaryCounts>({
+    totalReports: 0,
+    habitacionSegura: 0,
+    comisaria: 0,
+    registroElectoral: 0,
+    otros: 0,
+  });
   
   useEffect(() => {
     if (datosData && reportsData) {
+      // Structure data for detailed list
       const departments: Record<string, Set<string>> = {};
       datosData.forEach(d => {
         if (!departments[d.departamento]) {
@@ -67,8 +83,34 @@ export default function ResumenPage() {
 
         return { name: deptName, districts: districtsWithReports };
       });
-      
       setStructuredData(structured);
+      
+      // Calculate summary counts
+      let habitacionSegura = 0;
+      let comisaria = 0;
+      let registroElectoral = 0;
+      let otros = 0;
+
+      reportsData.forEach(report => {
+        const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase() : '';
+        if (lugar.includes('habitacion segura')) {
+          habitacionSegura++;
+        } else if (lugar.includes('comisaria')) {
+          comisaria++;
+        } else if (lugar.includes('registro electoral')) {
+          registroElectoral++;
+        } else if (lugar) {
+            otros++;
+        }
+      });
+
+      setSummaryCounts({
+        totalReports: reportsData.length,
+        habitacionSegura,
+        comisaria,
+        registroElectoral,
+        otros,
+      });
 
     }
   }, [datosData, reportsData]);
@@ -79,11 +121,68 @@ export default function ResumenPage() {
     <div className="flex min-h-screen w-full flex-col">
       <Header title="Resumen Detallado por Ubicación" />
       <main className="flex flex-1 flex-col p-4 gap-8">
+
+        <Card className="w-full max-w-6xl mx-auto">
+            <CardHeader>
+                <CardTitle>Resumen General</CardTitle>
+                <CardDescription>
+                    Visión global de los informes registrados en el sistema.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total de Informes</CardTitle>
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{summaryCounts.totalReports}</div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Habitación Segura</CardTitle>
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{summaryCounts.habitacionSegura}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Comisaría</CardTitle>
+                        <Shield className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{summaryCounts.comisaria}</div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Registro Electoral</CardTitle>
+                        <Landmark className="h-4 w-4 text-indigo-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{summaryCounts.registroElectoral}</div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Otros Lugares</CardTitle>
+                        <Building className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{summaryCounts.otros}</div>
+                    </CardContent>
+                </Card>
+            </CardContent>
+        </Card>
+
         <Card className="w-full max-w-6xl mx-auto">
           <CardHeader>
-            <CardTitle>Informe General</CardTitle>
+            <CardTitle>Informe Detallado</CardTitle>
             <CardDescription>
-              Explora los informes detallados para cada departamento y distrito.
+              Explora los informes para cada departamento y distrito.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -155,3 +254,5 @@ export default function ResumenPage() {
     </div>
   );
 }
+
+    
