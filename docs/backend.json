@@ -93,8 +93,6 @@
       "required": [
         "src",
         "alt",
-        "date",
-        "category",
         "departamento",
         "distrito"
       ]

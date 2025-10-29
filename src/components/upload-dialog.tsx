@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
 import {
   Dialog,
   DialogContent,
@@ -12,24 +11,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Calendar as CalendarIcon, Loader2, Sparkles, Upload } from 'lucide-react';
+import { Loader2, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 import type { ImageData } from '@/lib/data';
-import { imageAutoTagging } from '@/lib/actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -43,10 +28,6 @@ type FilePreview = {
   id: string;
   file: File;
   previewUrl: string;
-  tags: string;
-  isTagging: boolean;
-  category: string;
-  date: Date;
 };
 
 export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadDialogProps) {
@@ -62,10 +43,6 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
       id: `${file.name}-${file.lastModified}`,
       file,
       previewUrl: '',
-      tags: '',
-      isTagging: true,
-      category: 'Fachada',
-      date: new Date(),
     }));
     
     setFiles(prev => [...prev, ...newFilePreviews]);
@@ -88,8 +65,6 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
 
             setFiles(prev => prev.map(f => f.id === filePreview.id ? { ...f, previewUrl: dataUri } : f));
             
-            handleTagGeneration(dataUri, filePreview.id);
-
           } else {
              toast({ variant: 'destructive', title: 'Error', description: `No se pudo procesar la imagen: ${filePreview.file.name}.` });
           }
@@ -98,26 +73,6 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
       };
       reader.readAsDataURL(filePreview.file);
     });
-  };
-
-  const handleTagGeneration = async (photoDataUri: string, fileId: string) => {
-    const result = await imageAutoTagging({ photoDataUri });
-    
-    setFiles(prev => prev.map(f => {
-      if (f.id === fileId) {
-        if ('tags' in result) {
-          return { ...f, tags: result.tags.join(', '), isTagging: false };
-        } else {
-          toast({
-            variant: 'destructive',
-            title: 'Error de IA',
-            description: `No se pudieron generar las etiquetas para ${f.file.name}.`,
-          });
-          return { ...f, isTagging: false };
-        }
-      }
-      return f;
-    }));
   };
   
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -130,10 +85,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
       const newImages: Omit<ImageData, 'id' | 'departamento' | 'distrito'>[] = files.map(f => ({
         src: f.previewUrl,
         alt: f.file.name,
-        tags: f.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-        date: format(f.date, 'yyyy-MM-dd'),
-        category: f.category,
-        hint: f.tags.split(',')[0] || 'building'
+        hint: 'building',
       }));
 
       onImagesUploaded(newImages);
@@ -152,7 +104,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
     onOpenChange(open);
   }
 
-  const allFilesProcessed = files.every(f => f.previewUrl && !f.isTagging);
+  const allFilesProcessed = files.every(f => f.previewUrl);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -160,7 +112,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
         <DialogHeader>
           <DialogTitle>Subir Nuevas Imágenes</DialogTitle>
           <DialogDescription>
-            Selecciona una o varias imágenes. La IA sugerirá etiquetas para cada una.
+            Selecciona una o varias imágenes para subir.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-6 py-4">
@@ -183,7 +135,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
           {files.length > 0 && (
             <ScrollArea className="h-[450px] w-full pr-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {files.map((file, index) => (
+                {files.map((file) => (
                     <Card key={file.id} className="overflow-hidden">
                         <CardContent className="p-2 space-y-2">
                              <div className="relative aspect-video w-full overflow-hidden rounded-md">
@@ -195,71 +147,8 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
                                     </div>
                                 )}
                             </div>
-                            <div className="p-2 space-y-4">
-                                <div className="space-y-1">
-                                    <Label htmlFor={`tags-${index}`} className="text-xs flex items-center mb-1">
-                                        Etiquetas
-                                        {file.isTagging && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}
-                                        {!file.isTagging && <Sparkles className="ml-2 h-3 w-3 text-accent" />}
-                                    </Label>
-                                    <Input 
-                                        id={`tags-${index}`} 
-                                        value={file.tags}
-                                        onChange={(e) => {
-                                            const newFiles = [...files];
-                                            newFiles[index].tags = e.target.value;
-                                            setFiles(newFiles);
-                                        }}
-                                        disabled={file.isTagging}
-                                        className="h-8 text-xs"
-                                    />
-                                </div>
-                                <div className='grid grid-cols-2 gap-4'>
-                                    <div className="space-y-1">
-                                        <Label htmlFor={`category-${index}`} className="text-xs">Categoría</Label>
-                                        <Select 
-                                            value={file.category}
-                                            onValueChange={(value) => setFiles(fs => fs.map(f => f.id === file.id ? {...f, category: value} : f))}
-                                        >
-                                            <SelectTrigger id={`category-${index}`} className="h-8 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Fachada">Fachada</SelectItem>
-                                                <SelectItem value="Interior">Interior</SelectItem>
-                                                <SelectItem value="Infraestructura">Infraestructura</SelectItem>
-                                                <SelectItem value="Documento">Documento</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                     <div className="space-y-1">
-                                        <Label htmlFor={`date-${index}`} className="text-xs">Fecha</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    id={`date-${index}`}
-                                                    variant={"outline"}
-                                                    className={cn(
-                                                        "w-full justify-start text-left font-normal h-8 text-xs",
-                                                        !file.date && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {file.date ? format(file.date, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={file.date}
-                                                    onSelect={(date) => date && setFiles(fs => fs.map(f => f.id === file.id ? {...f, date} : f))}
-                                                    initialFocus
-                                                    locale={es}
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                </div>
+                            <div className="p-2">
+                                <p className="text-sm font-medium truncate" title={file.file.name}>{file.file.name}</p>
                             </div>
                         </CardContent>
                     </Card>

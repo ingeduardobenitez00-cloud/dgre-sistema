@@ -21,12 +21,18 @@ type ImageViewerDialogProps = {
 
 export function ImageViewerDialog({ isOpen, onOpenChange, image }: ImageViewerDialogProps) {
   if (!image) return null;
+  
+  const title = [
+    image.category,
+    image.date ? format(new Date(image.date), 'd MMMM, yyyy', {locale: es}) : ''
+  ].filter(Boolean).join(' - ');
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{image.category} - {format(new Date(image.date), 'd MMMM, yyyy', {locale: es})}</DialogTitle>
+          <DialogTitle>{title || image.alt}</DialogTitle>
           <DialogDescription>
             {image.alt}
           </DialogDescription>
@@ -41,13 +47,15 @@ export function ImageViewerDialog({ isOpen, onOpenChange, image }: ImageViewerDi
               data-ai-hint={image.hint}
             />
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {image.tags.map((tag) => (
-              <Badge key={tag} variant="secondary">
-                {tag}
-              </Badge>
-            ))}
-          </div>
+          {image.tags && image.tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {image.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

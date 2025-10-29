@@ -2,9 +2,9 @@ export interface ImageData {
   id: string;
   src: string;
   alt: string;
-  tags: string[];
-  date: string;
-  category: string;
+  tags?: string[];
+  date?: string;
+  category?: string;
   hint: string;
   departamento?: string;
   distrito?: string;
