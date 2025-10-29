@@ -30,14 +30,20 @@ export default function FichaPage() {
 
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // The type assertion is needed because query returns a generic Query type
-    let q: any = collection(firestore, 'reports');
+    let q = collection(firestore, 'reports');
+
+    let conditions: any[] = [];
     if (selectedDept) {
-      q = query(q, where('departamento', '==', selectedDept));
+        conditions.push(where('departamento', '==', selectedDept));
     }
     if (selectedDistrict) {
-      q = query(q, where('distrito', '==', selectedDistrict));
+        conditions.push(where('distrito', '==', selectedDistrict));
     }
+
+    if (conditions.length > 0) {
+        return query(q, ...conditions);
+    }
+    
     return q;
   }, [firestore, selectedDept, selectedDistrict]);
 
@@ -110,7 +116,7 @@ export default function FichaPage() {
               <Select
                 onValueChange={handleDistrictChange}
                 value={selectedDistrict || 'all-districts'}
-                disabled={!selectedDept}
+                disabled={!selectedDeptId || selectedDeptId === 'all-depts'}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar Distrito" />
