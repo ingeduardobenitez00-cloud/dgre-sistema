@@ -5,12 +5,34 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { FileUp, Loader2, CheckCircle2, TableIcon, Database } from 'lucide-react';
+import { FileUp, Loader2, CheckCircle2, TableIcon, Database, PlusCircle, Trash2, Edit } from 'lucide-react';
 import Header from '@/components/header';
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Department, District } from '@/lib/data';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 
 type PreviewData = {
   departamento: string;
@@ -23,9 +45,12 @@ export default function SettingsPage() {
   const [previewData, setPreviewData] = useState<PreviewData[]>([]);
   const [savedData, setSavedData] = useState<Department[]>([]);
   const { toast } = useToast();
+  
+  const [isEditModalOpen, setEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<{type: 'department' | 'district', deptId: string, distId?: string, name: string} | null>(null);
+  const [newItemName, setNewItemName] = useState('');
 
   useEffect(() => {
-    // Cargar datos guardados al montar el componente
     const storedData = localStorage.getItem('imported_departments');
     if (storedData) {
       try {
@@ -35,6 +60,12 @@ export default function SettingsPage() {
       }
     }
   }, []);
+
+  const updateAndPersistData = (newData: Department[]) => {
+    setSavedData(newData);
+    localStorage.setItem('imported_departments', JSON.stringify(newData));
+  };
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,7 +96,6 @@ export default function SettingsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet, { header: ['DEPARTAMENTO', 'DISTRITO'] });
         
-        // Remove header row if it exists
         if (json[0] && (json[0] as any)['DEPARTAMENTO'] === 'DEPARTAMENTO' && (json[0] as any)['DISTRITO'] === 'DISTRITO') {
           json.shift();
         }
@@ -104,22 +134,20 @@ export default function SettingsPage() {
 
 
   const handleSaveData = () => {
-    // This is where you would typically save the data to your state management or backend.
-    // For now, we'll store it in localStorage to persist it across the session.
-    
-    const newDepartments: Department[] = [];
+    let currentData = [...savedData];
+
     previewData.forEach(item => {
-      let dept = newDepartments.find(d => d.name === item.departamento);
+      let dept = currentData.find(d => d.name.toLowerCase() === item.departamento.toLowerCase());
       if (!dept) {
         dept = {
-          id: `d_${Date.now()}_${newDepartments.length}`,
+          id: `d_${Date.now()}_${currentData.length}`,
           name: item.departamento,
           districts: []
         };
-        newDepartments.push(dept);
+        currentData.push(dept);
       }
 
-      const distExists = dept.districts.some(d => d.name === item.distrito);
+      const distExists = dept.districts.some(d => d.name.toLowerCase() === item.distrito.toLowerCase());
       if (!distExists) {
         const newDistrict: District = {
           id: `dist_${Date.now()}_${dept.districts.length}`,
@@ -130,19 +158,96 @@ export default function SettingsPage() {
       }
     });
 
-    localStorage.setItem('imported_departments', JSON.stringify(newDepartments));
-    setSavedData(newDepartments); // Actualizar los datos guardados en el estado
+    updateAndPersistData(currentData);
     
     toast({
-      title: 'Datos guardados',
-      description: 'Los nuevos departamentos y distritos se han guardado con éxito.',
+      title: 'Datos importados',
+      description: 'Los nuevos departamentos y distritos se han añadido con éxito.',
       action: <CheckCircle2 className="text-green-500" />,
     });
 
-    // Reset the view
     setPreviewData([]);
     setFileName(null);
   };
+
+  const handleOpenEditModal = (type: 'department' | 'district', deptId: string, distId?: string, name: string) => {
+    setEditingItem({ type, deptId, distId, name });
+    setNewItemName(name);
+    setEditModalOpen(true);
+  };
+  
+  const handleAddItem = (type: 'department' | 'district', deptId?: string) => {
+      const name = prompt(`Introduce el nombre del nuevo ${type === 'department' ? 'departamento' : 'distrito'}`);
+      if (name) {
+          if (type === 'department') {
+              const newDept: Department = {
+                  id: `d_${Date.now()}`,
+                  name,
+                  districts: [],
+              };
+              updateAndPersistData([...savedData, newDept]);
+          } else if (type === 'district' && deptId) {
+              const newData = savedData.map(dept => {
+                  if (dept.id === deptId) {
+                      const newDistrict: District = {
+                          id: `dist_${Date.now()}_${dept.districts.length}`,
+                          name,
+                          images: [],
+                      };
+                      return { ...dept, districts: [...dept.districts, newDistrict] };
+                  }
+                  return dept;
+              });
+              updateAndPersistData(newData);
+          }
+      }
+  };
+
+  const handleUpdateItem = () => {
+    if (!editingItem || !newItemName) return;
+
+    const { type, deptId, distId } = editingItem;
+    let newData: Department[] = [];
+
+    if (type === 'department') {
+      newData = savedData.map(dept => 
+        dept.id === deptId ? { ...dept, name: newItemName } : dept
+      );
+    } else if (type === 'district') {
+      newData = savedData.map(dept => 
+        dept.id === deptId 
+          ? { 
+              ...dept, 
+              districts: dept.districts.map(dist => 
+                dist.id === distId ? { ...dist, name: newItemName } : dist
+              ) 
+            } 
+          : dept
+      );
+    }
+    
+    updateAndPersistData(newData);
+    setEditModalOpen(false);
+    setEditingItem(null);
+    toast({ title: 'Elemento actualizado', description: 'El nombre ha sido cambiado con éxito.' });
+  };
+  
+  const handleDeleteItem = (type: 'department' | 'district', deptId: string, distId?: string) => {
+      let newData: Department[] = [];
+      if (type === 'department') {
+          newData = savedData.filter(dept => dept.id !== deptId);
+      } else {
+          newData = savedData.map(dept => {
+              if (dept.id === deptId) {
+                  return { ...dept, districts: dept.districts.filter(dist => dist.id !== distId) };
+              }
+              return dept;
+          });
+      }
+      updateAndPersistData(newData);
+      toast({ title: 'Elemento eliminado', variant: 'destructive' });
+  };
+
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -227,25 +332,87 @@ export default function SettingsPage() {
         {savedData.length > 0 && previewData.length === 0 && (
           <Card className="w-full max-w-2xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-2xl">
-                <Database className="h-6 w-6" />
-                Datos Guardados
+              <CardTitle className="flex items-center justify-between text-2xl">
+                <div className='flex items-center gap-2'>
+                  <Database className="h-6 w-6" />
+                  Datos Guardados
+                </div>
+                <Button variant="outline" size="sm" onClick={() => handleAddItem('department')}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Añadir Departamento
+                </Button>
               </CardTitle>
               <CardDescription>
-                Estos son los departamentos y distritos actualmente en el sistema.
+                Estos son los departamentos y distritos actualmente en el sistema. Puedes editarlos o eliminarlos.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Accordion type="single" collapsible className="w-full">
                 {savedData.map((department) => (
                   <AccordionItem value={department.id} key={department.id}>
-                    <AccordionTrigger>{department.name}</AccordionTrigger>
+                    <div className="flex items-center w-full">
+                      <AccordionTrigger className="flex-1">{department.name}</AccordionTrigger>
+                      <div className="flex gap-2 ml-4">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); handleOpenEditModal('department', department.id, undefined, department.name)}}>
+                              <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                                      <Trash2 className="h-4 w-4" />
+                                  </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                      <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                          Esta acción no se puede deshacer. Esto eliminará permanentemente el departamento y todos sus distritos.
+                                      </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteItem('department', department.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                  </AlertDialogFooter>
+                              </AlertDialogContent>
+                          </AlertDialog>
+                      </div>
+                    </div>
                     <AccordionContent>
-                      <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                      <div className="pl-4 space-y-2">
                         {department.districts.map((district) => (
-                          <li key={district.id}>{district.name}</li>
+                          <div key={district.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                            <span>{district.name}</span>
+                            <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal('district', department.id, district.id, district.name)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Esta acción no se puede deshacer. Esto eliminará permanentemente el distrito.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteItem('district', department.id, district.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                          </div>
                         ))}
-                      </ul>
+                        <Button variant="outline" size="sm" className="mt-2" onClick={() => handleAddItem('district', department.id)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Añadir Distrito
+                        </Button>
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 ))}
@@ -254,6 +421,38 @@ export default function SettingsPage() {
           </Card>
         )}
       </main>
+
+       <Dialog open={isEditModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Nombre</DialogTitle>
+            <DialogDescription>
+              Introduce el nuevo nombre para "{editingItem?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Nombre
+              </Label>
+              <Input
+                id="name"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+                <Button type="button" variant="secondary">Cancelar</Button>
+            </DialogClose>
+            <Button onClick={handleUpdateItem}>Guardar Cambios</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+    
