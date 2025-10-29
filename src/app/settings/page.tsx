@@ -218,7 +218,6 @@ export default function SettingsPage() {
     const batch = writeBatch(firestore);
     const deptsMap = new Map<string, { id: string; districts: Map<string, string> }>();
     
-    // Pre-fill map with existing data to avoid duplicates
     for (const dept of departmentsWithDistricts) {
       const distsMap = new Map(dept.districts.map(d => [d.name.toLowerCase(), d.id]));
       deptsMap.set(dept.name.toLowerCase(), { id: dept.id, districts: distsMap });
@@ -243,8 +242,7 @@ export default function SettingsPage() {
         }
     }
 
-    try {
-        await batch.commit();
+    batch.commit().then(() => {
         toast({
             title: 'Datos importados',
             description: 'Los nuevos departamentos y distritos se han añadido con éxito a Firestore.',
@@ -252,14 +250,13 @@ export default function SettingsPage() {
         });
         setPreviewData([]);
         setFileName(null);
-    } catch (error) {
-        console.error("Error saving to Firestore:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Error al guardar',
-            description: 'No se pudieron guardar los datos en Firestore.',
+    }).catch(error => {
+        const contextualError = new FirestorePermissionError({
+            operation: 'write',
+            path: 'departamentos (batch)',
         });
-    }
+        errorEmitter.emit('permission-error', contextualError);
+    });
   };
 
 
@@ -331,22 +328,21 @@ export default function SettingsPage() {
       batch.set(newReportRef, report);
     });
     
-    try {
-      await batch.commit();
-      toast({
-        title: 'Datos del informe guardados',
-        description: 'Los nuevos datos del informe se han añadido con éxito a Firestore.',
-        action: <CheckCircle2 className="text-green-500" />,
-      });
-      setReportPreviewData([]);
-      setFileName(null);
-    } catch (error) {
-       toast({
-          variant: 'destructive',
-          title: 'Error al guardar el informe',
-          description: 'No se pudieron guardar los datos del informe en Firestore.',
-      });
-    }
+    batch.commit().then(() => {
+        toast({
+            title: 'Datos del informe guardados',
+            description: 'Los nuevos datos del informe se han añadido con éxito a Firestore.',
+            action: <CheckCircle2 className="text-green-500" />,
+        });
+        setReportPreviewData([]);
+        setFileName(null);
+    }).catch(error => {
+        const contextualError = new FirestorePermissionError({
+            operation: 'write',
+            path: 'reports (batch)',
+        });
+        errorEmitter.emit('permission-error', contextualError);
+    });
   };
 
   return (
@@ -618,6 +614,5 @@ export default function SettingsPage() {
       </Dialog>
     </div>
   );
-}
 
     
