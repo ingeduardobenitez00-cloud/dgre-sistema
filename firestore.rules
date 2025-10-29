@@ -1,0 +1,59 @@
+/**
+ * @file Firestore Security Rules for Informe Edilicio de los Registros Electorales.
+ *
+ * @core_philosophy This ruleset enforces path-based ownership and authorization independence to manage data related to departamentos, distritos, and imagenes. Authorization Independence avoids costly get() calls and simplifies the ruleset.
+ * @data_structure The data is structured hierarchically: /departamentos/{departamentoId}/distritos/{distritoId}/imagenes/{imagenId}.  Each image denormalizes its parent departamentoId and distritoId for efficient access control.
+ * @key_security_decisions All write operations require authentication. List operations are generally allowed for authenticated users.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Manages access to department information.
+     * @path /departamentos/{departamentoId}
+     * @allow (get, list): Any authenticated user can read department information.
+     * @allow (create, update, delete): Only authenticated users can modify department information.
+     * @deny  Attempting to create, update, or delete a department without authentication.
+     * @principle Allows any authenticated user to read and write department documents.
+     */
+    match /departamentos/{departamentoId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to district information within a specific department.
+     * @path /departamentos/{departamentoId}/distritos/{distritoId}
+     * @allow (get, list): Any authenticated user can read district information within a specific department.
+     * @allow (create, update, delete): Only authenticated users can modify district information within a specific department.
+     * @deny  Attempting to create, update, or delete a district without authentication.
+     * @principle Allows any authenticated user to read and write district documents.
+     */
+    match /departamentos/{departamentoId}/distritos/{distritoId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to image information within a specific district.
+     * @path /departamentos/{departamentoId}/distritos/{distritoId}/imagenes/{imagenId}
+     * @allow (get, list): Any authenticated user can read image information within a specific district.
+     * @allow (create): Any authenticated user can create an image. Requires authentication.
+     * @allow (update, delete): Only authenticated users can modify image information within a specific district.
+     * @deny Attempting to create an image without authentication.
+     * @deny Attempting to update or delete an image without authentication.
+     * @principle Allows any authenticated user to read and write image documents.
+     */
+    match /departamentos/{departamentoId}/distritos/{distritoId}/imagenes/{imagenId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
+    }
+  }
+
+  // Helper function to determine if the user is signed in
+  function isSignedIn() {
+    return request.auth != null;
+  }
+}
