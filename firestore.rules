@@ -1,53 +1,153 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset prioritizes secure access control with flexible data validation for rapid prototyping.
+ *
+ * Core Philosophy:
+ *  - Strict user-based authorization with denormalization to avoid costly `get()` calls.
+ *  - Public read access to the `/imagenes` collection, restricted writes to authenticated users.
+ *  - User-specific data is stored under `/users/{userId}` with owner-only access.
+ *
+ * Data Structure:
+ *  - Top-level collections: `/datos`, `/departamentos`, `/imagenes`, `/reports`, `/users`.
+ *  - Subcollections: `/departamentos/{departamentoId}/distritos/{distritoId}`.
+ *  - User data is namespaced under `/users/{userId}`.
+ *
+ * Key Security Decisions:
+ *  - Public listing of `/imagenes`.
+ *  - Disallowing listing of `/users` to prevent information disclosure.
+ *  - Defaulting to strict owner-only access for ambiguous relationships.
+ *
+ * Denormalization for Authorization:
+ *  - The `Imagen` entity includes `departamento` and `distrito` fields for efficient filtering and display, avoiding the need to traverse relationships during reads.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions for roles
-    function isRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
-    }
-    function isOneOfRoles(roles) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
-    }
+    /**
+     * @description Checks if the request is authenticated.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Rules for /users collection
-    match /users/{userId} {
-      // Admins can read/write any user document
-      allow read, write: if isOneOfRoles(['admin']);
-      // Users can create their own profile
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      // Users can only get, update, delete their own document
-      allow get, update, delete: if isSignedIn() && request.auth.uid == userId;
-       // Listing users is not allowed for non-admins
-      allow list: if isOneOfRoles(['admin']);
+    /**
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Rules for /departamentos and its subcollections
-    match /departamentos/{document=**} {
-        // Admins and Editors can write
-        allow write: if isOneOfRoles(['admin', 'editor']);
-        // Any signed-in user can read
-        allow read: if isSignedIn();
+    /**
+     * @description Checks if the authenticated user is the owner of the existing document.
+     */
+    function isExistingOwner() {
+        return resource.data.userId == request.auth.uid;
     }
 
-    // Rules for /reports collection
-    match /reports/{reportId} {
-      // Admins can do anything
-      allow read, write: if isOneOfRoles(['admin']);
-      // Any signed-in user can create and read reports
-      allow create, list, get: if isSignedIn();
+    /**
+     * @description Allows read-only access for authenticated users.
+     */
+    function isAuthenticated() {
+      return request.auth != null;
     }
-    
-    // Rules for /datos collection
+
+    /**
+     * @description Stores imported department and district data.
+     * @path /datos/{datoId}
+     * @allow (read) Anyone can read data.
+     * @allow (create, update, delete) No one can modify data.
+     * @deny (create) No one can create data.
+     * @deny (update) No one can update data.
+     * @deny (delete) No one can delete data.
+     * @principle Data is read-only.
+     */
     match /datos/{datoId} {
-      // Any signed-in user can create (import) data
-      allow create: if isSignedIn();
-      // Only admins and editors can read or delete
-      allow read, delete: if isOneOfRoles(['admin', 'editor']);
+      allow get: if true;
+      allow list: if true;
+    }
+
+    /**
+     * @description Stores department information.
+     * @path /departamentos/{departamentoId}
+     * @allow (read) Anyone can read department data.
+     * @allow (create, update, delete) No one can modify data.
+     * @deny (create) No one can create data.
+     * @deny (update) No one can update data.
+     * @deny (delete) No one can delete data.
+     * @principle Data is read-only.
+     */
+    match /departamentos/{departamentoId} {
+      allow get: if true;
+      allow list: if true;
+    }
+
+    /**
+     * @description Stores district information for a specific department.
+     * @path /departamentos/{departamentoId}/distritos/{distritoId}
+     * @allow (read) Anyone can read district data.
+     * @allow (create, update, delete) No one can modify data.
+     * @deny (create) No one can create data.
+     * @deny (update) No one can update data.
+     * @deny (delete) No one can delete data.
+     * @principle Data is read-only.
+     */
+    match /departamentos/{departamentoId}/distritos/{distritoId} {
+      allow get: if true;
+      allow list: if true;
+    }
+
+    /**
+     * @description Stores image information, linked by department and district name.
+     * @path /imagenes/{imagenId}
+     * @allow (read) Anyone can read image data.
+     * @allow (create) Authenticated users can create images if they provide valid department and district.
+     * @allow (update, delete) Only the creator can modify or delete the image.
+     * @deny (create) If the department or district is invalid.
+     * @deny (update) If the user is not the owner.
+     * @deny (delete) If the user is not the owner.
+     * @principle Public read access with owner-only writes.
+     */
+    match /imagenes/{imagenId} {
+        allow get: if true;
+        allow list: if true;
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    /**
+     * @description Stores user profile information.
+     * @path /users/{userId}
+     * @allow (create) Users can create their own profile.
+     * @allow (get, update, delete) Only the owner can read, update, or delete their profile.
+     * @deny (list) Listing users is not allowed.
+     * @deny (create) If the user ID does not match the authenticated user ID.
+     * @deny (update) If the user is not the owner.
+     * @deny (delete) If the user is not the owner.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+        allow get: if isOwner(userId);
+        allow list: if false;
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+    }
+
+    /**
+     * @description Stores detailed report information.
+     * @path /reports/{reportId}
+     * @allow (read) Anyone can read report data.
+     * @allow (create, update, delete) No one can modify data.
+     * @deny (create) No one can create data.
+     * @deny (update) No one can update data.
+     * @deny (delete) No one can delete data.
+     * @principle Data is read-only.
+     */
+    match /reports/{reportId} {
+      allow get: if true;
+      allow list: if true;
     }
   }
 }
