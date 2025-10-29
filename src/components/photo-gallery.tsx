@@ -11,12 +11,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, ImageIcon } from 'lucide-react';
-import { initialDepartments, type Department, type District, type ImageData } from '@/lib/data';
+import { type Department, type ImageData } from '@/lib/data';
 import { UploadDialog } from '@/components/upload-dialog';
 import { ImageViewerDialog } from '@/components/image-viewer-dialog';
 
 export default function PhotoGallery() {
-  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [activeDistrict, setActiveDistrict] = useState<{deptId: string, distId: string} | null>(null);
@@ -27,9 +27,7 @@ export default function PhotoGallery() {
     if (storedData) {
       try {
         const importedDepartments = JSON.parse(storedData);
-        // We combine initial data with imported data.
-        // A more robust solution might replace or merge more intelligently.
-        setDepartments(prevDepts => [...importedDepartments, ...prevDepts.filter(pd => !importedDepartments.find((id: Department) => id.name === pd.name))]);
+        setDepartments(importedDepartments);
       } catch (error) {
         console.error("Failed to parse imported departments from localStorage", error);
       }
@@ -43,21 +41,22 @@ export default function PhotoGallery() {
 
   const handleImagesUploaded = (newImages: ImageData[]) => {
     if (!activeDistrict) return;
-
-    setDepartments(prevDepts => 
-      prevDepts.map(dept => 
-        dept.id === activeDistrict.deptId
-          ? {
-              ...dept,
-              districts: dept.districts.map(dist => 
-                dist.id === activeDistrict.distId
-                  ? { ...dist, images: [...dist.images, ...newImages] }
-                  : dist
-              ),
-            }
-          : dept
-      )
+    
+    const updatedDepartments = departments.map(dept => 
+      dept.id === activeDistrict.deptId
+        ? {
+            ...dept,
+            districts: dept.districts.map(dist => 
+              dist.id === activeDistrict.distId
+                ? { ...dist, images: [...dist.images, ...newImages] }
+                : dist
+            ),
+          }
+        : dept
     );
+
+    setDepartments(updatedDepartments);
+    localStorage.setItem('imported_departments', JSON.stringify(updatedDepartments));
     setUploadOpen(false);
   };
 
