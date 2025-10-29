@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BookMarked } from 'lucide-react';
+import { BookMarked, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function Header() {
@@ -25,6 +25,12 @@ export default function Header() {
               className="transition-colors hover:text-foreground/80 text-foreground/60"
             >
               Importar
+            </Link>
+            <Link
+              href="/settings"
+              className="transition-colors hover:text-foreground/80 text-foreground/60"
+            >
+              Configuración
             </Link>
           </nav>
         </div>
