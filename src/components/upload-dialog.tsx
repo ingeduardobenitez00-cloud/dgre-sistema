@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -39,16 +39,14 @@ type UploadDialogProps = {
   onImagesUploaded: (newImages: Omit<ImageData, 'id' | 'departamento' | 'distrito'>[]) => void;
 };
 
-type FormData = {
-  category: string;
-  date: Date;
-};
-
 type FilePreview = {
+  id: string;
   file: File;
   previewUrl: string;
   tags: string;
   isTagging: boolean;
+  category: string;
+  date: Date;
 };
 
 export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadDialogProps) {
@@ -56,24 +54,23 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
   const [isSubmitting, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const form = useForm<FormData>({
-    defaultValues: { category: 'Fachada', date: new Date() },
-  });
-
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files;
     if (!selectedFiles) return;
 
     const newFilePreviews: FilePreview[] = Array.from(selectedFiles).map(file => ({
+      id: `${file.name}-${file.lastModified}`,
       file,
       previewUrl: '',
       tags: '',
       isTagging: true,
+      category: 'Fachada',
+      date: new Date(),
     }));
     
     setFiles(prev => [...prev, ...newFilePreviews]);
 
-    Array.from(selectedFiles).forEach((file) => {
+    newFilePreviews.forEach((filePreview) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = document.createElement('img');
@@ -87,52 +84,44 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const dataUri = canvas.toDataURL(file.type, 0.7);
+            const dataUri = canvas.toDataURL(filePreview.file.type, 0.7);
 
-            setFiles(prev => {
-                const newFiles = [...prev];
-                const fileIndex = newFiles.findIndex(f => f.file.name === file.name && f.previewUrl === '');
-                if(fileIndex !== -1) {
-                    newFiles[fileIndex].previewUrl = dataUri;
-                }
-                return newFiles;
-            });
+            setFiles(prev => prev.map(f => f.id === filePreview.id ? { ...f, previewUrl: dataUri } : f));
             
-            handleTagGeneration(dataUri, file.name);
+            handleTagGeneration(dataUri, filePreview.id);
 
           } else {
-             toast({ variant: 'destructive', title: 'Error', description: `No se pudo procesar la imagen: ${file.name}.` });
+             toast({ variant: 'destructive', title: 'Error', description: `No se pudo procesar la imagen: ${filePreview.file.name}.` });
           }
         };
         img.src = e.target?.result as string;
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(filePreview.file);
     });
   };
 
-  const handleTagGeneration = async (photoDataUri: string, fileName: string) => {
+  const handleTagGeneration = async (photoDataUri: string, fileId: string) => {
     const result = await imageAutoTagging({ photoDataUri });
     
-    setFiles(prev => {
-        const newFiles = [...prev];
-        const fileIndex = newFiles.findIndex(f => f.file.name === fileName);
-        if (fileIndex !== -1) {
-            if ('tags' in result) {
-                newFiles[fileIndex].tags = result.tags.join(', ');
-            } else {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Error de IA',
-                    description: `No se pudieron generar las etiquetas para ${fileName}.`,
-                });
-            }
-            newFiles[fileIndex].isTagging = false;
+    setFiles(prev => prev.map(f => {
+      if (f.id === fileId) {
+        if ('tags' in result) {
+          return { ...f, tags: result.tags.join(', '), isTagging: false };
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Error de IA',
+            description: `No se pudieron generar las etiquetas para ${f.file.name}.`,
+          });
+          return { ...f, isTagging: false };
         }
-        return newFiles;
-    })
+      }
+      return f;
+    }));
   };
   
-  const onSubmit = form.handleSubmit((data) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (files.length === 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Por favor, selecciona al menos una imagen.' });
       return;
@@ -142,18 +131,17 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
         src: f.previewUrl,
         alt: f.file.name,
         tags: f.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-        date: format(data.date, 'yyyy-MM-dd'),
-        category: data.category,
+        date: format(f.date, 'yyyy-MM-dd'),
+        category: f.category,
         hint: f.tags.split(',')[0] || 'building'
       }));
 
       onImagesUploaded(newImages);
       resetForm();
     });
-  });
+  };
 
   const resetForm = () => {
-    form.reset();
     setFiles([]);
   }
 
@@ -175,7 +163,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
             Selecciona una o varias imágenes. La IA sugerirá etiquetas para cada una.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="grid gap-6 py-4">
+        <form onSubmit={handleSubmit} className="grid gap-6 py-4">
           <div className="space-y-2">
              <label
                 htmlFor="picture"
@@ -193,11 +181,11 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
           </div>
 
           {files.length > 0 && (
-            <ScrollArea className="h-72 w-full pr-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <ScrollArea className="h-[450px] w-full pr-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {files.map((file, index) => (
-                    <Card key={index} className="overflow-hidden">
-                        <CardContent className="p-2">
+                    <Card key={file.id} className="overflow-hidden">
+                        <CardContent className="p-2 space-y-2">
                              <div className="relative aspect-video w-full overflow-hidden rounded-md">
                                 {file.previewUrl ? (
                                     <Image src={file.previewUrl} alt={`Vista previa de ${file.file.name}`} fill style={{ objectFit: 'cover' }} />
@@ -207,23 +195,71 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
                                     </div>
                                 )}
                             </div>
-                            <div className="p-2">
-                                <Label htmlFor={`tags-${index}`} className="text-xs flex items-center mb-1">
-                                    Etiquetas
-                                    {file.isTagging && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}
-                                    {!file.isTagging && <Sparkles className="ml-2 h-3 w-3 text-accent" />}
-                                </Label>
-                                <Input 
-                                    id={`tags-${index}`} 
-                                    value={file.tags}
-                                    onChange={(e) => {
-                                        const newFiles = [...files];
-                                        newFiles[index].tags = e.target.value;
-                                        setFiles(newFiles);
-                                    }}
-                                    disabled={file.isTagging}
-                                    className="h-8 text-xs"
-                                />
+                            <div className="p-2 space-y-4">
+                                <div className="space-y-1">
+                                    <Label htmlFor={`tags-${index}`} className="text-xs flex items-center mb-1">
+                                        Etiquetas
+                                        {file.isTagging && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}
+                                        {!file.isTagging && <Sparkles className="ml-2 h-3 w-3 text-accent" />}
+                                    </Label>
+                                    <Input 
+                                        id={`tags-${index}`} 
+                                        value={file.tags}
+                                        onChange={(e) => {
+                                            const newFiles = [...files];
+                                            newFiles[index].tags = e.target.value;
+                                            setFiles(newFiles);
+                                        }}
+                                        disabled={file.isTagging}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                                <div className='grid grid-cols-2 gap-4'>
+                                    <div className="space-y-1">
+                                        <Label htmlFor={`category-${index}`} className="text-xs">Categoría</Label>
+                                        <Select 
+                                            value={file.category}
+                                            onValueChange={(value) => setFiles(fs => fs.map(f => f.id === file.id ? {...f, category: value} : f))}
+                                        >
+                                            <SelectTrigger id={`category-${index}`} className="h-8 text-xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Fachada">Fachada</SelectItem>
+                                                <SelectItem value="Interior">Interior</SelectItem>
+                                                <SelectItem value="Infraestructura">Infraestructura</SelectItem>
+                                                <SelectItem value="Documento">Documento</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                     <div className="space-y-1">
+                                        <Label htmlFor={`date-${index}`} className="text-xs">Fecha</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    id={`date-${index}`}
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full justify-start text-left font-normal h-8 text-xs",
+                                                        !file.date && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {file.date ? format(file.date, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={file.date}
+                                                    onSelect={(date) => date && setFiles(fs => fs.map(f => f.id === file.id ? {...f, date} : f))}
+                                                    initialFocus
+                                                    locale={es}
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -231,52 +267,6 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
                 </div>
             </ScrollArea>
           )}
-
-          {files.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="category">Categoría (para todas las imágenes)</Label>
-                    <Select onValueChange={(value) => form.setValue('category', value)} defaultValue={form.getValues('category')}>
-                    <SelectTrigger id="category">
-                        <SelectValue placeholder="Seleccionar categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Fachada">Fachada</SelectItem>
-                        <SelectItem value="Interior">Interior</SelectItem>
-                        <SelectItem value="Infraestructura">Infraestructura</SelectItem>
-                        <SelectItem value="Documento">Documento</SelectItem>
-                    </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="date">Fecha (para todas las imágenes)</Label>
-                    <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                        variant={"outline"}
-                        className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !form.watch('date') && "text-muted-foreground"
-                        )}
-                        >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {form.watch('date') ? format(form.watch('date'), "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                        mode="single"
-                        selected={form.watch('date')}
-                        onSelect={(date) => date && form.setValue('date', date)}
-                        initialFocus
-                        locale={es}
-                        />
-                    </PopoverContent>
-                    </Popover>
-                </div>
-            </div>
-          )}
-
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>Cancelar</Button>
@@ -290,5 +280,3 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
     </Dialog>
   );
 }
-
-    
