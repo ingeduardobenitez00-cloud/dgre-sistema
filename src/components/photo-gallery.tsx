@@ -41,7 +41,7 @@ export default function PhotoGallery() {
     setUploadOpen(true);
   };
 
-  const handleImageUploaded = (newImage: ImageData) => {
+  const handleImagesUploaded = (newImages: ImageData[]) => {
     if (!activeDistrict) return;
 
     setDepartments(prevDepts => 
@@ -51,7 +51,7 @@ export default function PhotoGallery() {
               ...dept,
               districts: dept.districts.map(dist => 
                 dist.id === activeDistrict.distId
-                  ? { ...dist, images: [...dist.images, newImage] }
+                  ? { ...dist, images: [...dist.images, ...newImages] }
                   : dist
               ),
             }
@@ -131,7 +131,7 @@ export default function PhotoGallery() {
       <UploadDialog
         isOpen={isUploadOpen}
         onOpenChange={setUploadOpen}
-        onImageUploaded={handleImageUploaded}
+        onImagesUploaded={handleImagesUploaded}
       />
 
       <ImageViewerDialog
