@@ -30,7 +30,8 @@ export default function FichaPage() {
 
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    let q = collection(firestore, 'reports');
+    // The type assertion is needed because query returns a generic Query type
+    let q: any = collection(firestore, 'reports');
     if (selectedDept) {
       q = query(q, where('departamento', '==', selectedDept));
     }
@@ -44,6 +45,14 @@ export default function FichaPage() {
 
   const handleDeptChange = async (deptId: string) => {
     setSelectedDistrict('');
+
+    if (deptId === 'all-depts') {
+        setSelectedDeptId('all-depts');
+        setSelectedDept('');
+        setDistricts([]);
+        return;
+    }
+
     setSelectedDeptId(deptId);
 
     if (deptId && firestore) {
@@ -61,7 +70,11 @@ export default function FichaPage() {
   };
 
   const handleDistrictChange = (distName: string) => {
-    setSelectedDistrict(distName);
+    if (distName === 'all-districts') {
+      setSelectedDistrict('');
+    } else {
+      setSelectedDistrict(distName);
+    }
   };
   
   return (
@@ -83,7 +96,7 @@ export default function FichaPage() {
                   <SelectValue placeholder="Seleccionar Departamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos los Departamentos</SelectItem>
+                  <SelectItem value="all-depts">Todos los Departamentos</SelectItem>
                   {departments?.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>
                       {dept.name}
@@ -96,14 +109,14 @@ export default function FichaPage() {
               <Label>Distrito</Label>
               <Select
                 onValueChange={handleDistrictChange}
-                value={selectedDistrict}
+                value={selectedDistrict || 'all-districts'}
                 disabled={!selectedDept}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar Distrito" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos los Distritos</SelectItem>
+                  <SelectItem value="all-districts">Todos los Distritos</SelectItem>
                   {districts.map((dist) => (
                     <SelectItem key={dist.id} value={dist.name}>
                       {dist.name}
