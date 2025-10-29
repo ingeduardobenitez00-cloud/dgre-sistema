@@ -566,7 +566,7 @@ export default function SettingsPage() {
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteItem('district', department.id, district.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</Action>
+                                            <AlertDialogAction onClick={() => handleDeleteItem('district', department.id, district.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
@@ -619,3 +619,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
