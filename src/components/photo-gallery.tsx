@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload } from 'lucide-react';
+import { Upload, ImageIcon } from 'lucide-react';
 import { initialDepartments, type Department, type District, type ImageData } from '@/lib/data';
 import { UploadDialog } from '@/components/upload-dialog';
 import { ImageViewerDialog } from '@/components/image-viewer-dialog';
@@ -111,9 +111,14 @@ export default function PhotoGallery() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8 border-2 border-dashed rounded-lg">
-                        <p className="text-muted-foreground">No hay imágenes en este distrito.</p>
-                      </div>
+                      <button 
+                        onClick={() => handleOpenUpload(department.id, district.id)}
+                        className="w-full text-center py-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center hover:bg-muted/50 transition-colors"
+                      >
+                        <ImageIcon className="h-8 w-8 text-muted-foreground mb-2"/>
+                        <p className="text-muted-foreground font-medium">No hay imágenes en este distrito.</p>
+                        <p className="text-sm text-muted-foreground">Haz clic aquí para subir una.</p>
+                      </button>
                     )}
                   </div>
                 ))}
