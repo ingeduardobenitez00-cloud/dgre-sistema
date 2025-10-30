@@ -196,10 +196,19 @@ export default function FichaPage() {
             pdf.addPage();
             currentY = margin;
 
-            pdf.setFontSize(16);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text("Imagenes de las Oficinas del Registro Electoral", pageWidth / 2, currentY, { align: 'center' });
-            currentY += 15;
+            const addGalleryHeader = () => {
+                pdf.setFontSize(16);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text("Imagenes de las Oficinas del Registro Electoral", pageWidth / 2, currentY, { align: 'center' });
+                currentY += 8;
+
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(`${selectedDept.toUpperCase()} - ${selectedDistrict.toUpperCase()}`, pageWidth / 2, currentY, { align: 'center' });
+                currentY += 12;
+            };
+
+            addGalleryHeader();
             
             for (const image of filteredImages) {
                 const img = new (window as any).Image();
@@ -215,19 +224,20 @@ export default function FichaPage() {
                         const pdfImageWidth = pageWidth - margin * 2;
                         const pdfImageHeight = pdfImageWidth / ratio;
                         const imageName = cleanFileName(image.alt);
-                        const nameHeight = 10; // Increased space for name
+                        const nameHeight = 10;
                         
                         const totalElementHeight = pdfImageHeight + nameHeight;
 
                         if (currentY + totalElementHeight > pageHeight - margin) {
                             pdf.addPage();
                             currentY = margin;
+                            addGalleryHeader(); // Add header on new page
                         }
 
                         pdf.setFontSize(10);
                         pdf.setFont('helvetica', 'bold');
                         pdf.text(imageName, pageWidth / 2, currentY, { align: 'center' });
-                        currentY += nameHeight - 3; // Adjust spacing
+                        currentY += nameHeight - 3;
 
                         pdf.addImage(img, 'JPEG', margin, currentY, pdfImageWidth, pdfImageHeight);
                         currentY += pdfImageHeight + 5;
@@ -236,7 +246,7 @@ export default function FichaPage() {
                     };
                     img.onerror = () => {
                         console.error(`Could not load image: ${image.src}`);
-                        resolve(false); // resolve to continue even if an image fails
+                        resolve(false);
                     }
                 });
             }
