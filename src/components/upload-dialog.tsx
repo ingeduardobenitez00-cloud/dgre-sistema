@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -108,7 +108,6 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
     }));
 
     onImagesUploaded(newImages);
-    handleOpenChange(false); // Close dialog immediately
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -183,5 +182,3 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
     </Dialog>
   );
 }
-
-    

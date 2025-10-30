@@ -17,7 +17,7 @@ import { UploadDialog } from '@/components/upload-dialog';
 import { ImageViewerDialog } from '@/components/image-viewer-dialog';
 import { useFirebase, useMemoFirebase, useUser } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, doc, getDocs, query, where, writeBatch, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, query, where, deleteDoc, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
@@ -54,6 +54,7 @@ export default function PhotoGallery() {
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [activeDistrict, setActiveDistrict] = useState<{ deptName: string, distName: string } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   useEffect(() => {
     if (datosData) {
@@ -110,41 +111,61 @@ export default function PhotoGallery() {
     setUploadOpen(true);
   };
 
-  const handleImagesUploaded = (newImages: Omit<ImageData, 'id' | 'departamento' | 'distrito'>[]) => {
+  const handleImagesUploaded = async (newImages: Omit<ImageData, 'id' | 'departamento' | 'distrito'>[]) => {
     if (!activeDistrict || !firestore) return;
+    setUploadOpen(false);
+    setUploadProgress(0);
 
     const { deptName, distName } = activeDistrict;
-    
-    const addedImages: ImageData[] = [];
-    const batch = writeBatch(firestore);
     const imagesCollectionRef = collection(firestore, 'imagenes');
+    const totalImages = newImages.length;
+    let uploadedCount = 0;
 
-    newImages.forEach(newImage => {
-        const docRef = doc(imagesCollectionRef);
+    const uploadedImages: ImageData[] = [];
+
+    for (const newImage of newImages) {
         const fullImageData = {
             ...newImage,
             departamento: deptName,
             distrito: distName,
         };
-        batch.set(docRef, fullImageData);
-        addedImages.push({ id: docRef.id, ...fullImageData });
-    });
+        try {
+            const docRef = await addDoc(imagesCollectionRef, fullImageData);
+            uploadedImages.push({ id: docRef.id, ...fullImageData });
+            uploadedCount++;
+            setUploadProgress((uploadedCount / totalImages) * 100);
+        } catch (error) {
+            const contextualError = new FirestorePermissionError({
+                operation: 'create',
+                path: 'imagenes',
+                requestResourceData: fullImageData
+            });
+            errorEmitter.emit('permission-error', contextualError);
+            toast({
+                title: "Error de Subida",
+                description: `No se pudo subir la imagen ${newImage.alt}.`,
+                variant: 'destructive',
+            });
+        }
+    }
 
-    batch.commit().then(() => {
+    if (uploadedImages.length > 0) {
         const imagesKey = `${deptName}-${distName}`;
         setImages(prev => ({
             ...prev,
-            [imagesKey]: [...(prev[imagesKey] || []), ...addedImages]
+            [imagesKey]: [...(prev[imagesKey] || []), ...uploadedImages]
         }));
-        setUploadOpen(false);
-    }).catch(error => {
-        const contextualError = new FirestorePermissionError({
-            operation: 'write',
-            path: 'imagenes (batch)',
-            requestResourceData: addedImages
-        });
-        errorEmitter.emit('permission-error', contextualError);
+    }
+    
+    toast({
+      title: 'Subida Completada',
+      description: `${uploadedCount} de ${totalImages} imágenes subidas con éxito.`,
     });
+
+    // Hide progress bar after a short delay
+    setTimeout(() => {
+      setUploadProgress(null);
+    }, 2000);
   };
 
   const handleDeleteImage = async (imageToDelete: ImageData) => {
@@ -190,6 +211,14 @@ export default function PhotoGallery() {
 
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+       {uploadProgress !== null && (
+          <div className="fixed top-14 left-0 right-0 z-50 p-4 bg-background/80 backdrop-blur-sm">
+             <div className="max-w-4xl mx-auto space-y-2">
+                <p className="text-sm font-medium text-center">Subiendo imágenes... {Math.round(uploadProgress)}%</p>
+                <Progress value={uploadProgress} className="w-full" />
+             </div>
+          </div>
+        )}
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           Galería de Fotos
