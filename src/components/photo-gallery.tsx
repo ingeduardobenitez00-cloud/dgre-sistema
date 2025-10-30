@@ -11,17 +11,29 @@ import {
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, ImageIcon, Loader2, Trash2 } from 'lucide-react';
 import { type Dato, type District, type ImageData } from '@/lib/data';
 import { UploadDialog } from '@/components/upload-dialog';
 import { ImageViewerDialog } from '@/components/image-viewer-dialog';
 import { useFirebase, useMemoFirebase, useUser } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, doc, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, query, where, writeBatch, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 type DepartmentWithDistricts = {
   id: string;
@@ -32,6 +44,7 @@ type DepartmentWithDistricts = {
 export default function PhotoGallery() {
   const { firestore } = useFirebase();
   const { user, isUserLoading } = useUser();
+  const { toast } = useToast();
 
   const datosQuery = useMemoFirebase(() => (firestore && user ? collection(firestore, 'datos') : null), [firestore, user]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
@@ -134,6 +147,39 @@ export default function PhotoGallery() {
     });
   };
 
+  const handleDeleteImage = async (imageToDelete: ImageData) => {
+    if (!firestore) return;
+
+    try {
+        await deleteDoc(doc(firestore, 'imagenes', imageToDelete.id));
+        
+        const imagesKey = `${imageToDelete.departamento}-${imageToDelete.distrito}`;
+        setImages(prev => ({
+            ...prev,
+            [imagesKey]: (prev[imagesKey] || []).filter(img => img.id !== imageToDelete.id)
+        }));
+        
+        toast({
+            title: "Imagen eliminada",
+            description: "La imagen ha sido eliminada con éxito.",
+            variant: "destructive",
+        });
+
+    } catch (error) {
+        const contextualError = new FirestorePermissionError({
+            operation: 'delete',
+            path: `imagenes/${imageToDelete.id}`,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        toast({
+            title: "Error al eliminar",
+            description: "No se pudo eliminar la imagen.",
+            variant: "destructive",
+        });
+    }
+  };
+
+
   if (isLoadingDatos || isUserLoading) {
       return (
           <div className="flex items-center justify-center h-full">
@@ -205,18 +251,44 @@ export default function PhotoGallery() {
                             {districtImages.map((image) => (
                               <Card
                                 key={image.id}
-                                className="overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02]"
-                                onClick={() => setSelectedImage(image)}
+                                className="group/image-card overflow-hidden transition-all hover:shadow-lg"
                               >
-                                <CardContent className="p-0">
-                                  <Image
-                                    src={image.src}
-                                    alt={image.alt}
-                                    width={600}
-                                    height={400}
-                                    className="aspect-[3/2] w-full object-cover"
-                                    data-ai-hint={image.hint}
-                                  />
+                                <CardContent className="p-0 relative">
+                                    <div className='cursor-pointer' onClick={() => setSelectedImage(image)}>
+                                        <Image
+                                            src={image.src}
+                                            alt={image.alt}
+                                            width={600}
+                                            height={400}
+                                            className="aspect-[3/2] w-full object-cover transition-transform group-hover/image-card:scale-[1.02]"
+                                            data-ai-hint={image.hint}
+                                        />
+                                    </div>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button
+                                                variant="destructive"
+                                                size="icon"
+                                                className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover/image-card:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>¿Estás seguro de que quieres eliminar esta imagen?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Esta acción no se puede deshacer. La imagen se eliminará permanentemente.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteImage(image)} className="bg-destructive hover:bg-destructive/90">
+                                                    Eliminar
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </CardContent>
                               </Card>
                             ))}
