@@ -30,6 +30,7 @@ export default function FichaPage() {
   const [selectedDept, setSelectedDept] = useState<string>('');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   useEffect(() => {
     if (datosData) {
@@ -87,6 +88,28 @@ export default function FichaPage() {
     } else {
       setSelectedDistrict(distName);
     }
+  };
+
+  const currentImageIndex = useMemo(() => {
+    if (!selectedImage || !filteredImages) return -1;
+    return filteredImages.findIndex(img => img.id === selectedImage.id);
+  }, [selectedImage, filteredImages]);
+
+  const handleNextImage = () => {
+    if (filteredImages && currentImageIndex < filteredImages.length - 1) {
+      setSelectedImage(filteredImages[currentImageIndex + 1]);
+    }
+  };
+
+  const handlePreviousImage = () => {
+    if (filteredImages && currentImageIndex > 0) {
+      setSelectedImage(filteredImages[currentImageIndex - 1]);
+    }
+  };
+  
+  const handleOpenImageViewer = (image: ImageData) => {
+    setSelectedImage(image);
+    setIsViewerOpen(true);
   };
   
   return (
@@ -190,7 +213,7 @@ export default function FichaPage() {
                                         <Card
                                             key={image.id}
                                             className="overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02]"
-                                            onClick={() => setSelectedImage(image)}
+                                            onClick={() => handleOpenImageViewer(image)}
                                         >
                                             <CardContent className="p-0">
                                                 <Image
@@ -222,9 +245,13 @@ export default function FichaPage() {
         )}
       </main>
       <ImageViewerDialog
-        isOpen={!!selectedImage}
-        onOpenChange={() => setSelectedImage(null)}
+        isOpen={isViewerOpen}
+        onOpenChange={setIsViewerOpen}
         image={selectedImage}
+        onNext={handleNextImage}
+        onPrevious={handlePreviousImage}
+        canNavigateNext={filteredImages ? currentImageIndex < filteredImages.length - 1 : false}
+        canNavigatePrevious={currentImageIndex > 0}
       />
     </div>
   );

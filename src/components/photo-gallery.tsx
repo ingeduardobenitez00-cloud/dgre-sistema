@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Accordion,
@@ -53,9 +53,22 @@ export default function PhotoGallery() {
   const [images, setImages] = useState<Record<string, ImageData[]>>({});
   const [checkedDepartments, setCheckedDepartments] = useState<Set<string>>(new Set());
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [activeDistrict, setActiveDistrict] = useState<{ deptName: string, distName: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  
+  const currentImageList = useMemo(() => {
+    if (!selectedImage) return [];
+    const key = `${selectedImage.departamento}-${selectedImage.distrito}`;
+    return images[key] || [];
+  }, [selectedImage, images]);
+  
+  const currentImageIndex = useMemo(() => {
+    if (!selectedImage) return -1;
+    return currentImageList.findIndex(img => img.id === selectedImage.id);
+  }, [selectedImage, currentImageList]);
+
 
   useEffect(() => {
     if (datosData) {
@@ -211,6 +224,23 @@ export default function PhotoGallery() {
         });
     }
   };
+  
+  const handleOpenImageViewer = (image: ImageData) => {
+    setSelectedImage(image);
+    setIsViewerOpen(true);
+  };
+
+  const handleNextImage = () => {
+    if (currentImageIndex < currentImageList.length - 1) {
+        setSelectedImage(currentImageList[currentImageIndex + 1]);
+    }
+  };
+
+  const handlePreviousImage = () => {
+      if (currentImageIndex > 0) {
+          setSelectedImage(currentImageList[currentImageIndex - 1]);
+      }
+  };
 
 
   if (isLoadingDatos || isUserLoading) {
@@ -297,7 +327,7 @@ export default function PhotoGallery() {
                                 className="group/image-card overflow-hidden transition-all hover:shadow-lg"
                               >
                                 <CardContent className="p-0 relative">
-                                    <div className='cursor-pointer' onClick={() => setSelectedImage(image)}>
+                                    <div className='cursor-pointer' onClick={() => handleOpenImageViewer(image)}>
                                         <Image
                                             src={image.src}
                                             alt={image.alt}
@@ -369,11 +399,14 @@ export default function PhotoGallery() {
       />
 
       <ImageViewerDialog
-        isOpen={!!selectedImage}
-        onOpenChange={() => setSelectedImage(null)}
+        isOpen={isViewerOpen}
+        onOpenChange={setIsViewerOpen}
         image={selectedImage}
+        onNext={handleNextImage}
+        onPrevious={handlePreviousImage}
+        canNavigateNext={currentImageIndex < currentImageList.length - 1}
+        canNavigatePrevious={currentImageIndex > 0}
       />
     </div>
   );
 }
-
