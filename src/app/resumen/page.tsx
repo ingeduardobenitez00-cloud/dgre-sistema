@@ -9,7 +9,7 @@ import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query } from 'firebase/firestore';
 import { type Dato, type ReportData } from '@/lib/data';
-import { Loader2, Building, CheckCircle, Shield, Landmark, FileText } from 'lucide-react';
+import { Loader2, Building, CheckCircle, Shield, FileText } from 'lucide-react';
 
 type DistrictWithReport = {
   name: string;
@@ -203,3 +203,5 @@ export default function ResumenPage() {
     </div>
   );
 }
+
+    
