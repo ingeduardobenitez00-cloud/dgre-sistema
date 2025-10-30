@@ -72,6 +72,7 @@ export default function PhotoGallery() {
         districts: Array.from(depts[deptName]).sort().map(distName => ({
           id: distName,
           name: distName,
+          departmentId: deptName,
         })),
       }));
       setDepartments(deptsArray);
@@ -165,6 +166,7 @@ export default function PhotoGallery() {
     // Hide progress bar after a short delay
     setTimeout(() => {
       setUploadProgress(null);
+      setActiveDistrict(null);
     }, 2000);
   };
 

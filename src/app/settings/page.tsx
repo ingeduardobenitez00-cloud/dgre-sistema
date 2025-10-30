@@ -58,36 +58,43 @@ export default function SettingsPage() {
 
   const { firestore } = useFirebase();
 
-  const departmentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'departamentos') : null, [firestore]);
-  const { data: savedData, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
+  const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
+  const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
   const [departmentsWithDistricts, setDepartmentsWithDistricts] = useState<(Department & {districts: District[]})[]>([]);
 
   useEffect(() => {
-    if (savedData && firestore) {
-      const fetchDistricts = async () => {
-        const deptsWithDists = await Promise.all(
-          savedData.map(async (dept) => {
-            const districtsQuery = collection(firestore, 'departamentos', dept.id, 'distritos');
-            try {
-              const districtsSnapshot = await getDocs(districtsQuery);
-              const districts = districtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
-              return { ...dept, districts };
-            } catch (error) {
-               const contextualError = new FirestorePermissionError({
-                operation: 'list',
-                path: `departamentos/${dept.id}/distritos`,
-               });
-               errorEmitter.emit('permission-error', contextualError);
-               return { ...dept, districts: [] };
+    if (datosData) {
+        const departmentsMap: Map<string, Department & { districts: District[] }> = new Map();
+
+        datosData.forEach((dato) => {
+            if (!departmentsMap.has(dato.departamento)) {
+                departmentsMap.set(dato.departamento, {
+                    id: dato.departamento, // Assume department name is unique enough for ID here
+                    name: dato.departamento,
+                    districts: [],
+                });
             }
-          })
-        );
-        setDepartmentsWithDistricts(deptsWithDists);
-      };
-      fetchDistricts();
+
+            const department = departmentsMap.get(dato.departamento);
+            if (department) {
+                // Check if district already exists
+                if (!department.districts.some(d => d.name === dato.distrito)) {
+                    department.districts.push({
+                        id: dato.id!, // Use doc id from firestore
+                        departmentId: dato.departamento,
+                        name: dato.distrito,
+                    });
+                }
+            }
+        });
+
+        const sortedDepartments = Array.from(departmentsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+        sortedDepartments.forEach(dept => dept.districts.sort((a, b) => a.name.localeCompare(b.name)));
+
+        setDepartmentsWithDistricts(sortedDepartments);
     }
-  }, [savedData, firestore]);
+}, [datosData]);
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -246,13 +253,15 @@ export default function SettingsPage() {
       const name = prompt(`Introduce el nombre del nuevo ${type === 'department' ? 'departamento' : 'distrito'}`);
       if (name) {
           if (type === 'department') {
-              addDoc(collection(firestore, 'departamentos'), { name }).catch(err => {
-                 const contextualError = new FirestorePermissionError({operation: 'create', path: `departamentos`});
+              const newDato = { departamento: name, distrito: 'Nuevo Distrito (Editar)' };
+              addDoc(collection(firestore, 'datos'), newDato).catch(err => {
+                 const contextualError = new FirestorePermissionError({operation: 'create', path: `datos`});
                  errorEmitter.emit('permission-error', contextualError);
               });
           } else if (type === 'district' && deptId) {
-              addDoc(collection(firestore, 'departamentos', deptId, 'distritos'), { name }).catch(err => {
-                 const contextualError = new FirestorePermissionError({operation: 'create', path: `departamentos/${deptId}/distritos`});
+              const newDato = { departamento: deptId, distrito: name };
+              addDoc(collection(firestore, 'datos'), newDato).catch(err => {
+                 const contextualError = new FirestorePermissionError({operation: 'create', path: `datos`});
                  errorEmitter.emit('permission-error', contextualError);
               });
           }
@@ -272,11 +281,20 @@ export default function SettingsPage() {
     
     try {
       if (type === 'department') {
-        const deptRef = doc(firestore, 'departamentos', deptId);
-        await updateDoc(deptRef, { name: newItemName });
+        const q = collection(firestore, 'datos');
+        const querySnapshot = await getDocs(q);
+        const batch = writeBatch(firestore);
+        querySnapshot.forEach(document => {
+            if(document.data().departamento === deptId){
+                const docRef = doc(firestore, 'datos', document.id);
+                batch.update(docRef, { departamento: newItemName });
+            }
+        });
+        await batch.commit();
+
       } else if (type === 'district' && distId) {
-        const distRef = doc(firestore, 'departamentos', deptId, 'distritos', distId);
-        await updateDoc(distRef, { name: newItemName });
+        const distRef = doc(firestore, 'datos', distId);
+        await updateDoc(distRef, { distrito: newItemName });
       }
       setEditModalOpen(false);
       setEditingItem(null);
@@ -284,7 +302,7 @@ export default function SettingsPage() {
     } catch (error) {
        const contextualError = new FirestorePermissionError({
             operation: 'update',
-            path: type === 'department' ? `departamentos/${deptId}` : `departamentos/${deptId}/distritos/${distId}`,
+            path: type === 'department' ? `datos` : `datos/${distId}`,
        });
        errorEmitter.emit('permission-error', contextualError);
        toast({ title: 'Error al actualizar', variant: 'destructive' });
@@ -295,15 +313,24 @@ export default function SettingsPage() {
       if (!firestore) return;
       try {
         if (type === 'department') {
-            await deleteDoc(doc(firestore, 'departamentos', deptId));
+            const q = collection(firestore, 'datos');
+            const querySnapshot = await getDocs(q);
+            const batch = writeBatch(firestore);
+            querySnapshot.forEach(document => {
+                if(document.data().departamento === deptId){
+                    const docRef = doc(firestore, 'datos', document.id);
+                    batch.delete(docRef);
+                }
+            });
+            await batch.commit();
         } else if (distId) {
-            await deleteDoc(doc(firestore, 'departamentos', deptId, 'distritos', distId));
+            await deleteDoc(doc(firestore, 'datos', distId));
         }
         toast({ title: 'Elemento eliminado', variant: 'destructive' });
       } catch (error) {
         const contextualError = new FirestorePermissionError({
             operation: 'delete',
-            path: type === 'department' ? `departamentos/${deptId}` : `departamentos/${deptId}/distritos/${distId}`,
+            path: type === 'department' ? `datos` : `datos/${distId}`,
         });
         errorEmitter.emit('permission-error', contextualError);
         toast({ title: 'Error al eliminar', variant: 'destructive' });
@@ -499,13 +526,18 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+            {isLoadingDatos ? (
+                 <div className="flex justify-center items-center h-32">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                 </div>
+            ) : (
               <Accordion type="single" collapsible className="w-full">
                 {departmentsWithDistricts.map((department) => (
                   <AccordionItem value={department.id} key={department.id}>
                     <div className="flex items-center w-full">
                       <AccordionTrigger className="flex-1 text-base">{department.name}</AccordionTrigger>
                       <div className="flex gap-2 ml-4">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); handleOpenEditModal('department', department.id, undefined, department.name)}}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); handleOpenEditModal('department', department.name, undefined, department.name)}}>
                               <Edit className="h-4 w-4" />
                           </Button>
                           <AlertDialog>
@@ -523,7 +555,7 @@ export default function SettingsPage() {
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDeleteItem('department', department.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                      <AlertDialogAction onClick={() => handleDeleteItem('department', department.name)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
                                   </AlertDialogFooter>
                               </AlertDialogContent>
                           </AlertDialog>
@@ -569,6 +601,7 @@ export default function SettingsPage() {
                   </AccordionItem>
                 ))}
               </Accordion>
+            )}
             </CardContent>
           </Card>
         )}

@@ -14,6 +14,7 @@ export interface ImageData {
 export interface District {
   id: string;
   name: string;
+  departmentId: string;
   reports?: ReportData[];
 }
 
@@ -38,6 +39,7 @@ export type ReportData = {
 }
 
 export type Dato = {
+    id?: string;
     departamento: string;
     distrito: string;
 }

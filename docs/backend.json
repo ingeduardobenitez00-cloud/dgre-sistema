@@ -6,6 +6,10 @@
       "type": "object",
       "description": "Represents a department and district pair for data import.",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique identifier for the dato."
+        },
         "departamento": {
           "type": "string",
           "description": "The name of the department."
@@ -42,10 +46,15 @@
         "name": {
           "type": "string",
           "description": "The name of the district."
+        },
+        "departmentId": {
+            "type": "string",
+            "description": "The ID of the department this district belongs to."
         }
       },
       "required": [
-        "name"
+        "name",
+        "departmentId"
       ]
     },
     "Imagen": {
@@ -222,5 +231,3 @@
     }
   }
 }
-
-    
