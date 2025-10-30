@@ -48,6 +48,7 @@ type PreviewData = {
 export default function SettingsPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
+  const [isUploading, setIsUploading] = useState(isUploading);
   const [previewData, setPreviewData] = useState<Dato[]>([]);
   const [reportPreviewData, setReportPreviewData] = useState<ReportData[]>([]);
   const { toast } = useToast();
@@ -221,30 +222,46 @@ export default function SettingsPage() {
 
   const handleSaveData = async () => {
     if (!firestore || previewData.length === 0) return;
+    setIsUploading(true);
 
-    const batch = writeBatch(firestore);
+    const BATCH_SIZE = 500;
     const datosCollection = collection(firestore, 'datos');
-
-    previewData.forEach(item => {
-        const newDocRef = doc(datosCollection);
-        batch.set(newDocRef, item);
-    });
-
-    batch.commit().then(() => {
-        toast({
-            title: 'Datos importados',
-            description: 'Los nuevos departamentos y distritos se han añadido con éxito a la colección "datos".',
-            action: <CheckCircle2 className="text-green-500" />,
+    
+    try {
+      for (let i = 0; i < previewData.length; i += BATCH_SIZE) {
+        const batch = writeBatch(firestore);
+        const chunk = previewData.slice(i, i + BATCH_SIZE);
+        
+        chunk.forEach(item => {
+            const newDocRef = doc(datosCollection);
+            batch.set(newDocRef, item);
         });
-        setPreviewData([]);
-        setFileName(null);
-    }).catch(error => {
-        const contextualError = new FirestorePermissionError({
-            operation: 'write',
-            path: 'datos (batch)',
-        });
-        errorEmitter.emit('permission-error', contextualError);
-    });
+        
+        await batch.commit();
+      }
+
+      toast({
+          title: 'Datos importados',
+          description: 'Los nuevos departamentos y distritos se han añadido con éxito.',
+          action: <CheckCircle2 className="text-green-500" />,
+      });
+      setPreviewData([]);
+      setFileName(null);
+    } catch (error) {
+      console.error(error);
+      const contextualError = new FirestorePermissionError({
+          operation: 'write',
+          path: 'datos (batch)',
+      });
+      errorEmitter.emit('permission-error', contextualError);
+      toast({
+          title: 'Error al importar',
+          description: 'No se pudieron guardar los datos. Revisa los permisos.',
+          variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
 
@@ -276,19 +293,17 @@ export default function SettingsPage() {
   
   const handleUpdateItem = async () => {
     if (!editingItem || !newItemName || !firestore) return;
-
+    setIsUploading(true);
     const { type, deptId, distId } = editingItem;
     
     try {
       if (type === 'department') {
-        const q = collection(firestore, 'datos');
+        const q = query(collection(firestore, 'datos'), where('departamento', '==', deptId));
         const querySnapshot = await getDocs(q);
         const batch = writeBatch(firestore);
         querySnapshot.forEach(document => {
-            if(document.data().departamento === deptId){
-                const docRef = doc(firestore, 'datos', document.id);
-                batch.update(docRef, { departamento: newItemName });
-            }
+            const docRef = doc(firestore, 'datos', document.id);
+            batch.update(docRef, { departamento: newItemName });
         });
         await batch.commit();
 
@@ -302,25 +317,26 @@ export default function SettingsPage() {
     } catch (error) {
        const contextualError = new FirestorePermissionError({
             operation: 'update',
-            path: type === 'department' ? `datos` : `datos/${distId}`,
+            path: type === 'department' ? `datos where departamento == ${deptId}` : `datos/${distId}`,
        });
        errorEmitter.emit('permission-error', contextualError);
-       toast({ title: 'Error al actualizar', variant: 'destructive' });
+       toast({ title: 'Error al actualizar', variant: 'destructive', description: 'No se pudo actualizar el elemento.' });
+    } finally {
+        setIsUploading(false);
     }
   };
   
   const handleDeleteItem = async (type: 'department' | 'district', deptId: string, distId?: string) => {
       if (!firestore) return;
+      setIsUploading(true);
       try {
         if (type === 'department') {
-            const q = collection(firestore, 'datos');
+            const q = query(collection(firestore, 'datos'), where('departamento', '==', deptId));
             const querySnapshot = await getDocs(q);
             const batch = writeBatch(firestore);
             querySnapshot.forEach(document => {
-                if(document.data().departamento === deptId){
-                    const docRef = doc(firestore, 'datos', document.id);
-                    batch.delete(docRef);
-                }
+                const docRef = doc(firestore, 'datos', document.id);
+                batch.delete(docRef);
             });
             await batch.commit();
         } else if (distId) {
@@ -330,23 +346,33 @@ export default function SettingsPage() {
       } catch (error) {
         const contextualError = new FirestorePermissionError({
             operation: 'delete',
-            path: type === 'department' ? `datos` : `datos/${distId}`,
+            path: type === 'department' ? `datos where departamento == ${deptId}` : `datos/${distId}`,
         });
         errorEmitter.emit('permission-error', contextualError);
-        toast({ title: 'Error al eliminar', variant: 'destructive' });
+        toast({ title: 'Error al eliminar', variant: 'destructive', description: 'No se pudo eliminar el elemento.' });
+      } finally {
+        setIsUploading(false);
       }
   };
 
   const handleSaveReportData = async () => {
     if (!firestore) return;
-    const batch = writeBatch(firestore);
+    setIsUploading(true);
+
+    const BATCH_SIZE = 500;
     const reportsCollection = collection(firestore, 'reports');
-    reportPreviewData.forEach(report => {
-      const newReportRef = doc(reportsCollection);
-      batch.set(newReportRef, report);
-    });
-    
-    batch.commit().then(() => {
+
+    try {
+        for (let i = 0; i < reportPreviewData.length; i += BATCH_SIZE) {
+            const batch = writeBatch(firestore);
+            const chunk = reportPreviewData.slice(i, i + BATCH_SIZE);
+            chunk.forEach(report => {
+                const newReportRef = doc(reportsCollection);
+                batch.set(newReportRef, report);
+            });
+            await batch.commit();
+        }
+
         toast({
             title: 'Datos del informe guardados',
             description: 'Los nuevos datos del informe se han añadido con éxito a Firestore.',
@@ -354,13 +380,21 @@ export default function SettingsPage() {
         });
         setReportPreviewData([]);
         setFileName(null);
-    }).catch(error => {
+    } catch(error) {
+        console.error(error);
         const contextualError = new FirestorePermissionError({
             operation: 'write',
             path: 'reports (batch)',
         });
         errorEmitter.emit('permission-error', contextualError);
-    });
+        toast({
+            title: 'Error al guardar informe',
+            description: 'No se pudieron guardar los datos del informe.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsUploading(false);
+    }
   };
 
   return (
@@ -390,17 +424,17 @@ export default function SettingsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground">XLSX o CSV</p>
                 </div>
-                <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} accept=".xlsx,.csv" disabled={isParsing} />
+                <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} accept=".xlsx,.csv" disabled={isParsing || isUploading} />
               </label>
               {fileName && (previewData.length > 0 || reportPreviewData.length > 0) && (
                 <p className="text-sm text-center text-muted-foreground">Archivo seleccionado: {fileName}</p>
               )}
             </div>
             
-            {isParsing && (
+            {(isParsing || isUploading) && (
               <div className="space-y-2 flex items-center justify-center">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                <p className="text-sm font-medium text-center">Procesando archivo...</p>
+                <p className="text-sm font-medium text-center">{isUploading ? 'Guardando datos...' : 'Procesando archivo...'}</p>
               </div>
             )}
           </CardContent>
@@ -436,7 +470,8 @@ export default function SettingsPage() {
                         </TableBody>
                     </Table>
                 </div>
-                 <Button onClick={handleSaveData} className="w-full mt-6" size="lg">
+                 <Button onClick={handleSaveData} className="w-full mt-6" size="lg" disabled={isUploading}>
+                    {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Guardar Datos
                 </Button>
             </CardContent>
@@ -466,7 +501,7 @@ export default function SettingsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground">XLSX o CSV para informes</p>
                 </div>
-                <Input id="report-file-upload" type="file" className="hidden" onChange={handleReportFileChange} accept=".xlsx,.csv" disabled={isParsing} />
+                <Input id="report-file-upload" type="file" className="hidden" onChange={handleReportFileChange} accept=".xlsx,.csv" disabled={isParsing || isUploading} />
               </label>
             </div>
           </CardContent>
@@ -500,7 +535,8 @@ export default function SettingsPage() {
                         </TableBody>
                     </Table>
                 </div>
-                 <Button onClick={handleSaveReportData} className="w-full mt-6" size="lg">
+                 <Button onClick={handleSaveReportData} className="w-full mt-6" size="lg" disabled={isUploading}>
+                    {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Guardar Datos del Informe
                 </Button>
             </CardContent>
@@ -516,7 +552,7 @@ export default function SettingsPage() {
                   <Database className="h-5 w-5" />
                   Datos Guardados
                 </div>
-                <Button variant="outline" size="sm" onClick={() => handleAddItem('department')}>
+                <Button variant="outline" size="sm" onClick={() => handleAddItem('department')} disabled={isUploading}>
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Añadir Departamento
                 </Button>
@@ -526,7 +562,7 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-            {isLoadingDatos ? (
+            {isLoadingDatos || isUploading ? (
                  <div className="flex justify-center items-center h-32">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                  </div>
@@ -537,12 +573,12 @@ export default function SettingsPage() {
                     <div className="flex items-center w-full">
                       <AccordionTrigger className="flex-1 text-base">{department.name}</AccordionTrigger>
                       <div className="flex gap-2 ml-4">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); handleOpenEditModal('department', department.name, undefined, department.name)}}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); handleOpenEditModal('department', department.name, undefined, department.name)}} disabled={isUploading}>
                               <Edit className="h-4 w-4" />
                           </Button>
                           <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()} disabled={isUploading}>
                                       <Trash2 className="h-4 w-4" />
                                   </Button>
                               </AlertDialogTrigger>
@@ -567,12 +603,12 @@ export default function SettingsPage() {
                           <div key={district.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
                             <span>{district.name}</span>
                             <div className="flex gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal('district', department.id, district.id, district.name)}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal('district', department.id, district.id, district.name)} disabled={isUploading}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={isUploading}>
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </AlertDialogTrigger>
@@ -592,7 +628,7 @@ export default function SettingsPage() {
                             </div>
                           </div>
                         ))}
-                        <Button variant="outline" size="sm" className="mt-2" onClick={() => handleAddItem('district', department.id)}>
+                        <Button variant="outline" size="sm" className="mt-2" onClick={() => handleAddItem('district', department.id)} disabled={isUploading}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Añadir Distrito
                         </Button>
@@ -639,3 +675,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+  
