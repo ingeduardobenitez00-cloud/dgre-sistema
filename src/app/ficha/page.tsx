@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,11 +21,9 @@ import { ImageViewerDialog } from '@/components/image-viewer-dialog';
 import { Button } from '@/components/ui/button';
 import { FileDown, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 export default function FichaPage() {
   const { firestore } = useFirebase();
-  const pdfRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
@@ -119,42 +117,116 @@ export default function FichaPage() {
   };
 
   const handleGeneratePdf = async () => {
-    const content = pdfRef.current;
-    if (!content) {
-        return;
-    }
+    if (!selectedDept || !selectedDistrict) return;
     setIsGeneratingPdf(true);
 
-    // Use a timeout to ensure all images are loaded
-    setTimeout(async () => {
-        try {
-            const canvas = await html2canvas(content, {
-                scale: 2, // Higher scale for better quality
-                useCORS: true, // Important for external images
-                allowTaint: true,
-                onclone: (document) => {
-                    // This can be used to modify the cloned document before rendering, e.g., hide elements
+    try {
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 15;
+        let y = margin;
+
+        // Header
+        pdf.setFontSize(22);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Informe Edilicio', pageWidth / 2, y, { align: 'center' });
+        y += 10;
+
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${selectedDistrict}, ${selectedDept}`, pageWidth / 2, y, { align: 'center' });
+        y += 15;
+        
+        pdf.setLineWidth(0.5);
+        pdf.line(margin, y - 5, pageWidth - margin, y - 5);
+
+
+        // Report Details
+        if (filteredReports && filteredReports.length > 0) {
+            const report = filteredReports[0];
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Detalles del Informe', margin, y);
+            y += 8;
+
+            pdf.setFontSize(11);
+            pdf.setFont('helvetica', 'normal');
+
+            for (const [key, value] of Object.entries(report)) {
+                if (['id', 'departamento', 'distrito'].includes(key)) continue;
+
+                if (y > pageHeight - margin) {
+                    pdf.addPage();
+                    y = margin;
                 }
-            });
 
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            const ratio = canvasWidth / canvasHeight;
-            const width = pdfWidth;
-            const height = width / ratio;
-
-            pdf.addImage(imgData, 'PNG', 0, 0, width, height > pdfHeight ? pdfHeight : height);
-            pdf.save(`Ficha-${selectedDept}-${selectedDistrict}.pdf`);
-        } catch (error) {
-            console.error("Error generating PDF:", error);
-        } finally {
-            setIsGeneratingPdf(false);
+                const label = key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(`${label}:`, margin, y);
+                pdf.setFont('helvetica', 'normal');
+                
+                const textLines = pdf.splitTextToSize(String(value) || 'N/A', pageWidth - margin * 3 - 20);
+                pdf.text(textLines, margin + 50, y);
+                y += (textLines.length * 5) + 4;
+            }
+        } else {
+            pdf.setFontSize(12);
+            pdf.setTextColor(255, 0, 0);
+            pdf.setFont('helvetica', 'italic');
+            pdf.text('NO REMITIÓ INFORME', margin, y);
+            y += 10;
         }
-    }, 500); // 500ms delay to help with image rendering
+
+        // Images section
+        if (filteredImages && filteredImages.length > 0) {
+            if (y > pageHeight - margin - 20) {
+              pdf.addPage();
+              y = margin;
+            } else {
+              y += 10;
+            }
+
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(0, 0, 0);
+            pdf.text('Galería de Imágenes', margin, y);
+            y += 10;
+
+            const imgWidth = (pageWidth - margin * 2 - 10) / 2;
+            const imgHeight = imgWidth * (2 / 3);
+            let x = margin;
+
+            for (let i = 0; i < filteredImages.length; i++) {
+                if (y + imgHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    y = margin;
+                    x = margin;
+                }
+
+                const image = filteredImages[i];
+                try {
+                    pdf.addImage(image.src, 'PNG', x, y, imgWidth, imgHeight);
+                } catch (e) {
+                    console.error("Error adding image to PDF:", e);
+                    pdf.setFontSize(8);
+                    pdf.text("Error al cargar imagen", x + imgWidth / 2, y + imgHeight / 2, { align: 'center' });
+                }
+                
+                x += imgWidth + 10;
+                if ((i + 1) % 2 === 0) {
+                    x = margin;
+                    y += imgHeight + 10;
+                }
+            }
+        }
+
+        pdf.save(`Ficha-${selectedDept}-${selectedDistrict}.pdf`);
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+    } finally {
+        setIsGeneratingPdf(false);
+    }
   };
   
   return (
@@ -223,7 +295,7 @@ export default function FichaPage() {
                        {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
                         Generar PDF
                     </Button>
-                    <div ref={pdfRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-6xl mx-auto p-4 bg-background">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-6xl mx-auto p-4 bg-background">
                         <div>
                         {filteredReports && filteredReports.length > 0 ? (
                             filteredReports.map((report) => (
@@ -312,3 +384,5 @@ export default function FichaPage() {
     </div>
   );
 }
+
+    
