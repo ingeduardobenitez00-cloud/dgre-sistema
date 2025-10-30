@@ -76,11 +76,19 @@ export default function UsersPage() {
       form.reset();
     } catch (error: any) {
       console.error("Error creating user:", error);
-      toast({
-        variant: "destructive",
-        title: 'Error al crear usuario',
-        description: error.message || 'Ocurrió un error inesperado.',
-      });
+      if (error.code === 'auth/email-already-in-use') {
+        toast({
+            variant: "destructive",
+            title: 'Error al crear usuario',
+            description: 'El correo electrónico ya está registrado. Por favor, utiliza otro.',
+        });
+      } else {
+        toast({
+            variant: "destructive",
+            title: 'Error al crear usuario',
+            description: error.message || 'Ocurrió un error inesperado.',
+        });
+      }
     }
   };
 
