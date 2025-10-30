@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button';
 import { FileDown, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { cleanFileName } from '@/lib/utils';
+import { logo1 } from '@/assets/logo1';
+import { logo2 } from '@/assets/logo2';
 
 
 export default function FichaPage() {
@@ -128,6 +130,13 @@ export default function FichaPage() {
         const pageHeight = pdf.internal.pageSize.getHeight();
         const margin = 15;
         let y = margin;
+        
+        // Add logos
+        const logoWidth = 30;
+        const logoHeight = 15;
+        pdf.addImage(logo1, 'PNG', margin, 5, logoWidth, logoHeight);
+        pdf.addImage(logo2, 'PNG', pageWidth - margin - logoWidth, 5, logoWidth, logoHeight);
+
 
         // Header
         pdf.setFontSize(22);
@@ -402,10 +411,3 @@ export default function FichaPage() {
     </div>
   );
 }
-
-    
-
-    
-
-    
-
