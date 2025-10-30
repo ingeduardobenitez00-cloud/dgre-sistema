@@ -132,12 +132,12 @@ export default function FichaPage() {
         // Header
         pdf.setFontSize(22);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Informe Edilicio', pageWidth / 2, y, { align: 'center' });
+        pdf.text('Informe Edilicio de Los Registros Electorales', pageWidth / 2, y, { align: 'center' });
         y += 10;
 
         pdf.setFontSize(16);
         pdf.setFont('helvetica', 'normal');
-        pdf.text(`${selectedDistrict}, ${selectedDept}`, pageWidth / 2, y, { align: 'center' });
+        pdf.text(`${selectedDept} - ${selectedDistrict}`, pageWidth / 2, y, { align: 'center' });
         y += 15;
         
         pdf.setLineWidth(0.5);
@@ -389,5 +389,7 @@ export default function FichaPage() {
     </div>
   );
 }
+
+    
 
     
