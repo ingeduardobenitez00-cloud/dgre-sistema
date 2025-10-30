@@ -51,6 +51,7 @@ export default function PhotoGallery() {
 
   const [departments, setDepartments] = useState<DepartmentWithDistricts[]>([]);
   const [images, setImages] = useState<Record<string, ImageData[]>>({});
+  const [checkedDepartments, setCheckedDepartments] = useState<Set<string>>(new Set());
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [activeDistrict, setActiveDistrict] = useState<{ deptName: string, distName: string } | null>(null);
@@ -79,25 +80,32 @@ export default function PhotoGallery() {
     }
   }, [datosData]);
   
-  const getImagesForDistrict = async (deptName: string, distName: string) => {
-    if (!firestore || !user) return;
-    const imagesKey = `${deptName}-${distName}`;
-    if (images[imagesKey]) return; // Already fetched
+  const getImagesForDepartment = async (department: DepartmentWithDistricts) => {
+    if (!firestore || !user || checkedDepartments.has(department.id)) return;
 
-    const q = query(
-      collection(firestore, 'imagenes'),
-      where('departamento', '==', deptName),
-      where('distrito', '==', distName)
+    setCheckedDepartments(prev => new Set(prev.add(department.id)));
+    
+    const imageQueries = department.districts.map(dist => 
+      getDocs(query(
+        collection(firestore, 'imagenes'),
+        where('departamento', '==', department.name),
+        where('distrito', '==', dist.name)
+      ))
     );
 
     try {
-        const querySnapshot = await getDocs(q);
-        const fetchedImages: ImageData[] = [];
-        querySnapshot.forEach((doc) => {
-            fetchedImages.push({ id: doc.id, ...doc.data() } as ImageData);
+        const querySnapshots = await Promise.all(imageQueries);
+        const newImagesState: Record<string, ImageData[]> = {};
+        
+        querySnapshots.forEach((snapshot, index) => {
+            const district = department.districts[index];
+            const imagesKey = `${department.name}-${district.name}`;
+            const fetchedImages: ImageData[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImageData));
+            newImagesState[imagesKey] = fetchedImages;
         });
 
-        setImages(prev => ({ ...prev, [imagesKey]: fetchedImages }));
+        setImages(prev => ({ ...prev, ...newImagesState }));
+
     } catch (error) {
         const contextualError = new FirestorePermissionError({
             operation: 'list',
@@ -106,6 +114,7 @@ export default function PhotoGallery() {
         errorEmitter.emit('permission-error', contextualError);
     }
   };
+
 
   const handleOpenUpload = (deptName: string, distName: string) => {
     setActiveDistrict({ deptName, distName });
@@ -236,10 +245,13 @@ export default function PhotoGallery() {
           const districtsWithImages = department.districts.filter(
             (dist) => (images[`${department.name}-${dist.name}`] || []).length > 0
           ).length;
-          const completionPercentage = department.districts.length > 0 ? (districtsWithImages / department.districts.length) * 100 : 0;
+          
+          const completionPercentage = checkedDepartments.has(department.id)
+            ? (districtsWithImages / department.districts.length) * 100
+            : 0;
 
           return (
-            <AccordionItem value={department.id} key={department.id}>
+            <AccordionItem value={department.id} key={department.id} onFocus={() => getImagesForDepartment(department)}>
               <div className='flex flex-col'>
                 <div className='flex items-center w-full'>
                     <AccordionTrigger className="text-lg font-medium hover:no-underline data-[state=open]:text-primary flex-1">
@@ -260,12 +272,12 @@ export default function PhotoGallery() {
                     const districtImages = images[imagesKey] || [];
                     const hasImages = districtImages.length > 0;
                     return (
-                      <AccordionItem value={district.id} key={district.id} onFocus={() => getImagesForDistrict(department.name, district.name)}>
+                      <AccordionItem value={district.id} key={district.id}>
                           <div className="flex w-full items-center">
                               <AccordionTrigger
                                   className={cn(
                                       "flex-1 text-md font-medium border-b-0",
-                                      !hasImages && "text-destructive hover:text-destructive"
+                                      !hasImages && checkedDepartments.has(department.id) && "text-destructive hover:text-destructive"
                                   )}
                               >
                                   {district.name}
@@ -276,7 +288,8 @@ export default function PhotoGallery() {
                               </Button>
                           </div>
                         <AccordionContent className="pt-4">
-                        {hasImages ? (
+                        {images[imagesKey] ? (
+                          hasImages ? (
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             {districtImages.map((image) => (
                               <Card
@@ -323,7 +336,7 @@ export default function PhotoGallery() {
                               </Card>
                             ))}
                           </div>
-                        ) : (
+                          ) : (
                           <button
                             onClick={() => handleOpenUpload(department.name, district.name)}
                             className="w-full text-center py-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center hover:bg-muted/50 transition-colors"
@@ -332,6 +345,11 @@ export default function PhotoGallery() {
                             <p className="text-destructive font-medium">No hay imágenes en este distrito.</p>
                             <p className="text-sm text-muted-foreground">Haz clic aquí para subir una.</p>
                           </button>
+                          )
+                        ) : (
+                             <div className="flex justify-center items-center h-24">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
                         )}
                         </AccordionContent>
                       </AccordionItem>
@@ -358,3 +376,4 @@ export default function PhotoGallery() {
     </div>
   );
 }
+
