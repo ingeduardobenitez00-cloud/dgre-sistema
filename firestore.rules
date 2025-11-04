@@ -92,17 +92,17 @@ service cloud.firestore {
      * @description Allows a user to read and write their own profile data.
      * @path /users/{userId}
      * @allow (get): A user can read their own profile.
-     * @allow (list): A user can list their own profile.
+     * @allow (list): A signed-in user can list all user profiles.
      * @allow (create): A user can create their own profile if the userId matches their auth.uid.
      * @allow (update): A user can update their own profile if the userId matches their auth.uid and the document exists.
      * @allow (delete): A user can delete their own profile if the userId matches their auth.uid and the document exists.
-     * @deny (get, list): A user cannot read or list other user profiles.
+     * @deny (get): A user cannot read other user profiles.
      * @deny (create, update, delete): A user cannot create, update, or delete other user profiles.
-     * @principle Enforces user-specific data isolation for profile information.
+     * @principle Enforces user-specific data isolation for profile information while allowing listing for authenticated users.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+      allow list: if isSignedIn();
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
