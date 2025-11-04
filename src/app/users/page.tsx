@@ -8,12 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, EyeOff, UserPlus, Users, Loader2, Edit, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Users, Loader2, Edit, Trash2, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -177,6 +177,23 @@ export default function UsersPage() {
     }
   };
 
+  const handleResetPassword = async (email: string) => {
+    if (!auth) return;
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: 'Correo enviado',
+        description: `Se ha enviado un correo para restablecer la contraseña a ${email}.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo enviar el correo de restablecimiento. Inténtalo de nuevo.',
+      });
+    }
+  };
+
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header title="Gestión de Usuarios" />
@@ -242,7 +259,7 @@ export default function UsersPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {ALL_MODULES.map(module => (
                         <div key={module} className="flex items-center space-x-2">
-                            <Checkbox id={`access-${module}`} name={`access-${module}`} defaultChecked={['fotos', 'ficha', 'resumen'].includes(module)} />
+                            <Checkbox id={`access-${module}`} name={`access-${module}`} />
                             <Label htmlFor={`access-${module}`} className="font-normal capitalize">
                                 {module === 'config' ? 'Configuración' : module}
                             </Label>
@@ -330,6 +347,25 @@ export default function UsersPage() {
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal(user)}>
                                         <Edit className="h-4 w-4" />
                                     </Button>
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <KeyRound className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Restablecer Contraseña</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                   ¿Estás seguro de que quieres enviar un correo de restablecimiento de contraseña a {user.email}?
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleResetPassword(user.email)}>Enviar Correo</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
@@ -439,5 +475,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    
