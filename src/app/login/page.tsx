@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useFirebase } from '@/firebase';
 import {
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -50,6 +51,32 @@ export default function LoginPage() {
         setIsLoadingLogin(false);
     }
   };
+  
+  const handlePasswordReset = async () => {
+    if (!auth) return;
+    if (!loginEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'Correo requerido',
+        description: 'Por favor, ingresa tu correo electrónico para recuperar la contraseña.',
+      });
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, loginEmail);
+      toast({
+        title: 'Correo enviado',
+        description: 'Revisa tu bandeja de entrada para restablecer tu contraseña.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo enviar el correo. Verifica que el email sea correcto.',
+      });
+    }
+  };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
@@ -74,14 +101,23 @@ export default function LoginPage() {
                 <Input
                   id="login-email"
                   type="email"
-                  placeholder="admin@ejemplo.com"
+                  placeholder=""
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="login-password">Contraseña</Label>
+                <div className="flex items-center justify-between">
+                    <Label htmlFor="login-password">Contraseña</Label>
+                     <button
+                        type="button"
+                        onClick={handlePasswordReset}
+                        className="text-sm font-medium text-primary hover:underline"
+                    >
+                        ¿Olvidaste tu contraseña?
+                    </button>
+                </div>
                 <div className="relative">
                     <Input
                     id="login-password"
