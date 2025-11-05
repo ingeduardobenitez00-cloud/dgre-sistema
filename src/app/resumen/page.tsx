@@ -46,6 +46,11 @@ type SummaryData = {
     otrosNoEspecificado: CategoryData;
 };
 
+type ComisariaData = {
+    [department: string]: string[];
+}
+
+
 const ResguardoIcon = ({ lugar }: { lugar: string | undefined }) => {
   const normalizedLugar = lugar ? lugar.toLowerCase() : '';
 
@@ -71,6 +76,7 @@ export default function ResumenPage() {
 
   const [structuredData, setStructuredData] = useState<DepartmentWithDistricts[]>([]);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
+  const [comisariaData, setComisariaData] = useState<ComisariaData>({});
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -111,52 +117,60 @@ export default function ResumenPage() {
         otrosNoEspecificado: initialCategoryData(),
       };
       
+      const comisariaSummary: ComisariaData = {};
+
       summary.totalReports.count = reportsData.length;
       summary.totalReports.districts = reportsData.map(r => `${r.departamento} - ${r.distrito}`);
 
       reportsData.forEach(report => {
         const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase() : '';
-        const districtName = `${report.departamento} - ${report.distrito}`;
+        const districtName = report.distrito;
+        const deptName = report.departamento;
+        const fullDistrictName = `${deptName} - ${districtName}`;
         let categorized = false;
 
         if (lugar.includes('habitacion segura') || lugar.includes('registro electoral')) {
           summary.habitacionSegura.count++;
-          summary.habitacionSegura.districts.push(districtName);
-          categorized = true;
+          summary.habitacionSegura.districts.push(fullDistrictName);
         }
         if (lugar.includes('comisaria')) {
           summary.comisaria.count++;
-          summary.comisaria.districts.push(districtName);
+          summary.comisaria.districts.push(fullDistrictName);
+          if (!comisariaSummary[deptName!]) {
+            comisariaSummary[deptName!] = [];
+          }
+          comisariaSummary[deptName!].push(districtName!);
           categorized = true;
         }
         if (lugar.includes('parroquia')) {
           summary.parroquia.count++;
-          summary.parroquia.districts.push(districtName);
+          summary.parroquia.districts.push(fullDistrictName);
           categorized = true;
         }
         if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
           summary.localVotacion.count++;
-          summary.localVotacion.districts.push(districtName);
+          summary.localVotacion.districts.push(fullDistrictName);
           categorized = true;
         }
         if (lugar.includes('juzgado')) {
           summary.juzgado.count++;
-          summary.juzgado.districts.push(districtName);
+          summary.juzgado.districts.push(fullDistrictName);
           categorized = true;
         }
         if (lugar.includes('intendencia')) {
           summary.propiedadIntendencia.count++;
-          summary.propiedadIntendencia.districts.push(districtName);
+          summary.propiedadIntendencia.districts.push(fullDistrictName);
           categorized = true;
         }
         
         if (!categorized && lugar) {
             summary.otrosNoEspecificado.count++;
-            summary.otrosNoEspecificado.districts.push(districtName);
+            summary.otrosNoEspecificado.districts.push(fullDistrictName);
         }
       });
 
       setSummaryData(summary);
+      setComisariaData(comisariaSummary);
     }
   }, [datosData, reportsData]);
 
@@ -172,8 +186,11 @@ export default function ResumenPage() {
             ...summaryData.propiedadIntendencia.districts,
             ...summaryData.otrosNoEspecificado.districts,
         ];
-    } else {
+    } else if (category !== 'comisaria') {
         districts = summaryData[category].districts;
+    } else {
+        // We handle comisaria separately with its own accordion
+        return;
     }
     
     setSelectedCategory(title);
@@ -181,12 +198,7 @@ export default function ResumenPage() {
     setIsDialogOpen(true);
   };
   
-  const handleDistrictClick = (districtString: string) => {
-    const deptMatch = districtString.match(/^(\d+\s*-\s*\w+(\s+\w+)*)/);
-    const deptName = deptMatch ? deptMatch[1].trim() : '';
-
-    const distName = districtString.replace(deptName, '').replace(/^\s*-\s*/, '').trim();
-
+  const handleDistrictClick = (deptName: string, distName: string) => {
     if (deptName && distName) {
       const deptParam = encodeURIComponent(deptName);
       const distParam = encodeURIComponent(distName);
@@ -211,7 +223,6 @@ export default function ResumenPage() {
   const summaryCards = [
     { key: 'totalReports', title: 'Total de Informes', icon: FileText, onClick: () => handleCategoryClick('totalReports', 'Total de Informes') },
     { key: 'habitacionSegura', title: 'Habitación Segura / Registro', icon: CheckCircle, className: 'text-green-600', onClick: () => handleCategoryClick('habitacionSegura', 'Habitación Segura / Registro') },
-    { key: 'comisaria', title: 'Comisaría', icon: Shield, className: 'text-blue-600', onClick: () => handleCategoryClick('comisaria', 'Comisaría') },
   ] as const;
 
   const otrosCount = summaryData.parroquia.count + summaryData.localVotacion.count + summaryData.juzgado.count + summaryData.propiedadIntendencia.count + summaryData.otrosNoEspecificado.count;
@@ -243,6 +254,47 @@ export default function ResumenPage() {
                     </Card>
                  )
                })}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Comisaría</CardTitle>
+                        <Shield className="h-4 w-4 text-muted-foreground text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold" onClick={() => handleCategoryClick('comisaria', 'Comisaría')} role="button">{summaryData.comisaria.count}</div>
+                        <Accordion type="single" collapsible className="w-full text-xs">
+                          <AccordionItem value="item-1">
+                            <AccordionTrigger className="p-0 hover:no-underline">Ver desglose</AccordionTrigger>
+                            <AccordionContent className="pt-2 space-y-1">
+                                <Accordion type="multiple" className="w-full">
+                                {Object.entries(comisariaData).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([dept, districts]) => (
+                                    <AccordionItem value={dept} key={dept}>
+                                        <AccordionTrigger className="p-0 hover:no-underline text-xs">
+                                           {dept} ({districts.length})
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pt-2 pl-2">
+                                            {districts.length > 1 ? (
+                                                <Accordion type="single" collapsible className="w-full">
+                                                    <AccordionItem value="distritos">
+                                                        <AccordionTrigger className="p-0 hover:no-underline text-xs">Ver Distritos</AccordionTrigger>
+                                                        <AccordionContent className="pt-2 pl-2">
+                                                            {districts.map(dist => (
+                                                                <div key={dist} className="text-xs cursor-pointer hover:font-semibold" onClick={() => handleDistrictClick(dept, dist)}>{dist}</div>
+                                                            ))}
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                </Accordion>
+                                            ) : (
+                                                <div className="text-xs cursor-pointer hover:font-semibold" onClick={() => handleDistrictClick(dept, districts[0])}>{districts[0]}</div>
+                                            )}
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                                </Accordion>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                    </CardContent>
+                </Card>
                  <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Resguardo en Otros Lugares</CardTitle>
@@ -327,16 +379,19 @@ export default function ResumenPage() {
               <ScrollArea className="h-72 w-full rounded-md border">
                   {districtsForCategory.length > 0 ? (
                       <div className="p-4 space-y-1">
-                          {districtsForCategory.map((dist, index) => (
+                          {districtsForCategory.map((dist, index) => {
+                             const [deptName, distName] = dist.split(' - ');
+                             return (
                               <Button
                                   key={index}
                                   variant="ghost"
                                   className="w-full justify-start text-left h-auto py-2"
-                                  onClick={() => handleDistrictClick(dist)}
+                                  onClick={() => handleDistrictClick(deptName, distName)}
                               >
                                 {dist}
                               </Button>
-                          ))}
+                             )
+                          })}
                       </div>
                   ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
