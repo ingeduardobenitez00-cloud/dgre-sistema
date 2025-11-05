@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query } from 'firebase/firestore';
 import { type Dato, type ReportData } from '@/lib/data';
-import { Loader2, Building, CheckCircle, Shield, FileText } from 'lucide-react';
+import { Loader2, Building, CheckCircle, Shield, FileText, Landmark, Vote, Scale, Home } from 'lucide-react';
 
 type DistrictWithReport = {
   name: string;
@@ -26,6 +25,10 @@ type SummaryCounts = {
     habitacionSegura: number;
     comisaria: number;
     otros: number;
+    parroquia: number;
+    localVotacion: number;
+    juzgado: number;
+    propiedadIntendencia: number;
 };
 
 const ResguardoIcon = ({ lugar }: { lugar: string | undefined }) => {
@@ -56,6 +59,10 @@ export default function ResumenPage() {
     habitacionSegura: 0,
     comisaria: 0,
     otros: 0,
+    parroquia: 0,
+    localVotacion: 0,
+    juzgado: 0,
+    propiedadIntendencia: 0,
   });
   
   useEffect(() => {
@@ -84,6 +91,10 @@ export default function ResumenPage() {
       let habitacionSegura = 0;
       let comisaria = 0;
       let otros = 0;
+      let parroquia = 0;
+      let localVotacion = 0;
+      let juzgado = 0;
+      let propiedadIntendencia = 0;
 
       reportsData.forEach(report => {
         const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase() : '';
@@ -91,6 +102,18 @@ export default function ResumenPage() {
           habitacionSegura++;
         } else if (lugar.includes('comisaria')) {
           comisaria++;
+        } else if (lugar.includes('parroquia')) {
+          parroquia++;
+          otros++;
+        } else if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
+          localVotacion++;
+          otros++;
+        } else if (lugar.includes('juzgado')) {
+          juzgado++;
+          otros++;
+        } else if (lugar.includes('intendencia')) {
+          propiedadIntendencia++;
+          otros++;
         } else if (lugar) {
             otros++;
         }
@@ -101,6 +124,10 @@ export default function ResumenPage() {
         habitacionSegura,
         comisaria,
         otros,
+        parroquia,
+        localVotacion,
+        juzgado,
+        propiedadIntendencia,
       });
 
     }
@@ -155,6 +182,17 @@ export default function ResumenPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{summaryCounts.otros}</div>
+                        <Accordion type="single" collapsible className="w-full text-xs">
+                          <AccordionItem value="item-1">
+                            <AccordionTrigger className="p-0 hover:no-underline">Ver desglose</AccordionTrigger>
+                            <AccordionContent className="pt-2 space-y-1">
+                              <div className="flex justify-between items-center"><span><Landmark className="inline-block mr-2 h-4 w-4 text-amber-600" />Parroquia:</span> <span className="font-semibold">{summaryCounts.parroquia}</span></div>
+                              <div className="flex justify-between items-center"><span><Vote className="inline-block mr-2 h-4 w-4 text-cyan-600" />Local de Votación:</span> <span className="font-semibold">{summaryCounts.localVotacion}</span></div>
+                              <div className="flex justify-between items-center"><span><Scale className="inline-block mr-2 h-4 w-4 text-gray-600" />Juzgado:</span> <span className="font-semibold">{summaryCounts.juzgado}</span></div>
+                              <div className="flex justify-between items-center"><span><Home className="inline-block mr-2 h-4 w-4 text-rose-600" />Prop. Intendencia:</span> <span className="font-semibold">{summaryCounts.propiedadIntendencia}</span></div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
                     </CardContent>
                 </Card>
             </CardContent>
@@ -203,5 +241,3 @@ export default function ResumenPage() {
     </div>
   );
 }
-
-    
