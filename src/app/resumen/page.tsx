@@ -85,7 +85,6 @@ export default function ResumenPage() {
 
   useEffect(() => {
     if (datosData && reportsData) {
-      // Structure data for detailed list
       const departments: Record<string, Set<string>> = {};
       datosData.forEach(d => {
         if (!departments[d.departamento]) {
@@ -105,7 +104,6 @@ export default function ResumenPage() {
       });
       setStructuredData(structured);
       
-      // Calculate summary counts and districts
       const initialCategoryData = (): CategoryData => ({ count: 0, districts: [] });
       const summary: SummaryData = {
         totalReports: initialCategoryData(),
@@ -125,49 +123,33 @@ export default function ResumenPage() {
 
       reportsData.forEach(report => {
         const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase() : '';
-        const districtName = report.distrito;
-        const deptName = report.departamento;
-        const fullDistrictName = `${deptName} - ${districtName}`;
-        let categorized = false;
-
+        const fullDistrictName = `${report.departamento} - ${report.distrito}`;
+        const deptName = report.departamento!;
+        const distName = report.distrito!;
+        
         if (lugar.includes('habitacion segura') || lugar.includes('registro electoral')) {
           summary.habitacionSegura.count++;
           summary.habitacionSegura.districts.push(fullDistrictName);
-          categorized = true;
-        }
-        if (lugar.includes('comisaria')) {
+        } else if (lugar.includes('comisaria')) {
           summary.comisaria.count++;
           summary.comisaria.districts.push(fullDistrictName);
-          if (!comisariaSummary[deptName!]) {
-            comisariaSummary[deptName!] = [];
+          if (!comisariaSummary[deptName]) {
+            comisariaSummary[deptName] = [];
           }
-          comisariaSummary[deptName!].push(districtName!);
-          categorized = true;
-        }
-        
-        let inOtherCategory = false;
-        if (lugar.includes('parroquia')) {
-          summary.parroquia.count++;
-          summary.parroquia.districts.push(fullDistrictName);
-          inOtherCategory = true;
-        }
-        if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
-          summary.localVotacion.count++;
-          summary.localVotacion.districts.push(fullDistrictName);
-          inOtherCategory = true;
-        }
-        if (lugar.includes('juzgado')) {
-          summary.juzgado.count++;
-          summary.juzgado.districts.push(fullDistrictName);
-          inOtherCategory = true;
-        }
-        if (lugar.includes('intendencia')) {
-          summary.propiedadIntendencia.count++;
-          summary.propiedadIntendencia.districts.push(fullDistrictName);
-          inOtherCategory = true;
-        }
-        
-        if (!categorized && !inOtherCategory && lugar) {
+          comisariaSummary[deptName].push(distName);
+        } else if (lugar.includes('parroquia')) {
+            summary.parroquia.count++;
+            summary.parroquia.districts.push(fullDistrictName);
+        } else if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
+            summary.localVotacion.count++;
+            summary.localVotacion.districts.push(fullDistrictName);
+        } else if (lugar.includes('juzgado')) {
+            summary.juzgado.count++;
+            summary.juzgado.districts.push(fullDistrictName);
+        } else if (lugar.includes('intendencia')) {
+            summary.propiedadIntendencia.count++;
+            summary.propiedadIntendencia.districts.push(fullDistrictName);
+        } else if (lugar) { // Any other non-empty 'lugar'
             summary.otrosNoEspecificado.count++;
             summary.otrosNoEspecificado.districts.push(fullDistrictName);
         }
@@ -190,11 +172,8 @@ export default function ResumenPage() {
             ...summaryData.propiedadIntendencia.districts,
             ...summaryData.otrosNoEspecificado.districts,
         ];
-    } else if (category !== 'comisaria') {
-        districts = summaryData[category].districts;
     } else {
-        // We handle comisaria separately with its own accordion
-        districts = summaryData.comisaria.districts;
+        districts = summaryData[category].districts;
     }
     
     setSelectedCategory(title);
