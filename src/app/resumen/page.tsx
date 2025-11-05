@@ -8,7 +8,7 @@ import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query } from 'firebase/firestore';
 import { type Dato, type ReportData } from '@/lib/data';
-import { Loader2, Building, CheckCircle, Shield, FileText, Landmark, Vote, Scale, Home } from 'lucide-react';
+import { Loader2, Building, CheckCircle, Shield, FileText, Landmark, Vote, Scale, Home, HelpCircle } from 'lucide-react';
 
 type DistrictWithReport = {
   name: string;
@@ -29,6 +29,7 @@ type SummaryCounts = {
     localVotacion: number;
     juzgado: number;
     propiedadIntendencia: number;
+    otrosNoEspecificado: number;
 };
 
 const ResguardoIcon = ({ lugar }: { lugar: string | undefined }) => {
@@ -63,6 +64,7 @@ export default function ResumenPage() {
     localVotacion: 0,
     juzgado: 0,
     propiedadIntendencia: 0,
+    otrosNoEspecificado: 0,
   });
   
   useEffect(() => {
@@ -95,27 +97,37 @@ export default function ResumenPage() {
       let localVotacion = 0;
       let juzgado = 0;
       let propiedadIntendencia = 0;
+      let otrosNoEspecificado = 0;
 
       reportsData.forEach(report => {
         const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase() : '';
+        let categorizedInOtros = false;
+
         if (lugar.includes('habitacion segura') || lugar.includes('registro electoral')) {
           habitacionSegura++;
         } else if (lugar.includes('comisaria')) {
           comisaria++;
-        } else if (lugar.includes('parroquia')) {
-          parroquia++;
-          otros++;
-        } else if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
-          localVotacion++;
-          otros++;
-        } else if (lugar.includes('juzgado')) {
-          juzgado++;
-          otros++;
-        } else if (lugar.includes('intendencia')) {
-          propiedadIntendencia++;
-          otros++;
         } else if (lugar) {
             otros++;
+            if (lugar.includes('parroquia')) {
+              parroquia++;
+              categorizedInOtros = true;
+            }
+            if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
+              localVotacion++;
+              categorizedInOtros = true;
+            }
+            if (lugar.includes('juzgado')) {
+              juzgado++;
+              categorizedInOtros = true;
+            }
+            if (lugar.includes('intendencia')) {
+              propiedadIntendencia++;
+              categorizedInOtros = true;
+            }
+            if (!categorizedInOtros) {
+                otrosNoEspecificado++;
+            }
         }
       });
 
@@ -128,6 +140,7 @@ export default function ResumenPage() {
         localVotacion,
         juzgado,
         propiedadIntendencia,
+        otrosNoEspecificado,
       });
 
     }
@@ -190,6 +203,7 @@ export default function ResumenPage() {
                               <div className="flex justify-between items-center"><span><Vote className="inline-block mr-2 h-4 w-4 text-cyan-600" />Local de Votación:</span> <span className="font-semibold">{summaryCounts.localVotacion}</span></div>
                               <div className="flex justify-between items-center"><span><Scale className="inline-block mr-2 h-4 w-4 text-gray-600" />Juzgado:</span> <span className="font-semibold">{summaryCounts.juzgado}</span></div>
                               <div className="flex justify-between items-center"><span><Home className="inline-block mr-2 h-4 w-4 text-rose-600" />Prop. Intendencia:</span> <span className="font-semibold">{summaryCounts.propiedadIntendencia}</span></div>
+                               <div className="flex justify-between items-center"><span><HelpCircle className="inline-block mr-2 h-4 w-4 text-gray-400" />Otros no especificados:</span> <span className="font-semibold">{summaryCounts.otrosNoEspecificado}</span></div>
                             </AccordionContent>
                           </AccordionItem>
                         </Accordion>
