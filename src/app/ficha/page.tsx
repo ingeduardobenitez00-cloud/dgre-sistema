@@ -25,11 +25,15 @@ import { logo1 } from '@/assets/logo1';
 import { logo2 } from '@/assets/logo2';
 import { cleanFileName } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 
 export default function FichaPage() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
@@ -48,6 +52,34 @@ export default function FichaPage() {
       setDepartments(uniqueDepts);
     }
   }, [datosData]);
+  
+  useEffect(() => {
+    if (datosData) {
+        const deptFromUrl = searchParams.get('dept');
+        const distFromUrl = searchParams.get('dist');
+        
+        if (deptFromUrl) {
+          const decodedDept = decodeURIComponent(deptFromUrl);
+          const deptExists = departments.some(d => d === decodedDept);
+          if(deptExists) {
+            setSelectedDept(decodedDept);
+            const relatedDistricts = datosData
+                .filter(d => d.departamento === decodedDept)
+                .map(d => d.distrito)
+                .sort();
+            setDistricts([...new Set(relatedDistricts)]);
+
+             if (distFromUrl) {
+                const decodedDist = decodeURIComponent(distFromUrl);
+                const distExists = relatedDistricts.some(d => d === decodedDist);
+                if (distExists) {
+                    setSelectedDistrict(decodedDist);
+                }
+             }
+          }
+        }
+    }
+  }, [searchParams, datosData, departments]);
 
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedDept || !selectedDistrict) return null;
@@ -75,6 +107,7 @@ export default function FichaPage() {
   const handleDeptChange = (deptName: string) => {
     setSelectedDistrict('');
     setDistricts([]);
+    router.push('/ficha'); // Clear URL params on manual change
 
     if (deptName === 'all-depts') {
         setSelectedDept('');
@@ -93,6 +126,7 @@ export default function FichaPage() {
   };
 
   const handleDistrictChange = (distName: string) => {
+     router.push('/ficha'); // Clear URL params on manual change
     if (distName === 'all-districts') {
       setSelectedDistrict('');
     } else {

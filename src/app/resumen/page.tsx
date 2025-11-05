@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -17,6 +18,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 
 type DistrictWithReport = {
   name: string;
@@ -59,6 +61,7 @@ const ResguardoIcon = ({ lugar }: { lugar: string | undefined }) => {
 
 export default function ResumenPage() {
   const { firestore } = useFirebase();
+  const router = useRouter();
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
@@ -178,6 +181,22 @@ export default function ResumenPage() {
     setIsDialogOpen(true);
   };
   
+  const handleDistrictClick = (districtString: string) => {
+    const parts = districtString.split(' - ');
+    if (parts.length >= 2) {
+      // The first part is the department number, the second is the name.
+      // We want to skip the number.
+      const deptName = parts[1];
+      // The rest of the string is the district.
+      const distName = parts.slice(2).join(' - ');
+      
+      const deptParam = encodeURIComponent(deptName);
+      const distParam = encodeURIComponent(distName);
+
+      router.push(`/ficha?dept=${deptParam}&dist=${distParam}`);
+    }
+  };
+
   const isLoading = isLoadingDatos || isLoadingReports;
 
   if (isLoading || !summaryData) {
@@ -305,16 +324,23 @@ export default function ResumenPage() {
               <DialogHeader>
                   <DialogTitle>Distritos en: {selectedCategory}</DialogTitle>
                   <DialogDescription>
-                      Listado de ubicaciones para la categoría seleccionada.
+                      Listado de ubicaciones para la categoría seleccionada. Haz clic en un distrito para ver su ficha.
                   </DialogDescription>
               </DialogHeader>
-              <ScrollArea className="h-72 w-full rounded-md border p-4">
+              <ScrollArea className="h-72 w-full rounded-md border">
                   {districtsForCategory.length > 0 ? (
-                      <ul className="space-y-2">
+                      <div className="p-4 space-y-1">
                           {districtsForCategory.map((dist, index) => (
-                              <li key={index} className="text-sm">{dist}</li>
+                              <Button
+                                  key={index}
+                                  variant="ghost"
+                                  className="w-full justify-start text-left h-auto py-2"
+                                  onClick={() => handleDistrictClick(dist)}
+                              >
+                                {dist}
+                              </Button>
                           ))}
-                      </ul>
+                      </div>
                   ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
                           No hay distritos en esta categoría.
