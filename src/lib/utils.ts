@@ -13,3 +13,7 @@ export const cleanFileName = (name: string): string => {
       .replace(/_/g, ' ')         // Reemplaza guiones bajos con espacios
       .trim();                    // Elimina espacios al inicio y al final
 }
+
+export const capitalizeWords = (str: string): string => {
+  return str.replace(/\b\w/g, char => char.toUpperCase());
+}
