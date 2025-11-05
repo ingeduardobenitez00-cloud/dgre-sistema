@@ -82,7 +82,7 @@ service cloud.firestore {
      * @allow (get): A user can read their own profile.
      * @allow (list): A signed-in user can list all user profiles.
      * @allow (create): A user can create their own profile if the userId matches their auth.uid.
-     * @allow (update): A user can update their own profile if the userId matches their auth.uid and the document exists.
+     * @allow (update): A user can update their own profile if the userId matches their auth.uid.
      * @allow (delete): A user can delete their own profile if the userId matches their auth.uid and the document exists.
      * @deny (get): A user cannot read other user profiles.
      * @deny (create, update, delete): A user cannot create, update, or delete other user profiles.
