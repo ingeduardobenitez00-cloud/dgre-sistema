@@ -182,17 +182,14 @@ export default function ResumenPage() {
   };
   
   const handleDistrictClick = (districtString: string) => {
-    const parts = districtString.split(' - ');
-    if (parts.length >= 2) {
-      // The first part is the department number, the second is the name.
-      // We want to skip the number.
-      const deptName = parts[1];
-      // The rest of the string is the district.
-      const distName = parts.slice(2).join(' - ');
-      
+    const deptMatch = districtString.match(/^(\d+\s*-\s*\w+(\s+\w+)*)/);
+    const deptName = deptMatch ? deptMatch[1].trim() : '';
+
+    const distName = districtString.replace(deptName, '').replace(/^\s*-\s*/, '').trim();
+
+    if (deptName && distName) {
       const deptParam = encodeURIComponent(deptName);
       const distParam = encodeURIComponent(distName);
-
       router.push(`/ficha?dept=${deptParam}&dist=${distParam}`);
     }
   };

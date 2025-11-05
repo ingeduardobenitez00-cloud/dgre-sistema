@@ -107,7 +107,7 @@ export default function FichaPage() {
   const handleDeptChange = (deptName: string) => {
     setSelectedDistrict('');
     setDistricts([]);
-    router.push('/ficha'); // Clear URL params on manual change
+    router.push('/ficha'); 
 
     if (deptName === 'all-depts') {
         setSelectedDept('');
@@ -126,7 +126,7 @@ export default function FichaPage() {
   };
 
   const handleDistrictChange = (distName: string) => {
-     router.push('/ficha'); // Clear URL params on manual change
+     router.push('/ficha'); 
     if (distName === 'all-districts') {
       setSelectedDistrict('');
     } else {
@@ -313,7 +313,7 @@ export default function FichaPage() {
           <CardContent className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 space-y-2">
               <Label>Departamento</Label>
-              <Select onValueChange={handleDeptChange} value={selectedDept || 'all-depts'}>
+              <Select onValueChange={handleDeptChange} value={selectedDept || ''}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar Departamento" />
                 </SelectTrigger>
@@ -331,7 +331,7 @@ export default function FichaPage() {
               <Label>Distrito</Label>
               <Select
                 onValueChange={handleDistrictChange}
-                value={selectedDistrict || 'all-districts'}
+                value={selectedDistrict || ''}
                 disabled={!selectedDept}
               >
                 <SelectTrigger>
