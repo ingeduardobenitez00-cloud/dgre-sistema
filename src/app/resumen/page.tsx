@@ -8,9 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { type Dato, type ReportData } from '@/lib/data';
-import { Loader2, Building, CheckCircle, Shield, FileText, Landmark, Vote, Scale, Home, HelpCircle } from 'lucide-react';
+import { Loader2, Building, CheckCircle, Shield, FileText, Landmark, Vote, Scale, Home, HelpCircle, FileDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,11 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { logo1 } from '@/assets/logo1';
+import { logo2 } from '@/assets/logo2';
+import { useToast } from '@/hooks/use-toast';
 
 type DistrictWithReport = {
   name: string;
@@ -68,6 +73,7 @@ const ResguardoIcon = ({ lugar }: { lugar: string | undefined }) => {
 export default function ResumenPage() {
   const { firestore } = useFirebase();
   const router = useRouter();
+  const { toast } = useToast();
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
@@ -82,6 +88,7 @@ export default function ResumenPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [districtsForCategory, setDistrictsForCategory] = useState<string[]>([]);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     if (datosData && reportsData) {
@@ -118,18 +125,20 @@ export default function ResumenPage() {
       
       const comisariaSummary: ComisariaData = {};
 
-      summary.totalReports.count = reportsData.length;
-      summary.totalReports.districts = reportsData.map(r => `${r.departamento} - ${r.distrito}`);
+      summary.totalReports.count = datosData.length;
+      summary.totalReports.districts = datosData.map(r => `${r.departamento} - ${r.distrito}`);
 
       reportsData.forEach(report => {
         const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase() : '';
         const fullDistrictName = `${report.departamento} - ${report.distrito}`;
         const deptName = report.departamento!;
         const distName = report.distrito!;
-        
+        let categorized = false;
+
         if (lugar.includes('habitacion segura') || lugar.includes('registro electoral')) {
             summary.habitacionSegura.count++;
             summary.habitacionSegura.districts.push(fullDistrictName);
+            categorized = true;
         } else if (lugar.includes('comisaria')) {
             summary.comisaria.count++;
             summary.comisaria.districts.push(fullDistrictName);
@@ -137,21 +146,26 @@ export default function ResumenPage() {
               comisariaSummary[deptName] = [];
             }
             comisariaSummary[deptName].push(distName);
-        } else if (lugar.includes('parroquia')) {
-            summary.parroquia.count++;
-            summary.parroquia.districts.push(fullDistrictName);
-        } else if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
-            summary.localVotacion.count++;
-            summary.localVotacion.districts.push(fullDistrictName);
-        } else if (lugar.includes('juzgado')) {
-            summary.juzgado.count++;
-            summary.juzgado.districts.push(fullDistrictName);
-        } else if (lugar.includes('intendencia')) {
-            summary.propiedadIntendencia.count++;
-            summary.propiedadIntendencia.districts.push(fullDistrictName);
-        } else if (lugar) { // Any other non-empty 'lugar'
-            summary.otrosNoEspecificado.count++;
-            summary.otrosNoEspecificado.districts.push(fullDistrictName);
+            categorized = true;
+        }
+        
+        if (!categorized && lugar) {
+            if (lugar.includes('parroquia')) {
+                summary.parroquia.count++;
+                summary.parroquia.districts.push(fullDistrictName);
+            } else if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
+                summary.localVotacion.count++;
+                summary.localVotacion.districts.push(fullDistrictName);
+            } else if (lugar.includes('juzgado')) {
+                summary.juzgado.count++;
+                summary.juzgado.districts.push(fullDistrictName);
+            } else if (lugar.includes('intendencia')) {
+                summary.propiedadIntendencia.count++;
+                summary.propiedadIntendencia.districts.push(fullDistrictName);
+            } else {
+                summary.otrosNoEspecificado.count++;
+                summary.otrosNoEspecificado.districts.push(fullDistrictName);
+            }
         }
       });
 
@@ -188,6 +202,107 @@ export default function ResumenPage() {
       router.push(`/ficha?dept=${deptParam}&dist=${distParam}`);
     }
   };
+  
+   const handleGeneratePdf = () => {
+    if (!summaryData || !structuredData) return;
+    setIsGeneratingPdf(true);
+
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 15;
+        let currentY = 25;
+
+        // --- HEADER ---
+        const logoWidth = 30;
+        const logoHeight = 15;
+        doc.addImage(logo2, 'JPEG', margin, 5, logoWidth, logoHeight);
+        doc.addImage(logo1, 'JPEG', pageWidth - margin - logoWidth, 5, logoWidth, logoHeight);
+
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Reporte de Resumen General", pageWidth / 2, currentY, { align: 'center' });
+        currentY += 15;
+
+        // --- SUMMARY TABLE ---
+        doc.setFontSize(14);
+        doc.text("Resumen General", margin, currentY);
+        currentY += 8;
+
+        const otrosCount = summaryData.parroquia.count + summaryData.localVotacion.count + summaryData.juzgado.count + summaryData.propiedadIntendencia.count + summaryData.otrosNoEspecificado.count;
+
+        const summaryBody = [
+            ['Total de Oficinas', summaryData.totalReports.count],
+            ['Registros con Habitaciones Seguras', summaryData.habitacionSegura.count],
+            ['Lugar de Resguardo Comisaria', summaryData.comisaria.count],
+            ['Resguardo en Otros Lugares', otrosCount],
+            ['  - Parroquia', summaryData.parroquia.count],
+            ['  - Local de Votación', summaryData.localVotacion.count],
+            ['  - Juzgado', summaryData.juzgado.count],
+            ['  - Prop. Intendencia', summaryData.propiedadIntendencia.count],
+            ['  - Otros no especificados', summaryData.otrosNoEspecificado.count],
+        ];
+
+        (doc as any).autoTable({
+            startY: currentY,
+            head: [['Categoría', 'Cantidad']],
+            body: summaryBody,
+            theme: 'grid',
+            headStyles: { fillColor: [41, 128, 185] },
+        });
+
+        currentY = (doc as any).autoTable.previous.finalY + 15;
+
+        // --- DETAILED BREAKDOWN ---
+        doc.addPage();
+        currentY = margin;
+
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Desglose Detallado por Distrito", pageWidth / 2, currentY, { align: 'center' });
+        currentY += 10;
+        
+        for (const dept of structuredData) {
+            const finalY = (doc as any).autoTable.previous.finalY;
+            if (finalY && currentY > doc.internal.pageSize.getHeight() - 30) {
+              doc.addPage();
+              currentY = margin;
+            }
+
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(dept.name, margin, currentY);
+            currentY += 7;
+
+            const districtBody = dept.districts.map(dist => {
+                const lugar = dist.report?.['lugar-resguardo'] || 'No hay informe';
+                return [dist.name, lugar];
+            });
+
+            (doc as any).autoTable({
+                startY: currentY,
+                head: [['Distrito', 'Lugar de Resguardo']],
+                body: districtBody,
+                theme: 'striped',
+                margin: { left: margin + 5 },
+                headStyles: { fillColor: [22, 160, 133] },
+            });
+            currentY = (doc as any).autoTable.previous.finalY + 10;
+        }
+
+        doc.save(`Reporte-Resumen-General.pdf`);
+    } catch (error) {
+        console.error("PDF generation error:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al generar PDF",
+            description: "Hubo un problema al crear el archivo PDF.",
+        });
+    } finally {
+        setIsGeneratingPdf(false);
+    }
+  };
+
 
   const isLoading = isLoadingDatos || isLoadingReports;
 
@@ -204,8 +319,8 @@ export default function ResumenPage() {
   }
 
   const summaryCards = [
-    { key: 'totalReports', title: 'Total de Informes', icon: FileText, onClick: () => handleCategoryClick('totalReports', 'Total de Informes') },
-    { key: 'habitacionSegura', title: 'Habitación Segura / Registro', icon: CheckCircle, className: 'text-green-600', onClick: () => handleCategoryClick('habitacionSegura', 'Habitación Segura / Registro') },
+    { key: 'totalReports', title: 'Total de Oficinas', icon: FileText, onClick: () => handleCategoryClick('totalReports', 'Total de Oficinas') },
+    { key: 'habitacionSegura', title: 'Registros con Habitaciones Seguras', icon: CheckCircle, className: 'text-green-600', onClick: () => handleCategoryClick('habitacionSegura', 'Registros con Habitaciones Seguras') },
   ] as const;
 
   const otrosCount = summaryData.parroquia.count + summaryData.localVotacion.count + summaryData.juzgado.count + summaryData.propiedadIntendencia.count + summaryData.otrosNoEspecificado.count;
@@ -216,11 +331,17 @@ export default function ResumenPage() {
       <main className="flex flex-1 flex-col p-4 gap-8">
 
         <Card className="w-full max-w-6xl mx-auto">
-            <CardHeader>
-                <CardTitle>Resumen General</CardTitle>
-                <CardDescription>
-                    Visión global de los informes registrados en el sistema. Haz clic en una tarjeta para ver los distritos.
-                </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Resumen General</CardTitle>
+                    <CardDescription>
+                        Visión global de los informes registrados en el sistema. Haz clic en una tarjeta para ver los distritos.
+                    </CardDescription>
+                </div>
+                <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
+                    {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                    Generar Reporte PDF
+                </Button>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                {summaryCards.map(card => {
@@ -232,18 +353,18 @@ export default function ResumenPage() {
                             <Icon className={`h-4 w-4 text-muted-foreground ${card.className || ''}`} />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{summaryData[card.key].count}</div>
+                            <div className="text-2xl font-bold">{card.key === 'totalReports' ? datosData?.length || 0 : summaryData[card.key].count}</div>
                         </CardContent>
                     </Card>
                  )
                })}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Comisaría</CardTitle>
+                        <CardTitle className="text-sm font-medium">Lugar de Resguardo Comisaria</CardTitle>
                         <Shield className="h-4 w-4 text-muted-foreground text-blue-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold" onClick={() => handleCategoryClick('comisaria', 'Comisaría')} role="button">{summaryData.comisaria.count}</div>
+                        <div className="text-2xl font-bold" onClick={() => handleCategoryClick('comisaria', 'Lugar de Resguardo Comisaria')} role="button">{summaryData.comisaria.count}</div>
                         <Accordion type="single" collapsible className="w-full text-xs">
                           <AccordionItem value="item-1">
                             <AccordionTrigger className="p-0 hover:no-underline">Ver desglose</AccordionTrigger>
@@ -376,3 +497,5 @@ export default function ResumenPage() {
     </div>
   );
 }
+
+    
