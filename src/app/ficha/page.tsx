@@ -22,7 +22,7 @@ import { ImageViewerDialog } from '@/components/image-viewer-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { capitalizeWords, cleanFileName } from '@/lib/utils';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: any) => jsPDF;
@@ -154,67 +154,82 @@ export default function FichaPage() {
     setIsGeneratingPdf(true);
     
     try {
-        const doc = new jsPDF() as jsPDFWithAutoTable;
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 20;
-        let yPos = 30;
+        const margin = 15;
+        let yPos = 20;
 
-        doc.setFontSize(16);
+        doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
         doc.text('Informe Edilicio Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
-        yPos += 10;
+        yPos += 8;
         
-        doc.setFontSize(12);
+        doc.setFontSize(14);
         doc.setFont('helvetica', 'normal');
         doc.text(`${selectedDepartment.toUpperCase()} - ${selectedDistrict.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 10;
+        yPos += 8;
 
         doc.setLineWidth(0.5);
         doc.line(margin, yPos, pageWidth - margin, yPos);
-        yPos += 12;
-
-        const addField = (label: string, value: string | undefined | null) => {
-            if (value) {
-                const lines = doc.splitTextToSize(String(value), pageWidth - margin * 2 - 50);
-                doc.setFont('helvetica', 'bold');
-                doc.text(`${label}:`, margin, yPos);
-                doc.setFont('helvetica', 'normal');
-                doc.text(lines, margin + 50, yPos);
-                yPos += lines.length * 5 + 5;
-            }
-        };
+        yPos += 10;
         
         if (currentReport) {
-            addField('Estado Fisico', currentReport['estado-fisico']);
-            addField('Habitacion Segura', currentReport['habitacion-segura']);
-            addField('Lugar Resguardo', currentReport['lugar-resguardo']);
-            addField('Descripcion Situacion', currentReport['descripcion-situacion']);
-            addField('Cantidad Habitaciones', currentReport['cantidad-habitaciones']);
-            addField('Dimensiones Habitacion', currentReport['dimensiones-habitacion']);
-            addField('Caracteristicas Habitacion', currentReport['caracteristicas-habitacion']);
-            addField('Cantidad Maquinas', currentReport['cantidad-maquinas']);
+            const reportBody = [
+                ['Estado Físico', currentReport['estado-fisico']],
+                ['Habitación Segura', currentReport['habitacion-segura']],
+                ['Lugar de Resguardo de Equipos', currentReport['lugar-resguardo']],
+                ['Descripción General de la Situación', currentReport['descripcion-situacion']],
+                ['Cantidad de Habitaciones', currentReport['cantidad-habitaciones']],
+                ['Dimensiones de Habitación Segura', currentReport['dimensiones-habitacion']],
+                ['Características de Habitación Segura', currentReport['caracteristicas-habitacion']],
+                ['Cantidad de Máquinas de Votación', currentReport['cantidad-maquinas']],
+            ].filter(row => row[1]); // Filter out rows with no value
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Concepto', 'Descripción']],
+                body: reportBody,
+                theme: 'striped',
+                headStyles: {
+                    fillColor: [41, 128, 185],
+                    textColor: 255,
+                    fontStyle: 'bold',
+                },
+                styles: {
+                    cellPadding: 3,
+                    fontSize: 10,
+                },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 50 },
+                    1: { cellWidth: 'auto' },
+                },
+                didDrawPage: (data) => {
+                    yPos = data.cursor?.y ?? yPos;
+                }
+            });
+            yPos = (doc as any).lastAutoTable.finalY + 10;
         }
 
-
-        // Add Images section if there are any
         if (imagesData && imagesData.length > 0) {
-            if (yPos > 180) { // Check space, more aggressively for image section
+            const pageHeight = doc.internal.pageSize.getHeight();
+            // Check if there is enough space for the image section header and at least one image
+            if (yPos > pageHeight - 80) {
                 doc.addPage();
                 yPos = margin;
             } else {
-                yPos += 15;
+                yPos += 5; // Some space before the next section
             }
             
-            doc.setFontSize(14);
+            const imageSectionStartY = yPos;
+            doc.setFontSize(16);
             doc.setFont('helvetica', 'bold');
-            doc.text('Imagenes de las Oficinas del Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
+            doc.text('Imágenes de las Oficinas del Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
             yPos += 8;
 
-            doc.setFontSize(11);
+            doc.setFontSize(12);
             doc.setFont('helvetica', 'normal');
             doc.text(`${selectedDepartment.toUpperCase()} - ${selectedDistrict.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
             yPos += 12;
-
 
             for (const image of imagesData) {
                 try {
@@ -222,13 +237,13 @@ export default function FichaPage() {
                     img.src = image.src;
                     await new Promise((resolve, reject) => {
                         img.onload = resolve;
-                        img.onerror = reject;
+                        img.onerror = (e) => reject(e);
                     });
                     
-                    const imgWidth = 150; // Increased image width
+                    const imgWidth = 150;
                     const imgHeight = (img.height * imgWidth) / img.width;
 
-                    if (yPos + imgHeight + 15 > doc.internal.pageSize.getHeight() - margin) {
+                    if (yPos + imgHeight + 20 > pageHeight - margin) {
                         doc.addPage();
                         yPos = margin;
                     }
@@ -243,7 +258,7 @@ export default function FichaPage() {
 
                 } catch (error) {
                     console.error("Error loading image for PDF:", error);
-                    if (yPos + 10 > doc.internal.pageSize.getHeight() - margin) {
+                    if (yPos + 10 > pageHeight - margin) {
                         doc.addPage();
                         yPos = margin;
                     }
@@ -256,7 +271,7 @@ export default function FichaPage() {
             }
         }
         
-        doc.save(`Informe-${selectedDepartment}-${selectedDistrict}.pdf`);
+        doc.save(`Informe-${cleanFileName(selectedDepartment)}-${cleanFileName(selectedDistrict)}.pdf`);
 
     } catch (error) {
         console.error("Error generating PDF:", error);
@@ -327,7 +342,6 @@ export default function FichaPage() {
                     </Card>
                 ) : (
                 <div className="w-full max-w-6xl mx-auto space-y-8">
-                  {currentReport && (
                     <Card>
                       <CardHeader>
                         <div className="flex justify-between items-start">
@@ -338,26 +352,27 @@ export default function FichaPage() {
                             </CardTitle>
                             <CardDescription>{selectedDepartment} - {selectedDistrict}</CardDescription>
                           </div>
-                           <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf} size="sm">
+                           <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf || (!currentReport && (!imagesData || imagesData.length === 0))} size="sm">
                               {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                               Generar PDF
                            </Button>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                            <InfoItem label="Estado Físico" value={currentReport['estado-fisico']} icon={Building} />
-                            <InfoItem label="Cantidad de Habitaciones" value={currentReport['cantidad-habitaciones']} />
-                            <InfoItem label="Habitación Segura" value={currentReport['habitacion-segura']} />
-                            <InfoItem label="Dimensiones Habitación" value={currentReport['dimensiones-habitacion']} />
-                            <InfoItem label="Cantidad de Máquinas" value={currentReport['cantidad-maquinas']} />
-                            <InfoItem label="Lugar de Resguardo" value={currentReport['lugar-resguardo']} icon={MapPin} />
-                            <InfoItem label="Descripción" value={currentReport['descripcion-situacion']} fullWidth />
-                            <InfoItem label="Características Habitación" value={currentReport['caracteristicas-habitacion']} fullWidth />
-                        </div>
-                      </CardContent>
+                      {currentReport && (
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                              <InfoItem label="Estado Físico" value={currentReport['estado-fisico']} icon={Building} />
+                              <InfoItem label="Cantidad de Habitaciones" value={currentReport['cantidad-habitaciones']} />
+                              <InfoItem label="Habitación Segura" value={currentReport['habitacion-segura']} />
+                              <InfoItem label="Dimensiones Habitación" value={currentReport['dimensiones-habitacion']} />
+                              <InfoItem label="Cantidad de Máquinas" value={currentReport['cantidad-maquinas']} />
+                              <InfoItem label="Lugar de Resguardo" value={currentReport['lugar-resguardo']} icon={MapPin} />
+                              <InfoItem label="Descripción" value={currentReport['descripcion-situacion']} fullWidth />
+                              <InfoItem label="Características Habitación" value={currentReport['caracteristicas-habitacion']} fullWidth />
+                          </div>
+                        </CardContent>
+                      )}
                     </Card>
-                  )}
                   
                   {imagesData && imagesData.length > 0 && (
                      <Card>
