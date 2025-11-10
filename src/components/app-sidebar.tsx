@@ -83,9 +83,9 @@ export default function AppSidebar() {
               <SidebarMenuButton
                 asChild
                 isActive={pathname === item.href}
-                icon={<item.icon />}
               >
                 <Link href={item.href}>
+                  <item.icon />
                   <span>{item.label}</span>
                 </Link>
               </SidebarMenuButton>
@@ -96,7 +96,8 @@ export default function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout} icon={<LogOut />}>
+                <SidebarMenuButton onClick={handleLogout}>
+                    <LogOut />
                     <span>Cerrar Sesión</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
