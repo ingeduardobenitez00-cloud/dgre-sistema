@@ -215,7 +215,7 @@ const handleGeneratePdf = async () => {
         const doc = new jsPDF() as jsPDFWithAutoTable;
         let yPos = 0;
 
-        const addPageHeader = (title: string) => {
+        const addPageHeader = (title: string, doc: jsPDFWithAutoTable) => {
             if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
             if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
             
@@ -225,13 +225,13 @@ const handleGeneratePdf = async () => {
             yPos = 40;
         };
         
-        const addPageFooter = (pageNumber: number, totalPages: number) => {
+        const addPageFooter = (pageNumber: number, totalPages: number, doc: jsPDFWithAutoTable) => {
             doc.setFontSize(10);
             doc.text(`Página ${pageNumber} / ${totalPages}`, doc.internal.pageSize.getWidth() - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
         };
 
         // Page 1: General Summary
-        addPageHeader("Resumen General de Informes");
+        addPageHeader("Resumen General de Informes", doc);
         
         const summaryBody = [
             ['Total de Informes', summaryData.totalReports.count],
@@ -252,48 +252,34 @@ const handleGeneratePdf = async () => {
             headStyles: { fillColor: [0, 0, 0], textColor: 255 },
             styles: { fontSize: 9 },
         });
-        yPos = (doc as any).lastAutoTable.finalY;
-
-
+        
         // Page 2 onwards: Detailed report
         doc.addPage();
-        addPageHeader("Informe Detallado por Ubicación");
-        yPos = 40;
-
+        
         const detailedBody = structuredData.flatMap(department => {
-            const departmentHeader = [{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: false, textColor: 0 } }];
-            const tableHeader = ['Distrito', 'Lugar de Resguardo'];
+            const departmentHeader = [{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220], textColor: 0 } }];
             const departmentRows = department.districts.map(district => [
                 district.name,
                 district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
             ]);
-            return [departmentHeader, tableHeader, ...departmentRows];
+            return [departmentHeader, ...departmentRows];
         });
 
         autoTable(doc, {
-            startY: yPos,
+            head: [['Distrito', 'Lugar de Resguardo']],
             body: detailedBody,
             theme: 'grid',
+            headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
             styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
-            didParseCell: (data) => {
-                // This logic identifies which rows are headers
-                if (data.row.raw.length === 2 && data.row.raw[0] === 'Distrito' && data.row.raw[1] === 'Lugar de Resguardo') {
-                    data.cell.styles.fillColor = '#000000';
-                    data.cell.styles.textColor = '#FFFFFF';
-                    data.cell.styles.fontStyle = 'bold';
-                }
-            }
+             didDrawPage: (data) => {
+                addPageHeader("Informe Detallado por Ubicación", doc);
+                const totalPages = doc.internal.getNumberOfPages();
+                addPageFooter(data.pageNumber, totalPages, doc);
+            },
+            startY: 40,
         });
 
-
-        // FINAL LOOP TO ADD FOOTERS TO ALL PAGES
-        const totalPages = (doc as any).internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            addPageFooter(i, totalPages);
-        }
-        
         doc.save(`Informe-Resumen-Detallado.pdf`);
     } catch (error) {
         console.error("Error generating PDF:", error);
@@ -320,11 +306,10 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
         categoryReports = summaryData[categoryKey].reports;
     }
 
-
     try {
         const doc = new jsPDF() as jsPDFWithAutoTable;
         
-        const addPageHeader = (title: string) => {
+        const addPageHeader = (title: string, doc: jsPDFWithAutoTable) => {
             if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
             if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
             
@@ -333,12 +318,12 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             doc.text(title, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
         };
         
-        const addPageFooter = (pageNumber: number, totalPages: number) => {
+        const addPageFooter = (pageNumber: number, totalPages: number, doc: jsPDFWithAutoTable) => {
             doc.setFontSize(10);
             doc.text(`Página ${pageNumber} / ${totalPages}`, doc.internal.pageSize.getWidth() - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
         };
         
-        const groupedByDept: Record<string, {distrito: string, lugar: string}[]> = categoryReports
+        const groupedByDept: Record<string, {distrito: string}[]> = categoryReports
             .sort((a,b) => (a.departamento || '').localeCompare(b.departamento || ''))
             .reduce((acc, report) => {
                 const department = report.departamento || 'Sin Departamento';
@@ -347,10 +332,9 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                 }
                 acc[department].push({
                   distrito: report.distrito || 'Sin Distrito',
-                  lugar: report['lugar-resguardo'] || 'N/A'
                 });
                 return acc;
-            }, {} as Record<string, {distrito: string, lugar: string}[]>);
+            }, {} as Record<string, {distrito: string}[]>);
 
         let finalBody: any[] = [];
         Object.entries(groupedByDept).forEach(([dept, districts]) => {
@@ -369,8 +353,8 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             headStyles: { halign: 'center', fillColor: [255, 255, 255], textColor: 0, fontStyle: 'bold', fontSize: 18 },
             styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
             didDrawPage: (data) => {
-                if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
-                if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
+                addPageHeader(title, doc);
+                addPageFooter(data.pageNumber, data.pageCount, doc);
             },
             startY: 40,
         });
@@ -378,7 +362,6 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
         const totalPages = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
-            addPageFooter(i, totalPages);
         }
         
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
@@ -651,6 +634,8 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
+
+    
 
     
 
