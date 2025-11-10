@@ -232,15 +232,15 @@ const handleGeneratePdf = async () => {
     try {
         const doc = new jsPDF() as jsPDFWithAutoTable;
         
-        let body: any[] = [];
+        let finalBody: any[] = [];
         structuredData.forEach(department => {
-            body.push([{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220] } }]);
-            body.push([
+             finalBody.push([{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220] } }]);
+            finalBody.push([
                 { content: 'Distrito', styles: { fontStyle: 'bold' } }, 
                 { content: 'Lugar de Resguardo', styles: { fontStyle: 'bold' } }
             ]);
             department.districts.forEach(district => {
-                body.push([
+                finalBody.push([
                     district.name,
                     district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
                 ]);
@@ -248,7 +248,7 @@ const handleGeneratePdf = async () => {
         });
 
         autoTable(doc, {
-            body: body,
+            body: finalBody,
             startY: 50,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
@@ -259,13 +259,6 @@ const handleGeneratePdf = async () => {
             },
             margin: { top: 50 }
         });
-
-        const totalPages = (doc.internal as any).getNumberOfPages();
-        // The didDrawPage handles all footers, no need for this loop.
-        // for (let i = 1; i <= totalPages; i++) {
-        //   doc.setPage(i);
-        //   addPageFooter(doc, i, totalPages);
-        // }
         
         doc.save(`Informe-Resumen-Detallado.pdf`);
     } catch (error) {
@@ -312,7 +305,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             finalBody.push([
                 { content: `Departamento: ${dept.toUpperCase()} (${reports.length})`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [220, 220, 220], textColor: 0 } },
             ]);
-             finalBody.push([
+            finalBody.push([
                 { content: 'Distrito', styles: { fontStyle: 'bold' } },
                 { content: 'Lugar de Resguardo', styles: { fontStyle: 'bold' } }
             ]);
@@ -333,12 +326,6 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             },
             margin: { top: 50 }
         });
-
-        // const totalPages = (doc.internal as any).getNumberOfPages();
-        // for (let i = 1; i <= totalPages; i++) {
-        //   doc.setPage(i);
-        //   addPageFooter(doc, i, totalPages);
-        // }
         
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
     } catch (error) {
@@ -441,14 +428,9 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                                 <Icon className={`h-4 w-4 text-muted-foreground ${card.className || ''}`} />
                             </div>
                             <div>
-                                <div className="text-2xl font-bold">{summaryData[card.key].count}</div>
-                                 <Accordion type="single" collapsible className="w-full text-xs">
-                                  <AccordionItem value="item-1">
-                                    <AccordionTrigger className="p-0 hover:no-underline">
-                                      <div onClick={(e) => { e.stopPropagation(); handleCategoryClick(card.key, card.title); }} className="cursor-pointer">Ver desglose</div>
-                                    </AccordionTrigger>
-                                  </AccordionItem>
-                                </Accordion>
+                                <div className="text-2xl font-bold cursor-pointer" onClick={() => handleCategoryClick(card.key, card.title)}>
+                                  {summaryData[card.key].count}
+                                </div>
                             </div>
                         </div>
                     </Card>
@@ -517,7 +499,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                             <Accordion type="single" collapsible className="w-full text-xs">
                               <AccordionItem value="item-1">
                                 <AccordionTrigger className="p-0 hover:no-underline">
-                                  <div onClick={(e) => { e.stopPropagation(); handleCategoryClick('otros', 'Resguardo en Otros Lugares');}} className="cursor-pointer">Ver desglose</div>
+                                  Ver desglose
                                 </AccordionTrigger>
                                 <AccordionContent className="pt-2 space-y-1">
                                   <div className="flex justify-between items-center cursor-pointer hover:font-semibold text-xs" onClick={(e) => { e.stopPropagation(); handleCategoryClick('parroquia', 'Parroquia');}}>
