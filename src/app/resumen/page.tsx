@@ -91,30 +91,6 @@ export default function ResumenPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [districtsForCategory, setDistrictsForCategory] = useState<string[]>([]);
 
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
-  const [logoBase64, setLogoBase64] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Cargar logos como base64 al montar el componente
-    const fetchLogo = async (path: string, setter: (data: string | null) => void) => {
-        try {
-            const response = await fetch(path);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setter(reader.result as string);
-            };
-            reader.readAsDataURL(blob);
-        } catch (error) {
-            console.error(`Error fetching logo ${path}:`, error);
-        }
-    };
-
-    fetchLogo('/logo1.png', setLogo1Base64);
-    fetchLogo('/logo.png', setLogoBase64);
-  }, []);
-
   useEffect(() => {
     if (datosData && reportsData) {
       const departments: Record<string, Set<string>> = {};
@@ -221,128 +197,6 @@ export default function ResumenPage() {
     }
   };
 
-  const handleGeneratePdf = async () => {
-    if (!structuredData.length || !summaryData || !logo1Base64 || !logoBase64) {
-        toast({
-            variant: "destructive",
-            title: "Datos insuficientes",
-            description: "No hay suficientes datos para generar el informe.",
-        });
-        return;
-    }
-    setIsGeneratingPdf(true);
-
-    try {
-        const doc = new jsPDF() as jsPDFWithAutoTable;
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 15;
-        let yPos = 0;
-
-        const addPageHeader = (docInstance: jsPDF) => {
-            if (logo1Base64) docInstance.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
-            if (logoBase64) docInstance.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
-        };
-        
-        const addPageFooter = (docInstance: jsPDF, pageNum: number, totalPages: number) => {
-            docInstance.setFontSize(10);
-            docInstance.text(`Página ${pageNum} / ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-        };
-        
-        // --- Title Page ---
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Resumen General de Informes', pageWidth / 2, 40, { align: 'center' });
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Fecha de Generación: ${new Date().toLocaleDateString('es-ES')}`, pageWidth / 2, 50, { align: 'center' });
-        yPos = 70;
-
-        // --- Summary Section ---
-        const summaryBody = [
-            ['Total de Informes', summaryData.totalReports.count],
-            ['Registros con Habitaciones Seguras', summaryData.habitacionSegura.count],
-            ['Resguardo en Comisaría', summaryData.comisaria.count],
-            ['Resguardo en Parroquia', summaryData.parroquia.count],
-            ['Resguardo en Local de Votación', summaryData.localVotacion.count],
-            ['Resguardo en Juzgado', summaryData.juzgado.count],
-            ['Resguardo en Propiedad de Intendencia', summaryData.propiedadIntendencia.count],
-            ['Otros/No Especificado', summaryData.otrosNoEspecificado.count],
-        ];
-
-        autoTable(doc, {
-            startY: yPos,
-            head: [['Concepto', 'Cantidad']],
-            body: summaryBody,
-            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-            theme: 'striped',
-        });
-        
-        yPos = (doc as any).lastAutoTable.finalY + 15;
-        
-        // --- Detailed Breakdown Section ---
-        const categories: {key: keyof SummaryData, title: string}[] = [
-            { key: 'totalReports', title: 'Detalle: Total de Informes' },
-            { key: 'habitacionSegura', title: 'Detalle: Registros con Habitaciones Seguras' },
-            { key: 'comisaria', title: 'Detalle: Resguardo en Comisaría' },
-            { key: 'parroquia', title: 'Detalle: Resguardo en Parroquia' },
-            { key: 'localVotacion', title: 'Detalle: Resguardo en Local de Votación' },
-            { key: 'juzgado', title: 'Detalle: Resguardo en Juzgado' },
-            { key: 'propiedadIntendencia', title: 'Detalle: Resguardo en Propiedad de Intendencia' },
-            { key: 'otrosNoEspecificado', title: 'Detalle: Otros/No Especificado' },
-        ];
-
-        for (const category of categories) {
-            const data = summaryData[category.key];
-            if (data.count > 0) {
-                if (yPos + 20 > pageHeight - margin) {
-                    doc.addPage();
-                    yPos = 30;
-                }
-                doc.setFontSize(14);
-                doc.setFont('helvetica', 'bold');
-                doc.text(category.title, margin, yPos);
-                yPos += 8;
-
-                const breakdownBody = data.districts.map(d => d.split(' - '));
-
-                autoTable(doc, {
-                    startY: yPos,
-                    head: [['Departamento', 'Distrito']],
-                    body: breakdownBody,
-                    headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-                    theme: 'striped',
-                    didDrawPage: (data) => {
-                      yPos = data.cursor?.y ?? 30;
-                    }
-                });
-                yPos = (doc as any).lastAutoTable.finalY + 15;
-            }
-        }
-
-
-        // Final pass for headers and footers
-        const totalPages = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          doc.setPage(i);
-          addPageHeader(doc);
-          addPageFooter(doc, i, totalPages);
-        }
-
-        doc.save('Resumen-General-Detallado.pdf');
-
-    } catch (error) {
-        console.error("Error generating PDF:", error);
-        toast({
-            variant: "destructive",
-            title: "Error al generar PDF",
-            description: "Hubo un problema al crear el documento. Inténtelo de nuevo.",
-        });
-    } finally {
-        setIsGeneratingPdf(false);
-    }
-  };
-
 
   const isLoading = isLoadingDatos || isLoadingReports;
 
@@ -379,10 +233,6 @@ export default function ResumenPage() {
                           Visión global de los informes registrados en el sistema. Haz clic en una tarjeta para ver los distritos.
                       </CardDescription>
                   </div>
-                  <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
-                      {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                      Generar PDF
-                  </Button>
                 </div>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -539,5 +389,7 @@ export default function ResumenPage() {
     </div>
   );
 }
+
+    
 
     
