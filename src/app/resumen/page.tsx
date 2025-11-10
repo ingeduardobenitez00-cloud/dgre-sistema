@@ -200,18 +200,12 @@ export default function ResumenPage() {
     try {
       const doc = new jsPDF() as jsPDFWithAutoTable;
       const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 15;
       let yPos = 0;
 
       const addPageHeader = (doc: jsPDF) => {
         if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
         if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
-      };
-
-      const addPageFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
-        doc.setFontSize(10);
-        doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
       };
 
       // --- Resumen General ---
@@ -271,10 +265,14 @@ export default function ResumenPage() {
           didDrawPage: (data) => {
             // Add headers to new pages created by autoTable
              addPageHeader(doc);
-             if (data.pageNumber > 1) { // Title only for this section
-                doc.setFontSize(18);
-                doc.setFont('helvetica', 'bold');
-                doc.text('Informe Detallado por Ubicación', pageWidth / 2, 30, { align: 'center' });
+             if (data.pageNumber > 1 && data.pageNumber === (doc.internal.getNumberOfPages())) { 
+                // Only draw the title if it's the start of this section on a new page.
+                const isNewSectionPage = data.cursor?.y && data.cursor.y < 40;
+                if (isNewSectionPage) {
+                    doc.setFontSize(18);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Informe Detallado por Ubicación', pageWidth / 2, 30, { align: 'center' });
+                }
              }
           },
         });
@@ -284,10 +282,12 @@ export default function ResumenPage() {
 
       // Final pass for headers and footers
       const totalPages = doc.internal.getNumberOfPages();
+      const pageHeight = doc.internal.pageSize.getHeight();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         addPageHeader(doc);
-        addPageFooter(doc, i, totalPages);
+        doc.setFontSize(10);
+        doc.text(`Página ${i} / ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
       }
 
       doc.save(`Informe-Resumen-Detallado.pdf`);
@@ -526,5 +526,7 @@ export default function ResumenPage() {
     </div>
   );
 }
+
+    
 
     
