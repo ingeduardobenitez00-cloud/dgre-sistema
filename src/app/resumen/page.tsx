@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { cleanFileName } from '@/lib/utils';
+
 
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: any) => jsPDF;
@@ -90,6 +92,26 @@ export default function ResumenPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [districtsForCategory, setDistrictsForCategory] = useState<string[]>([]);
+  
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLogo = async (path: string, setter: (data: string | null) => void) => {
+        try {
+            const response = await fetch(path);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => setter(reader.result as string);
+            reader.readAsDataURL(blob);
+        } catch (error) {
+            console.error(`Error fetching logo ${path}:`, error);
+        }
+    };
+    fetchLogo('/logo1.png', setLogo1Base64);
+    fetchLogo('/logo.png', setLogoBase64);
+  }, []);
 
   useEffect(() => {
     if (datosData && reportsData) {
@@ -167,6 +189,113 @@ export default function ResumenPage() {
       setComisariaData(comisariaSummary);
     }
   }, [datosData, reportsData]);
+  
+  const handleGeneratePdf = async () => {
+    if (!summaryData || !logo1Base64 || !logoBase64) {
+        toast({ title: 'Error', description: 'Datos insuficientes para generar el PDF.', variant: 'destructive' });
+        return;
+    }
+    setIsGeneratingPdf(true);
+
+    try {
+        const doc = new jsPDF() as jsPDFWithAutoTable;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 15;
+        let yPos = 0;
+
+        const addPageHeader = () => {
+            doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
+            doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
+        };
+
+        const addPageFooter = (pageNumber: number, totalPages: number) => {
+            doc.setFontSize(10);
+            doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+        };
+        
+        // --- PAGE 1: GENERAL SUMMARY ---
+        yPos = 30;
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Resumen General de Informes', pageWidth / 2, yPos, { align: 'center' });
+        yPos += 15;
+        
+        const summaryBody = [
+            ['Total de Informes Registrados', summaryData.totalReports.count],
+            ['Registros con Habitaciones Seguras', summaryData.habitacionSegura.count],
+            ['Lugar de Resguardo: Comisaría', summaryData.comisaria.count],
+            ['Lugar de Resguardo: Parroquia', summaryData.parroquia.count],
+            ['Lugar de Resguardo: Local de Votación', summaryData.localVotacion.count],
+            ['Lugar de Resguardo: Juzgado', summaryData.juzgado.count],
+            ['Lugar de Resguardo: Propiedad de Intendencia', summaryData.propiedadIntendencia.count],
+            ['Lugar de Resguardo: Otros o No Especificado', summaryData.otrosNoEspecificado.count],
+        ];
+
+        autoTable(doc, {
+            startY: yPos,
+            head: [['Concepto', 'Cantidad']],
+            body: summaryBody,
+            theme: 'striped',
+            headStyles: { fillColor: [0, 0, 0] },
+        });
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+        
+        // --- DETAILED BREAKDOWN SECTIONS ---
+        const breakdownCategories = [
+            { title: 'Detalle: Registros con Habitaciones Seguras', data: summaryData.habitacionSegura.districts },
+            { title: 'Detalle: Lugar de Resguardo Comisaría', data: summaryData.comisaria.districts },
+            { title: 'Detalle: Lugar de Resguardo Parroquia', data: summaryData.parroquia.districts },
+            { title: 'Detalle: Lugar de Resguardo Local de Votación', data: summaryData.localVotacion.districts },
+            { title: 'Detalle: Lugar de Resguardo Juzgado', data: summaryData.juzgado.districts },
+            { title: 'Detalle: Lugar de Resguardo Propiedad de Intendencia', data: summaryData.propiedadIntendencia.districts },
+            { title: 'Detalle: Lugar de Resguardo Otros o No Especificado', data: summaryData.otrosNoEspecificado.districts },
+        ];
+
+        for (const category of breakdownCategories) {
+            if (category.data.length === 0) continue;
+            
+            const tableBody = category.data.map(d => d.split(' - '));
+            
+            // Check if there is enough space for the header and a few rows
+            if (yPos + 30 > doc.internal.pageSize.getHeight() - margin) {
+                doc.addPage();
+                yPos = 30;
+            }
+            
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text(category.title, margin, yPos);
+            yPos += 8;
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Departamento', 'Distrito']],
+                body: tableBody,
+                theme: 'grid',
+                headStyles: { fillColor: [41, 128, 185] },
+            });
+            yPos = (doc as any).lastAutoTable.finalY + 15;
+        }
+
+
+        // Add headers and footers to all pages
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            addPageHeader();
+            addPageFooter(i, totalPages);
+        }
+
+        doc.save(`Resumen-General-Detallado.pdf`);
+
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+        toast({ title: 'Error', description: 'No se pudo generar el informe en PDF.', variant: 'destructive' });
+    } finally {
+        setIsGeneratingPdf(false);
+    }
+  };
+
 
   const handleCategoryClick = (category: keyof SummaryData | 'otros', title: string) => {
     if (!summaryData) return;
@@ -233,6 +362,10 @@ export default function ResumenPage() {
                           Visión global de los informes registrados en el sistema. Haz clic en una tarjeta para ver los distritos.
                       </CardDescription>
                   </div>
+                   <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
+                      {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                      Generar PDF
+                  </Button>
                 </div>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -389,7 +522,5 @@ export default function ResumenPage() {
     </div>
   );
 }
-
-    
 
     
