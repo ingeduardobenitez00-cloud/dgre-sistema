@@ -257,7 +257,7 @@ const handleGeneratePdf = async () => {
         doc.addPage();
         
         const detailedBody = structuredData.flatMap(department => {
-            const departmentHeader = [{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220], textColor: 0 } }];
+            const departmentHeader = [{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left' } }];
             const departmentRows = department.districts.map(district => [
                 district.name,
                 district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
@@ -274,8 +274,7 @@ const handleGeneratePdf = async () => {
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
              didDrawPage: (data) => {
                 addPageHeader("Informe Detallado por Ubicación", doc);
-                const totalPages = doc.internal.getNumberOfPages();
-                addPageFooter(data.pageNumber, totalPages, doc);
+                addPageFooter(data.pageNumber, (doc as any).internal.getNumberOfPages(), doc);
             },
             startY: 40,
         });
@@ -350,19 +349,14 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             head: [[title]],
             body: finalBody,
             theme: 'grid',
-            headStyles: { halign: 'center', fillColor: [255, 255, 255], textColor: 0, fontStyle: 'bold', fontSize: 18 },
+            headStyles: { halign: 'center', fillColor: [255, 255, 255], textColor: 0, fontStyle: 'bold', fontSize: 18, lineWidth: 0 },
             styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
             didDrawPage: (data) => {
                 addPageHeader(title, doc);
-                addPageFooter(data.pageNumber, data.pageCount, doc);
+                addPageFooter(data.pageNumber, (doc as any).internal.getNumberOfPages(), doc);
             },
             startY: 40,
         });
-        
-        const totalPages = (doc as any).internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-        }
         
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
     } catch (error) {
