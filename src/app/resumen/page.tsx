@@ -213,22 +213,21 @@ const handleGeneratePdf = async () => {
 
     try {
         const doc = new jsPDF() as jsPDFWithAutoTable;
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
         let yPos = 0;
 
         const addPageHeader = (title: string) => {
-            if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
-            if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
+            if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
+            if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
             
             doc.setFontSize(18);
             doc.setFont('helvetica', 'bold');
-            doc.text(title, pageWidth / 2, 30, { align: 'center' });
+            doc.text(title, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+            yPos = 40;
         };
         
         const addPageFooter = (pageNumber: number, totalPages: number) => {
             doc.setFontSize(10);
-            doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.text(`Página ${pageNumber} / ${totalPages}`, doc.internal.pageSize.getWidth() - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
         };
 
         // Page 1: General Summary
@@ -246,37 +245,45 @@ const handleGeneratePdf = async () => {
         ];
 
         autoTable(doc, {
-            startY: 40,
+            startY: yPos,
             head: [['Categoría', 'Cantidad']],
             body: summaryBody,
             theme: 'striped',
             headStyles: { fillColor: [0, 0, 0], textColor: 255 },
             styles: { fontSize: 9 },
         });
+        yPos = (doc as any).lastAutoTable.finalY;
+
 
         // Page 2 onwards: Detailed report
         doc.addPage();
         addPageHeader("Informe Detallado por Ubicación");
-        
-        const detailedBody: any[][] = [];
-        structuredData.forEach(department => {
-            detailedBody.push([{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [220, 220, 220], textColor: 0, halign: 'left' } }]);
-            department.districts.forEach(district => {
-                detailedBody.push([
-                    district.name,
-                    district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
-                ]);
-            });
+        yPos = 40;
+
+        const detailedBody = structuredData.flatMap(department => {
+            const departmentHeader = [{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: false, textColor: 0 } }];
+            const tableHeader = ['Distrito', 'Lugar de Resguardo'];
+            const departmentRows = department.districts.map(district => [
+                district.name,
+                district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
+            ]);
+            return [departmentHeader, tableHeader, ...departmentRows];
         });
 
         autoTable(doc, {
-            startY: 40,
-            head: [['Distrito', 'Lugar de Resguardo']],
+            startY: yPos,
             body: detailedBody,
             theme: 'grid',
-            headStyles: { fillColor: [0, 0, 0], textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 8, cellPadding: 2 },
-            columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } }
+            styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
+            columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
+            didParseCell: (data) => {
+                // This logic identifies which rows are headers
+                if (data.row.raw.length === 2 && data.row.raw[0] === 'Distrito' && data.row.raw[1] === 'Lugar de Resguardo') {
+                    data.cell.styles.fillColor = '#000000';
+                    data.cell.styles.textColor = '#FFFFFF';
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
         });
 
 
@@ -316,47 +323,56 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
 
     try {
         const doc = new jsPDF() as jsPDFWithAutoTable;
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
         
         const addPageHeader = (title: string) => {
-            if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
-            if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
+            if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
+            if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
             
             doc.setFontSize(18);
             doc.setFont('helvetica', 'bold');
-            doc.text(title, pageWidth / 2, 30, { align: 'center' });
+            doc.text(title, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
         };
         
         const addPageFooter = (pageNumber: number, totalPages: number) => {
             doc.setFontSize(10);
-            doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.text(`Página ${pageNumber} / ${totalPages}`, doc.internal.pageSize.getWidth() - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
         };
         
-        addPageHeader(title);
+        const groupedByDept: Record<string, {distrito: string, lugar: string}[]> = categoryReports
+            .sort((a,b) => (a.departamento || '').localeCompare(b.departamento || ''))
+            .reduce((acc, report) => {
+                const department = report.departamento || 'Sin Departamento';
+                if (!acc[department]) {
+                    acc[department] = [];
+                }
+                acc[department].push({
+                  distrito: report.distrito || 'Sin Distrito',
+                  lugar: report['lugar-resguardo'] || 'N/A'
+                });
+                return acc;
+            }, {} as Record<string, {distrito: string, lugar: string}[]>);
 
-        const groupedByDept: Record<string, ReportData[]> = categoryReports.sort((a,b) => (a.departamento || '').localeCompare(b.departamento || '')).reduce((acc, report) => {
-          const department = report.departamento || 'Sin Departamento';
-          if (!acc[department]) {
-            acc[department] = [];
-          }
-          acc[department].push(report);
-          return acc;
-        }, {} as Record<string, ReportData[]>);
-        
-        const body: any[] = [];
-        Object.entries(groupedByDept).forEach(([dept, reports]) => {
-          body.push([{ content: `Departamento: ${dept.toUpperCase()} (${reports.length})`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [220, 220, 220], textColor: 0, halign: 'left' } }]);
-          reports.sort((a,b) => (a.distrito || '').localeCompare(b.distrito || '')).forEach(r => body.push([r.distrito, r['lugar-resguardo']]));
+        let finalBody: any[] = [];
+        Object.entries(groupedByDept).forEach(([dept, districts]) => {
+          finalBody.push([
+            { content: `Departamento: ${dept.toUpperCase()} (${districts.length})`, colSpan: 1, styles: { fontStyle: 'bold', fillColor: [220, 220, 220], textColor: 0 } },
+          ]);
+          districts.sort((a,b) => a.distrito.localeCompare(b.distrito)).forEach(d => {
+            finalBody.push([d.distrito]);
+          });
         });
-
+        
         autoTable(doc, {
-            startY: 40,
-            head: [['Distrito', 'Lugar de Resguardo']],
-            body: body,
+            head: [[title]],
+            body: finalBody,
             theme: 'grid',
-            headStyles: { fillColor: [0, 0, 0], textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { halign: 'center', fillColor: [255, 255, 255], textColor: 0, fontStyle: 'bold', fontSize: 18 },
+            styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
+            didDrawPage: (data) => {
+                if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
+                if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
+            },
+            startY: 40,
         });
         
         const totalPages = (doc as any).internal.getNumberOfPages();
@@ -635,6 +651,8 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
+
+    
 
     
 
