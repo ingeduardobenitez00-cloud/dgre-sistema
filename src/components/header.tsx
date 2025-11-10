@@ -6,10 +6,8 @@ export default function Header({ title }: { title?: string }) {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
       <div className="container flex h-14 items-center">
-        <div className="md:hidden">
+        <div className="flex items-center gap-2">
           <SidebarTrigger />
-        </div>
-        <div className="flex items-center space-x-2 md:ml-4">
           <div className="h-6 w-6 relative md:hidden">
              <Image src="/logo.png" alt="Logo" fill />
           </div>
