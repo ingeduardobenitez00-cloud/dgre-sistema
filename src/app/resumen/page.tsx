@@ -191,7 +191,7 @@ export default function ResumenPage() {
   }, [datosData, reportsData]);
   
   const handleGeneratePdf = async () => {
-    if (!structuredData || !logo1Base64 || !logoBase64) {
+    if (!structuredData || !logo1Base64 || !logoBase64 || !summaryData) {
       toast({ title: 'Error', description: 'Datos insuficientes para generar el PDF.', variant: 'destructive' });
       return;
     }
@@ -200,24 +200,50 @@ export default function ResumenPage() {
     try {
       const doc = new jsPDF() as jsPDFWithAutoTable;
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 15;
       let yPos = 0;
 
-      const addPageHeaderAndTitle = (doc: jsPDF) => {
+      const addPageHeader = (doc: jsPDF) => {
         if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
         if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
-        
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Informe Detallado por Ubicación', pageWidth / 2, 20, { align: 'center' });
       };
 
       const addPageFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
         doc.setFontSize(10);
-        doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+        doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
       };
 
-      addPageHeaderAndTitle(doc);
+      // --- Resumen General ---
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Resumen General de Informes', pageWidth / 2, 30, { align: 'center' });
+      yPos = 40;
+
+      const otrosCount = summaryData.parroquia.count + summaryData.localVotacion.count + summaryData.juzgado.count + summaryData.propiedadIntendencia.count + summaryData.otrosNoEspecificado.count;
+
+      const summaryBody = [
+        ['Total de Informes', summaryData.totalReports.count],
+        ['Registros con Habitaciones Seguras', summaryData.habitacionSegura.count],
+        ['Lugar de Resguardo Comisaria', summaryData.comisaria.count],
+        ['Resguardo en Otros Lugares', otrosCount],
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Concepto', 'Cantidad']],
+        body: summaryBody,
+        theme: 'striped',
+        headStyles: { fillColor: [0, 0, 0] },
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+
+
+      // --- Informe Detallado por Ubicación ---
+      doc.addPage();
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Informe Detallado por Ubicación', pageWidth / 2, 30, { align: 'center' });
       yPos = 35; // Start content below title
 
       for (const department of structuredData) {
@@ -233,33 +259,38 @@ export default function ResumenPage() {
           head: departmentHeader,
           body: departmentBody,
           headStyles: {
-            fillColor: [0, 0, 0], // Black background for department header
+            fillColor: [0, 0, 0],
             textColor: [255, 255, 255],
             fontStyle: 'bold',
-            halign: 'left',
+            halign: 'center',
           },
           columnStyles: {
             0: { fontStyle: 'bold' },
           },
           theme: 'striped',
           didDrawPage: (data) => {
-            if (data.pageNumber > 1) {
-              addPageHeaderAndTitle(doc);
-            }
+            // Add headers to new pages created by autoTable
+             addPageHeader(doc);
+             if (data.pageNumber > 1) { // Title only for this section
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Informe Detallado por Ubicación', pageWidth / 2, 30, { align: 'center' });
+             }
           },
         });
 
         yPos = (doc as any).lastAutoTable.finalY + 10;
       }
 
-      // Final pass for footers
+      // Final pass for headers and footers
       const totalPages = doc.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
+        addPageHeader(doc);
         addPageFooter(doc, i, totalPages);
       }
 
-      doc.save(`Informe-Detallado-por-Ubicacion.pdf`);
+      doc.save(`Informe-Resumen-Detallado.pdf`);
 
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -495,3 +526,5 @@ export default function ResumenPage() {
     </div>
   );
 }
+
+    
