@@ -231,10 +231,17 @@ export default function FichaPage() {
                 yPos = margin;
                 addImageHeader();
             } else if (!currentReport) {
-                yPos = margin; // Reset yPos for image-only PDF
+                // This case is for an image-only PDF, so we need the image header
+                yPos = margin;
                 addImageHeader();
             } else {
-                yPos += 5; // Space between report table and images on the same page
+                // There is a report and images will start on the same page.
+                // Add a title for the image section.
+                yPos += 5; // Space between report table and images section title
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Imagenes del Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 12;
             }
 
             for (const image of imagesData) {
@@ -248,20 +255,23 @@ export default function FichaPage() {
                     
                     const imgWidth = 150;
                     const imgHeight = (img.height * imgWidth) / img.width;
+                    const titleHeight = 10; // Estimated height for the title
 
-                    if (yPos + imgHeight + 20 > pageHeight - margin) {
+                    if (yPos + imgHeight + titleHeight > pageHeight - margin) {
                         doc.addPage();
                         yPos = margin;
                         addImageHeader();
                     }
-                    doc.addImage(img, 'JPEG', (pageWidth - imgWidth) / 2, yPos, imgWidth, imgHeight);
-                    yPos += imgHeight + 5;
                     
                     doc.setFontSize(10);
-                    doc.setFont('helvetica', 'normal');
+                    doc.setFont('helvetica', 'bold');
                     const imageTitle = cleanFileName(image.alt).toUpperCase();
                     doc.text(imageTitle, pageWidth / 2, yPos, { align: 'center' });
-                    yPos += 15;
+                    yPos += 5;
+
+                    doc.addImage(img, 'JPEG', (pageWidth - imgWidth) / 2, yPos, imgWidth, imgHeight);
+                    yPos += imgHeight + 15;
+
 
                 } catch (error) {
                     console.error("Error loading image for PDF:", error);
@@ -440,5 +450,7 @@ function InfoItem({ label, value, icon: Icon, fullWidth = false }: { label: stri
 
 
 
+
+    
 
     
