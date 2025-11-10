@@ -163,7 +163,7 @@ export default function FichaPage() {
         const addImageHeader = () => {
             doc.setFontSize(16);
             doc.setFont('helvetica', 'bold');
-            doc.text('Imágenes de las Oficinas del Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
+            doc.text('Imagenes del Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
             yPos += 8;
 
             doc.setFontSize(12);
@@ -231,11 +231,10 @@ export default function FichaPage() {
                 yPos = margin;
                 addImageHeader();
             } else if (!currentReport) {
-                // If there's no report, the images start on the first page, so add the header.
+                yPos = margin; // Reset yPos for image-only PDF
                 addImageHeader();
             } else {
-                // Space between report table and images on the same page
-                yPos += 5;
+                yPos += 5; // Space between report table and images on the same page
             }
 
             for (const image of imagesData) {
@@ -440,3 +439,6 @@ function InfoItem({ label, value, icon: Icon, fullWidth = false }: { label: stri
     
 
 
+
+
+    
