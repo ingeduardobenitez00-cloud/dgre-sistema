@@ -69,9 +69,9 @@ export default function AppSidebar() {
   return (
     <>
       <SidebarHeader>
-        <div className="flex h-10 items-center gap-2">
-            <Image src="/logo.png" alt="Logo" width={32} height={32} />
-            <span className="text-lg font-semibold text-foreground">
+        <div className="flex h-10 items-center gap-3">
+            <Image src="/logo.png" alt="Logo" width={32} height={32} className="rounded-sm"/>
+            <span className="text-lg font-semibold text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">
                 Informe Edilicio
             </span>
         </div>
@@ -83,10 +83,13 @@ export default function AppSidebar() {
               <SidebarMenuButton
                 asChild
                 isActive={pathname === item.href}
+                tooltip={item.label}
               >
                 <Link href={item.href}>
                   <item.icon />
-                  <span>{item.label}</span>
+                  <span className="flex-1 truncate group-data-[collapsible=icon]:hidden">
+                    {item.label}
+                  </span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -96,9 +99,9 @@ export default function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout}>
+                <SidebarMenuButton onClick={handleLogout} tooltip="Cerrar Sesión">
                     <LogOut />
-                    <span>Cerrar Sesión</span>
+                    <span className="flex-1 truncate group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>

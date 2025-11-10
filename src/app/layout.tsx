@@ -50,7 +50,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar variant="inset" collapsible="icon">
+      <Sidebar collapsible="icon">
         <AppSidebar />
       </Sidebar>
       <SidebarInset>{children}</SidebarInset>
