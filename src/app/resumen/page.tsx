@@ -456,7 +456,9 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                             <div className="text-2xl font-bold">{summaryData.comisaria.count}</div>
                             <Accordion type="single" collapsible className="w-full text-xs">
                               <AccordionItem value="item-1">
-                                <AccordionTrigger className="p-0 hover:no-underline">Ver desglose</AccordionTrigger>
+                                <AccordionTrigger className="p-0 hover:no-underline">
+                                    <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); handleCategoryClick('comisaria', 'Detalle: Lugar de Resguardo Comisaria');}}>Ver desglose</div>
+                                </AccordionTrigger>
                                 <AccordionContent className="pt-2 space-y-1">
                                     <Accordion type="multiple" className="w-full">
                                     {Object.entries(comisariaData).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([dept, districts]) => (
@@ -499,7 +501,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                             <Accordion type="single" collapsible className="w-full text-xs">
                               <AccordionItem value="item-1">
                                 <AccordionTrigger className="p-0 hover:no-underline">
-                                  Ver desglose
+                                    <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); handleCategoryClick('otros', 'Detalle: Resguardo en Otros Lugares');}}>Ver desglose</div>
                                 </AccordionTrigger>
                                 <AccordionContent className="pt-2 space-y-1">
                                   <div className="flex justify-between items-center cursor-pointer hover:font-semibold text-xs" onClick={(e) => { e.stopPropagation(); handleCategoryClick('parroquia', 'Parroquia');}}>
@@ -549,7 +551,12 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                       <div className="space-y-2 px-4">
                         {department.districts.map((district) => (
                           <div key={district.name} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                            <span className="text-md font-medium">{district.name}</span>
+                            <span 
+                              className="text-md font-medium cursor-pointer hover:underline"
+                              onClick={() => handleDistrictClick(department.name, district.name)}
+                            >
+                                {district.name}
+                            </span>
                             {district.report ? (
                               <ResguardoIcon lugar={district.report['lugar-resguardo']} />
                             ) : (
@@ -601,3 +608,5 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
+
+    
