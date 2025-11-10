@@ -43,6 +43,7 @@ type DepartmentWithDistricts = {
 type CategoryData = {
     count: number;
     districts: string[];
+    reports: ReportData[];
 }
 
 type SummaryData = {
@@ -134,7 +135,7 @@ export default function ResumenPage() {
       });
       setStructuredData(structured);
       
-      const initialCategoryData = (): CategoryData => ({ count: 0, districts: [] });
+      const initialCategoryData = (): CategoryData => ({ count: 0, districts: [], reports: [] });
       const summary: SummaryData = {
         totalReports: initialCategoryData(),
         habitacionSegura: initialCategoryData(),
@@ -150,6 +151,7 @@ export default function ResumenPage() {
       
       summary.totalReports.count = reportsData.length;
       summary.totalReports.districts = reportsData.map(r => `${r.departamento} - ${r.distrito}`);
+      summary.totalReports.reports = reportsData;
 
       reportsData.forEach(report => {
         const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase().trim() : '';
@@ -160,9 +162,11 @@ export default function ResumenPage() {
         if (lugar.includes('habitacion segura') || lugar.includes('registro electoral')) {
             summary.habitacionSegura.count++;
             summary.habitacionSegura.districts.push(fullDistrictName);
+            summary.habitacionSegura.reports.push(report);
         } else if (lugar.includes('comisaria')) {
             summary.comisaria.count++;
             summary.comisaria.districts.push(fullDistrictName);
+            summary.comisaria.reports.push(report);
             if (!comisariaSummary[deptName]) {
               comisariaSummary[deptName] = [];
             }
@@ -170,18 +174,23 @@ export default function ResumenPage() {
         } else if (lugar.includes('parroquia')) {
             summary.parroquia.count++;
             summary.parroquia.districts.push(fullDistrictName);
+            summary.parroquia.reports.push(report);
         } else if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
             summary.localVotacion.count++;
             summary.localVotacion.districts.push(fullDistrictName);
+            summary.localVotacion.reports.push(report);
         } else if (lugar.includes('juzgado')) {
             summary.juzgado.count++;
             summary.juzgado.districts.push(fullDistrictName);
+            summary.juzgado.reports.push(report);
         } else if (lugar.includes('intendencia')) {
             summary.propiedadIntendencia.count++;
             summary.propiedadIntendencia.districts.push(fullDistrictName);
+            summary.propiedadIntendencia.reports.push(report);
         } else {
             summary.otrosNoEspecificado.count++;
             summary.otrosNoEspecificado.districts.push(fullDistrictName);
+            summary.otrosNoEspecificado.reports.push(report);
         }
       });
 
@@ -232,6 +241,7 @@ const handleGeneratePdf = async () => {
             headStyles: { fillColor: [0, 0, 0], textColor: 255 },
             styles: { fontSize: 9 },
         });
+        yPos = (doc as any).lastAutoTable.finalY + 15;
 
         // --- SECCIÓN 2: INFORME DETALLADO POR UBICACIÓN ---
         doc.addPage();
@@ -241,27 +251,36 @@ const handleGeneratePdf = async () => {
         doc.setFont('helvetica', 'bold');
         doc.text("Informe Detallado por Ubicación", pageWidth / 2, yPos, { align: 'center' });
         yPos += 10;
-
-        const detailedBody: any[] = [];
+        
         structuredData.forEach(department => {
-            detailedBody.push([{ content: `Departamento: ${department.name.toUpperCase()} (${department.districts.length})`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [0, 0, 0], textColor: 255 } }]);
+            const bodyRows: any[][] = [];
             department.districts.forEach(district => {
-                detailedBody.push([
+                bodyRows.push([
                     district.name,
                     district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
                 ]);
             });
+
+            if (yPos > 240) { // Check if there's enough space for the header and a few rows
+                doc.addPage();
+                yPos = 30;
+            }
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [
+                  [{ content: `Departamento: ${department.name.toUpperCase()} (${department.districts.length})`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [255,255,255], textColor: 0, halign: 'center' } }],
+                  ['Distrito', 'Lugar de Resguardo']
+                ],
+                body: bodyRows,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+                styles: { fontSize: 8 },
+            });
+            yPos = (doc as any).lastAutoTable.finalY + 10;
         });
 
-        autoTable(doc, {
-            startY: yPos,
-            head: [['Distrito', 'Lugar de Resguardo']],
-            body: detailedBody,
-            theme: 'grid', // 'grid' para tener todos los bordes
-            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-            styles: { fontSize: 8, fillColor: [255, 255, 255] }, // fondo blanco
-        });
-
+        // FINAL LOOP TO ADD HEADERS AND FOOTERS
         const totalPages = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
@@ -281,17 +300,17 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     if (!summaryData || !logo1Base64 || !logoBase64) return;
     setIsGeneratingPdf(true);
     
-    let districts: string[] = [];
-    if (categoryKey === 'otros') {
-        districts = [
-            ...summaryData.parroquia.districts,
-            ...summaryData.localVotacion.districts,
-            ...summaryData.juzgado.districts,
-            ...summaryData.propiedadIntendencia.districts,
-            ...summaryData.otrosNoEspecificado.districts,
+    let categoryReports: ReportData[] = [];
+     if (categoryKey === 'otros') {
+        categoryReports = [
+            ...summaryData.parroquia.reports,
+            ...summaryData.localVotacion.reports,
+            ...summaryData.juzgado.reports,
+            ...summaryData.propiedadIntendencia.reports,
+            ...summaryData.otrosNoEspecificado.reports,
         ];
     } else {
-        districts = summaryData[categoryKey].districts;
+        categoryReports = summaryData[categoryKey].reports;
     }
 
     try {
@@ -310,30 +329,28 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
         doc.setFont('helvetica', 'bold');
         doc.text(title, pageWidth / 2, 30, { align: 'center' });
 
-        const groupedByDept: Record<string, string[]> = districts.sort().reduce((acc, dist) => {
-          const parts = dist.split(' - ');
-          const department = parts[0] || 'Sin Departamento';
-          const districtName = parts.slice(1).join(' - ') || '';
+        const groupedByDept: Record<string, ReportData[]> = categoryReports.sort((a,b) => (a.departamento || '').localeCompare(b.departamento || '')).reduce((acc, report) => {
+          const department = report.departamento || 'Sin Departamento';
           if (!acc[department]) {
             acc[department] = [];
           }
-          acc[department].push(districtName);
+          acc[department].push(report);
           return acc;
-        }, {} as Record<string, string[]>);
+        }, {} as Record<string, ReportData[]>);
         
         const body: any[] = [];
-        Object.entries(groupedByDept).forEach(([dept, dists]) => {
-          body.push([{ content: `Departamento: ${dept.toUpperCase()} (${dists.length})`, colSpan: 1, styles: { fontStyle: 'bold', fillColor: [220, 220, 220] } }]);
-          dists.forEach(d => body.push([d]));
+        Object.entries(groupedByDept).forEach(([dept, reports]) => {
+          body.push([{ content: `Departamento: ${dept.toUpperCase()} (${reports.length})`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [255,255,255], textColor: 0, halign: 'center' } }]);
+          reports.sort((a,b) => (a.distrito || '').localeCompare(b.distrito || '')).forEach(r => body.push([r.distrito, r['lugar-resguardo']]));
         });
 
         autoTable(doc, {
             startY: 40,
-            head: [['Detalle']],
+            head: [['Distrito', 'Lugar de Resguardo']],
             body: body,
-            theme: 'striped',
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [0, 0, 0] },
+            theme: 'grid',
+            styles: { fontSize: 8, fillColor: [255, 255, 255] },
+            headStyles: { fillColor: [0, 0, 0], textColor: 255, fontStyle: 'bold' },
             didDrawPage: addHeaderAndFooter,
             margin: { top: 30 }
         });
@@ -498,7 +515,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                     >
                         {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     </Button>
-                    <div onClick={() => handleCategoryClick('otros', 'Resguardo en Otros Lugares')} role="button" className="cursor-pointer hover:bg-muted/50 transition-colors h-full rounded-md p-6 pb-4">
+                    <div role="button" className="hover:bg-muted/50 transition-colors h-full rounded-md p-6 pb-4">
                         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <h3 className="text-sm font-medium">Resguardo en Otros Lugares</h3>
                             <Building className="h-4 w-4 text-muted-foreground" />
