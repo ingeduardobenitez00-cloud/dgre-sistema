@@ -209,50 +209,48 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
 
     try {
         const doc = new jsPDF() as jsPDFWithAutoTable;
-        let yPos = 30;
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 15;
+        const pageHeight = doc.internal.pageSize.getHeight();
 
-        const addHeaderAndFooter = (pageNumber: number, totalPages: number) => {
+        const addHeaderAndFooter = (data: any) => {
+            // Header
             if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
             if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
+            
+            // Footer
+            const pageCount = (doc as any).internal.getNumberOfPages();
             doc.setFontSize(10);
-            doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.text(
+                `Página ${data.pageNumber} / ${pageCount}`,
+                pageWidth - margin,
+                pageHeight - 10,
+                { align: 'right' }
+            );
         };
 
+        // Main Title
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Detalle: ${title}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 15;
+        doc.text(`Detalle: ${title}`, pageWidth / 2, 30, { align: 'center' });
 
         const body = districts.sort().map(dist => {
             const parts = dist.split(' - ');
-            const department = parts[0];
-            const districtName = parts.slice(1).join(' - ');
+            const department = parts[0] || '';
+            const districtName = parts.slice(1).join(' - ') || '';
             return [department, districtName];
         });
 
         autoTable(doc, {
-            startY: yPos,
+            startY: 40,
             head: [['Departamento', 'Distrito']],
             body: body,
             theme: 'striped',
             headStyles: { fillColor: [0, 0, 0] },
             styles: { fontSize: 8 },
-            didDrawPage: (data) => {
-                const totalPages = (doc as any).internal.getNumberOfPages();
-                addHeaderAndFooter(data.pageNumber, totalPages);
-            }
+            didDrawPage: addHeaderAndFooter
         });
         
-        const totalPages = (doc as any).internal.getNumberOfPages();
-        // This loop is to fix a bug in jspdf-autotable where didDrawPage might not be called for the last page
-        if ((doc as any).lastAutoTable.finalY > doc.internal.pageSize.getHeight()) {
-            doc.setPage(totalPages);
-            addHeaderAndFooter(totalPages, totalPages);
-        }
-
-
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
     } catch (error) {
         console.error("Error generating category PDF:", error);
@@ -519,4 +517,3 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
-
