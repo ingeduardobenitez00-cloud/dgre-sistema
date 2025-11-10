@@ -181,7 +181,7 @@ export default function FichaPage() {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 15;
-        let yPos = 20;
+        let yPos = 30; // Initial Y position for content
 
         const addPageHeader = () => {
             if (logo1Base64) {
@@ -192,17 +192,6 @@ export default function FichaPage() {
             }
         };
 
-        const addPageFooter = (data: any) => {
-            const pageCount = doc.internal.getNumberOfPages();
-            doc.setFontSize(10);
-            doc.text(
-                `Página ${data.pageNumber} / ${pageCount}`,
-                pageWidth - margin,
-                pageHeight - 10,
-                { align: 'right' }
-            );
-        };
-        
         const addImageSectionHeader = () => {
             doc.setFontSize(16);
             doc.setFont('helvetica', 'bold');
@@ -216,7 +205,7 @@ export default function FichaPage() {
         }
 
         if (currentReport) {
-            yPos = 30; // Ajustar yPos inicial para dejar espacio a los logos
+            yPos = 30; 
             doc.setFontSize(18);
             doc.setFont('helvetica', 'bold');
             doc.text('Informe Edilicio Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
@@ -260,23 +249,6 @@ export default function FichaPage() {
                     0: { fontStyle: 'bold', cellWidth: 50 },
                     1: { cellWidth: 'auto' },
                 },
-                didDrawPage: (data) => {
-                    addPageHeader();
-                    addPageFooter(data);
-                    if (data.pageNumber === 1) { // Solo en la primera página
-                        yPos = 30; // Reset yPos
-                        doc.setFontSize(18);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('Informe Edilicio Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
-                        yPos += 8;
-                        doc.setFontSize(14);
-                        doc.setFont('helvetica', 'normal');
-                        doc.text(`${selectedDepartment.toUpperCase()} - ${selectedDistrict.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
-                        yPos += 8;
-                        doc.setLineWidth(0.5);
-                        doc.line(margin, yPos, pageWidth - margin, yPos);
-                    }
-                }
             });
             yPos = (doc as any).lastAutoTable.finalY + 10;
         }
@@ -286,13 +258,16 @@ export default function FichaPage() {
             
             if (needsNewPageForImages || !currentReport) {
                 doc.addPage();
-                yPos = 30; // Espacio para el encabezado con logos
+                yPos = 30; 
                 addImageSectionHeader();
+            } else if (currentReport) {
+                // Space between table and images if on the same page
+                 yPos += 5;
             }
+
 
             for (const image of imagesData) {
                 try {
-                    // Pre-cargar la imagen para obtener sus dimensiones
                     const img = new window.Image();
                     img.src = image.src;
                     await new Promise((resolve, reject) => {
@@ -341,7 +316,13 @@ export default function FichaPage() {
         for (let i = 1; i <= totalPages; i++) {
           doc.setPage(i);
           addPageHeader();
-          addPageFooter({ pageNumber: i });
+          doc.setFontSize(10);
+          doc.text(
+              `Página ${i} / ${totalPages}`,
+              pageWidth - margin,
+              pageHeight - 10,
+              { align: 'right' }
+          );
         }
         
         doc.save(`Informe-${cleanFileName(selectedDepartment)}-${cleanFileName(selectedDistrict)}.pdf`);
@@ -499,4 +480,5 @@ function InfoItem({ label, value, icon: Icon, fullWidth = false }: { label: stri
     );
 }
 
+    
     
