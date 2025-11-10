@@ -251,7 +251,7 @@ const handleGeneratePdf = async () => {
             didDrawPage: (data) => {
                 addPageHeader(doc, "Informe Detallado por Ubicación");
             },
-            margin: { top: 40 }
+            margin: { top: 50 }
         });
 
         const totalPages = (doc.internal as any).getNumberOfPages();
@@ -323,7 +323,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             didDrawPage: (data) => {
               addPageHeader(doc, title);
             },
-            margin: { top: 40 }
+            margin: { top: 50 }
         });
 
         const totalPages = (doc.internal as any).getNumberOfPages();
@@ -386,8 +386,8 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
   }
 
   const summaryCards = [
-    { key: 'totalReports', title: 'Total de Informes', icon: FileText, onClick: () => handleCategoryClick('totalReports', 'Total de Informes') },
-    { key: 'habitacionSegura', title: 'Registros con Habitaciones Seguras', icon: CheckCircle, className: 'text-green-600', onClick: () => handleCategoryClick('habitacionSegura', 'Registros con Habitaciones Seguras') },
+    { key: 'totalReports', title: 'Total de Informes', icon: FileText },
+    { key: 'habitacionSegura', title: 'Registros con Habitaciones Seguras', icon: CheckCircle, className: 'text-green-600' },
   ] as const;
 
   const otrosCount = summaryData.parroquia.count + summaryData.localVotacion.count + summaryData.juzgado.count + summaryData.propiedadIntendencia.count + summaryData.otrosNoEspecificado.count;
@@ -436,7 +436,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                                 <div className="text-2xl font-bold">{summaryData[card.key].count}</div>
                                  <Accordion type="single" collapsible className="w-full text-xs">
                                   <AccordionItem value="item-1">
-                                    <AccordionTrigger className="p-0 hover:no-underline" onClick={card.onClick}>Ver desglose</AccordionTrigger>
+                                    <AccordionTrigger className="p-0 hover:no-underline" onClick={() => handleCategoryClick(card.key, card.title)}>Ver desglose</AccordionTrigger>
                                   </AccordionItem>
                                 </Accordion>
                             </div>
@@ -607,5 +607,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
+
+    
 
     

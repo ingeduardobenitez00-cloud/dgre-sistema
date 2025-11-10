@@ -237,14 +237,16 @@ export default function FichaPage() {
                 didDrawPage: (data) => {
                     addPageHeader(doc, "Informe Edilicio Registro Electoral");
                 },
-                margin: { top: 40 }
+                margin: { top: 50 }
             });
             yPos = (doc as any).lastAutoTable.finalY + 10;
         }
 
         // --- Subsequent Pages: Images ---
         if (imagesData && imagesData.length > 0) {
-            doc.addPage();
+            if (currentReport) { // If there was a report, images go on a new page
+                doc.addPage();
+            }
             addPageHeader(doc, 'Imagenes del Registro Electoral');
             yPos = 40;
 
@@ -468,6 +470,8 @@ function InfoItem({ label, value, icon: Icon, fullWidth = false }: { label: stri
 }
 
     
+    
+
     
 
     
