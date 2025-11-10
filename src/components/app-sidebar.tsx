@@ -69,7 +69,7 @@ export default function AppSidebar() {
   return (
     <>
       <SidebarHeader>
-        <div className="flex items-center gap-2">
+        <div className="flex h-10 items-center gap-2">
             <Image src="/logo.png" alt="Logo" width={32} height={32} />
             <span className="text-lg font-semibold text-foreground">
                 Informe Edilicio
@@ -84,7 +84,6 @@ export default function AppSidebar() {
                 asChild
                 isActive={pathname === item.href}
                 icon={<item.icon />}
-                tooltip={item.label}
               >
                 <Link href={item.href}>
                   <span>{item.label}</span>
@@ -97,7 +96,7 @@ export default function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout} icon={<LogOut />} tooltip="Cerrar Sesión">
+                <SidebarMenuButton onClick={handleLogout} icon={<LogOut />}>
                     <span>Cerrar Sesión</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
