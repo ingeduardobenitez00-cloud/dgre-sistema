@@ -204,8 +204,8 @@ export default function ResumenPage() {
         let yPos = 0;
 
         const addPageHeader = () => {
-            doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
-            doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
+            if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
+            if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
         };
 
         const addPageFooter = (pageNumber: number, totalPages: number) => {
@@ -214,6 +214,7 @@ export default function ResumenPage() {
         };
         
         // --- PAGE 1: GENERAL SUMMARY ---
+        addPageHeader();
         yPos = 30;
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
@@ -256,9 +257,9 @@ export default function ResumenPage() {
             
             const tableBody = category.data.map(d => d.split(' - '));
             
-            // Check if there is enough space for the header and a few rows
             if (yPos + 30 > doc.internal.pageSize.getHeight() - margin) {
                 doc.addPage();
+                addPageHeader();
                 yPos = 30;
             }
             
@@ -273,16 +274,22 @@ export default function ResumenPage() {
                 body: tableBody,
                 theme: 'grid',
                 headStyles: { fillColor: [41, 128, 185] },
+                 didDrawPage: (data) => {
+                    // This hook is called after a page is added and content is drawn
+                    // We check if it's not the first page to avoid double-adding headers
+                    if (data.pageNumber > 1) {
+                         addPageHeader();
+                    }
+                }
             });
             yPos = (doc as any).lastAutoTable.finalY + 15;
         }
 
 
-        // Add headers and footers to all pages
+        // Final pass for footers
         const totalPages = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
-            addPageHeader();
             addPageFooter(i, totalPages);
         }
 
@@ -522,5 +529,3 @@ export default function ResumenPage() {
     </div>
   );
 }
-
-    
