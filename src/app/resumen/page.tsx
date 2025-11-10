@@ -10,7 +10,7 @@ import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection } from 'firebase/firestore';
 import { type Dato, type ReportData } from '@/lib/data';
-import { Loader2, Building, CheckCircle, Shield, FileText, Landmark, Vote, Scale, Home, HelpCircle } from 'lucide-react';
+import { Loader2, Building, CheckCircle, Shield, FileText, Landmark, Vote, Scale, Home, HelpCircle, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,12 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: any) => jsPDF;
+}
 
 type DistrictWithReport = {
   name: string;
@@ -84,6 +90,30 @@ export default function ResumenPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [districtsForCategory, setDistrictsForCategory] = useState<string[]>([]);
+
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Cargar logos como base64 al montar el componente
+    const fetchLogo = async (path: string, setter: (data: string | null) => void) => {
+        try {
+            const response = await fetch(path);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setter(reader.result as string);
+            };
+            reader.readAsDataURL(blob);
+        } catch (error) {
+            console.error(`Error fetching logo ${path}:`, error);
+        }
+    };
+
+    fetchLogo('/logo1.png', setLogo1Base64);
+    fetchLogo('/logo.png', setLogoBase64);
+  }, []);
 
   useEffect(() => {
     if (datosData && reportsData) {
@@ -191,6 +221,126 @@ export default function ResumenPage() {
     }
   };
 
+  const handleGeneratePdf = async () => {
+    if (!structuredData.length || !summaryData || !logo1Base64 || !logoBase64) {
+        toast({
+            variant: "destructive",
+            title: "Datos insuficientes",
+            description: "No hay suficientes datos para generar el informe.",
+        });
+        return;
+    }
+    setIsGeneratingPdf(true);
+
+    try {
+        const doc = new jsPDF() as jsPDFWithAutoTable;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 15;
+        let yPos = 0;
+
+        const addPageHeader = () => {
+            if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
+            if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
+        };
+        
+        const addPageFooter = (doc: jsPDF, pageNum: number, totalPages: number) => {
+            doc.setFontSize(10);
+            doc.text(`Página ${pageNum} / ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+        };
+        
+        // --- Title Page ---
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Resumen General de Informes', pageWidth / 2, 40, { align: 'center' });
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Fecha de Generación: ${new Date().toLocaleDateString('es-ES')}`, pageWidth / 2, 50, { align: 'center' });
+        yPos = 70;
+
+        // --- Summary Section ---
+        const summaryBody = [
+            ['Total de Informes', summaryData.totalReports.count],
+            ['Registros con Habitaciones Seguras', summaryData.habitacionSegura.count],
+            ['Resguardo en Comisaría', summaryData.comisaria.count],
+            ['Resguardo en Parroquia', summaryData.parroquia.count],
+            ['Resguardo en Local de Votación', summaryData.localVotacion.count],
+            ['Resguardo en Juzgado', summaryData.juzgado.count],
+            ['Resguardo en Propiedad de Intendencia', summaryData.propiedadIntendencia.count],
+            ['Otros/No Especificado', summaryData.otrosNoEspecificado.count],
+        ];
+
+        autoTable(doc, {
+            startY: yPos,
+            head: [['Concepto', 'Cantidad']],
+            body: summaryBody,
+            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+            theme: 'striped',
+        });
+        
+        yPos = (doc as any).lastAutoTable.finalY + 15;
+
+        // --- Detailed Section by Department ---
+        doc.addPage();
+        yPos = 30;
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Informe Detallado por Ubicación', pageWidth / 2, yPos, { align: 'center' });
+        yPos += 15;
+
+
+        for (const dept of structuredData) {
+            const departmentBody = dept.districts.map(dist => [
+                dist.name,
+                dist.report ? 'Sí' : 'No',
+                dist.report ? dist.report['lugar-resguardo'] || 'No especificado' : 'N/A'
+            ]);
+
+            // Check if there is enough space, otherwise add a new page
+            const tableHeight = (departmentBody.length + 1) * 10 + 20; // Approximation
+            if (yPos + tableHeight > doc.internal.pageSize.getHeight() - 20) {
+                doc.addPage();
+                yPos = 30;
+            }
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [[dept.name, 'Informe', 'Lugar de Resguardo']],
+                body: departmentBody,
+                headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+                theme: 'striped',
+                columnStyles: {
+                    0: { cellWidth: 'auto' },
+                    1: { cellWidth: 20, halign: 'center' },
+                    2: { cellWidth: 'auto' },
+                }
+            });
+            
+            yPos = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        // Add headers and footers to all pages
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          doc.setPage(i);
+          addPageHeader();
+          addPageFooter(doc, i, totalPages);
+        }
+
+        doc.save('Resumen-General-Informes.pdf');
+
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al generar PDF",
+            description: "Hubo un problema al crear el documento. Inténtelo de nuevo.",
+        });
+    } finally {
+        setIsGeneratingPdf(false);
+    }
+  };
+
+
   const isLoading = isLoadingDatos || isLoadingReports;
 
   if (isLoading || !summaryData) {
@@ -219,11 +369,17 @@ export default function ResumenPage() {
 
         <Card className="w-full max-w-6xl mx-auto">
             <CardHeader>
-                <div>
-                    <CardTitle>Resumen General</CardTitle>
-                    <CardDescription>
-                        Visión global de los informes registrados en el sistema. Haz clic en una tarjeta para ver los distritos.
-                    </CardDescription>
+                <div className="flex justify-between items-start">
+                  <div>
+                      <CardTitle>Resumen General</CardTitle>
+                      <CardDescription>
+                          Visión global de los informes registrados en el sistema. Haz clic en una tarjeta para ver los distritos.
+                      </CardDescription>
+                  </div>
+                  <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
+                      {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                      Generar PDF
+                  </Button>
                 </div>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -381,4 +537,3 @@ export default function ResumenPage() {
   );
 }
 
-    
