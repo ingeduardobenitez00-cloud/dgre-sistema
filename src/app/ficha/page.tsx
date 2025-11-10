@@ -181,36 +181,27 @@ export default function FichaPage() {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 15;
-        let yPos = 30; // Initial Y position for content
+        let yPos = 0;
 
-        const addPageHeader = () => {
-            if (logo1Base64) {
-                doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
-            }
-            if (logoBase64) {
-                doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
-            }
-        };
-
-        const addImageSectionHeader = () => {
-            doc.setFontSize(16);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Imagenes del Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
-            yPos += 8;
-
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`${selectedDepartment!.toUpperCase()} - ${selectedDistrict!.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
-            yPos += 12;
-        }
-
-        if (currentReport) {
-            yPos = 30; 
+        const addPageHeader = (title: string) => {
+            if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
+            if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
+            
             doc.setFontSize(18);
             doc.setFont('helvetica', 'bold');
-            doc.text('Informe Edilicio Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
-            yPos += 8;
-            
+            doc.text(title, pageWidth / 2, 30, { align: 'center' });
+            yPos = 40;
+        };
+        
+        const addPageFooter = (pageNumber: number, totalPages: number) => {
+            doc.setFontSize(10);
+            doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+        }
+        
+        // --- Page 1: Report Data ---
+        addPageHeader('Informe Edilicio Registro Electoral');
+        
+        if (currentReport) {
             doc.setFontSize(14);
             doc.setFont('helvetica', 'normal');
             doc.text(`${selectedDepartment.toUpperCase()} - ${selectedDistrict.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
@@ -236,35 +227,22 @@ export default function FichaPage() {
                 head: [['Concepto', 'Descripción']],
                 body: reportBody,
                 theme: 'striped',
-                headStyles: {
-                    fillColor: [0, 0, 0],
-                    textColor: 255,
-                    fontStyle: 'bold',
-                },
-                styles: {
-                    cellPadding: 3,
-                    fontSize: 10,
-                },
-                columnStyles: {
-                    0: { fontStyle: 'bold', cellWidth: 50 },
-                    1: { cellWidth: 'auto' },
-                },
+                headStyles: { fillColor: [0, 0, 0], textColor: 255, fontStyle: 'bold' },
+                styles: { cellPadding: 3, fontSize: 10 },
+                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 'auto' } },
             });
             yPos = (doc as any).lastAutoTable.finalY + 10;
         }
 
+        // --- Subsequent Pages: Images ---
         if (imagesData && imagesData.length > 0) {
-            const needsNewPageForImages = currentReport && yPos > pageHeight - 80;
-            
-            if (needsNewPageForImages || !currentReport) {
-                doc.addPage();
-                yPos = 30; 
-                addImageSectionHeader();
-            } else if (currentReport) {
-                // Space between table and images if on the same page
-                 yPos += 5;
-            }
+            doc.addPage();
+            addPageHeader('Imagenes del Registro Electoral');
 
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${selectedDepartment!.toUpperCase()} - ${selectedDistrict!.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
+            yPos += 12;
 
             for (const image of imagesData) {
                 try {
@@ -281,8 +259,11 @@ export default function FichaPage() {
 
                     if (yPos + imgHeight + titleHeight > pageHeight - margin) {
                         doc.addPage();
-                        yPos = 30; // Reset Y pos for new page
-                        addImageSectionHeader();
+                        addPageHeader('Imagenes del Registro Electoral');
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(`${selectedDepartment!.toUpperCase()} - ${selectedDistrict!.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
+                        yPos += 12;
                     }
                     
                     doc.setFontSize(10);
@@ -294,13 +275,15 @@ export default function FichaPage() {
                     doc.addImage(img, 'JPEG', (pageWidth - imgWidth) / 2, yPos, imgWidth, imgHeight);
                     yPos += imgHeight + 15;
 
-
                 } catch (error) {
                     console.error("Error loading image for PDF:", error);
                     if (yPos + 10 > pageHeight - margin) {
                         doc.addPage();
-                        yPos = 30;
-                        addImageSectionHeader();
+                        addPageHeader('Imagenes del Registro Electoral');
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(`${selectedDepartment!.toUpperCase()} - ${selectedDistrict!.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
+                        yPos += 12;
                     }
                     doc.setFontSize(10);
                     doc.setTextColor(255, 0, 0);
@@ -311,18 +294,11 @@ export default function FichaPage() {
             }
         }
         
-        // Final pass to add headers and footers to all pages
+        // --- Final pass to add footers to all pages ---
         const totalPages = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
           doc.setPage(i);
-          addPageHeader();
-          doc.setFontSize(10);
-          doc.text(
-              `Página ${i} / ${totalPages}`,
-              pageWidth - margin,
-              pageHeight - 10,
-              { align: 'right' }
-          );
+          addPageFooter(i, totalPages);
         }
         
         doc.save(`Informe-${cleanFileName(selectedDepartment)}-${cleanFileName(selectedDistrict)}.pdf`);
@@ -481,6 +457,8 @@ function InfoItem({ label, value, icon: Icon, fullWidth = false }: { label: stri
 }
 
     
+    
+
     
 
     
