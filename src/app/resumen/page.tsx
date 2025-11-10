@@ -208,63 +208,51 @@ export default function ResumenPage() {
 }, [reportsData]);
 
 const handleGeneratePdf = async () => {
-  if (!structuredData || !logo1Base64 || !logoBase64) return;
-  setIsGeneratingPdf(true);
+    if (!structuredData || !logo1Base64 || !logoBase64) return;
+    setIsGeneratingPdf(true);
 
-  try {
-      const doc = new jsPDF() as jsPDFWithAutoTable;
+    try {
+        const doc = new jsPDF() as jsPDFWithAutoTable;
 
-      const addPageHeader = (title: string) => {
-          if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
-          if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
-          
-          doc.setFontSize(18);
-          doc.setFont('helvetica', 'bold');
-          doc.text(title, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
-      };
+        const addHeaderAndFooter = (pageNumber: number, totalPages: number) => {
+            if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
+            if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
+            doc.setFontSize(10);
+            doc.text(`Página ${pageNumber} / ${totalPages}`, doc.internal.pageSize.getWidth() - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+        };
 
-      const addPageFooter = (pageNumber: number, totalPages: number) => {
-          doc.setFontSize(10);
-          doc.text(`Página ${pageNumber} / ${totalPages}`, doc.internal.pageSize.getWidth() - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
-      };
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Informe Detallado por Ubicación", doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
 
-      addPageHeader("Informe Detallado por Ubicación");
-      
-      const body = structuredData.flatMap(department => {
-          const departmentHeader = [{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220] } }];
-          const tableHeader = [{ content: 'Distrito', styles: { fontStyle: 'bold' } }, { content: 'Lugar de Resguardo', styles: { fontStyle: 'bold' } }];
-          const departmentRows = department.districts.map(district => [
-              district.name,
-              district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
-          ]);
-          return [departmentHeader, tableHeader, ...departmentRows];
-      });
+        const body = structuredData.flatMap(department => {
+            const departmentHeader = [{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220] } }];
+            const tableHeader = [{ content: 'Distrito', styles: { fontStyle: 'bold' } }, { content: 'Lugar de Resguardo', styles: { fontStyle: 'bold' } }];
+            const departmentRows = department.districts.map(district => [
+                district.name,
+                district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
+            ]);
+            return [departmentHeader, tableHeader, ...departmentRows];
+        });
 
-      autoTable(doc, {
-          body: body,
-          startY: 40,
-          theme: 'grid',
-          styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
-          columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
-      });
-
-      const totalPages = (doc as any).internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-          doc.setPage(i);
-          addPageFooter(i, totalPages);
-          // Re-add header for subsequent pages if autoTable doesn't do it for body rows
-          if (i > 1) {
-            addPageHeader("Informe Detallado por Ubicación");
-          }
-      }
-
-      doc.save(`Informe-Resumen-Detallado.pdf`);
-  } catch (error) {
-      console.error("Error generating PDF:", error);
-      toast({ title: 'Error', description: 'No se pudo generar el informe en PDF.', variant: 'destructive' });
-  } finally {
-      setIsGeneratingPdf(false);
-  }
+        autoTable(doc, {
+            body: body,
+            startY: 50, // Ajustado para no superponerse con el título
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
+            columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
+            didDrawPage: (data) => {
+                addHeaderAndFooter(data.pageNumber, (doc.internal as any).getNumberOfPages());
+            }
+        });
+        
+        doc.save(`Informe-Resumen-Detallado.pdf`);
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+        toast({ title: 'Error', description: 'No se pudo generar el informe en PDF.', variant: 'destructive' });
+    } finally {
+        setIsGeneratingPdf(false);
+    }
 };
 
 const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros', title: string) => {
@@ -287,19 +275,16 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     try {
         const doc = new jsPDF() as jsPDFWithAutoTable;
         
-        const addPageHeader = (title: string) => {
+        const addHeaderAndFooter = (pageNumber: number, totalPages: number) => {
             if (logo1Base64) doc.addImage(logo1Base64, 'PNG', 15, 5, 20, 20);
             if (logoBase64) doc.addImage(logoBase64, 'PNG', doc.internal.pageSize.getWidth() - 15 - 20, 5, 20, 20);
-            
-            doc.setFontSize(18);
-            doc.setFont('helvetica', 'bold');
-            doc.text(title, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
-        };
-
-        const addPageFooter = (pageNumber: number, totalPages: number) => {
             doc.setFontSize(10);
             doc.text(`Página ${pageNumber} / ${totalPages}`, doc.internal.pageSize.getWidth() - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
         };
+
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
         
         const groupedByDept: Record<string, {distrito: string}[]> = categoryReports
             .sort((a,b) => (a.departamento || '').localeCompare(b.departamento || ''))
@@ -324,17 +309,13 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
           });
         });
         
-        addPageHeader(title);
-
         autoTable(doc, {
             body: finalBody,
+            startY: 50,
             theme: 'grid',
-            startY: 40,
             styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
             didDrawPage: (data) => {
-              // Add footer to each page
-              const totalPages = (doc as any).internal.getNumberOfPages();
-              addPageFooter(data.pageNumber, totalPages);
+              addHeaderAndFooter(data.pageNumber, (doc.internal as any).getNumberOfPages());
             }
         });
         
@@ -433,13 +414,18 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                         >
                            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         </Button>
-                        <div onClick={card.onClick} className="cursor-pointer hover:bg-muted/50 transition-colors h-full rounded-md p-6 pb-4">
+                        <div className="h-full rounded-md p-6 pb-4">
                             <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <h3 className="text-sm font-medium">{card.title}</h3>
                                 <Icon className={`h-4 w-4 text-muted-foreground ${card.className || ''}`} />
                             </div>
                             <div>
                                 <div className="text-2xl font-bold">{summaryData[card.key].count}</div>
+                                 <Accordion type="single" collapsible className="w-full text-xs">
+                                  <AccordionItem value="item-1">
+                                    <AccordionTrigger className="p-0 hover:no-underline" onClick={card.onClick}>Ver desglose</AccordionTrigger>
+                                  </AccordionItem>
+                                </Accordion>
                             </div>
                         </div>
                     </Card>
@@ -456,7 +442,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                     >
                         {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     </Button>
-                    <div className="transition-colors h-full rounded-md p-6 pb-4">
+                    <div className="h-full rounded-md p-6 pb-4">
                         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <h3 className="text-sm font-medium">Lugar de Resguardo Comisaria</h3>
                             <Shield className="h-4 w-4 text-muted-foreground text-blue-600" />
@@ -498,7 +484,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                     >
                         {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     </Button>
-                    <div className="transition-colors h-full rounded-md p-6 pb-4">
+                    <div className="h-full rounded-md p-6 pb-4">
                         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <h3 className="text-sm font-medium">Resguardo en Otros Lugares</h3>
                             <Building className="h-4 w-4 text-muted-foreground" />
