@@ -210,12 +210,12 @@ export default function ResumenPage() {
 const addPageHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 15;
-    if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
-    if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
-    
+    if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 10, 25, 25);
+    if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 25, 10, 25, 25);
+
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text(title, pageWidth / 2, 30, { align: 'center' });
+    doc.text(title, pageWidth / 2, 40, { align: 'center' });
 };
 
 const addPageFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
@@ -232,14 +232,19 @@ const handleGeneratePdf = async () => {
     try {
         const doc = new jsPDF() as jsPDFWithAutoTable;
         
-        const body = structuredData.flatMap(department => {
-            const departmentHeader = [{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220] } }];
-            const tableHeader = [{ content: 'Distrito', styles: { fontStyle: 'bold' } }, { content: 'Lugar de Resguardo', styles: { fontStyle: 'bold' } }];
-            const departmentRows = department.districts.map(district => [
-                district.name,
-                district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
+        let body: any[] = [];
+        structuredData.forEach(department => {
+            body.push([{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220] } }]);
+            body.push([
+                { content: 'Distrito', styles: { fontStyle: 'bold' } }, 
+                { content: 'Lugar de Resguardo', styles: { fontStyle: 'bold' } }
             ]);
-            return [departmentHeader, tableHeader, ...departmentRows];
+            department.districts.forEach(district => {
+                body.push([
+                    district.name,
+                    district.report ? district.report['lugar-resguardo'] || 'N/A' : 'Sin informe'
+                ]);
+            });
         });
 
         autoTable(doc, {
@@ -250,15 +255,17 @@ const handleGeneratePdf = async () => {
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
                 addPageHeader(doc, "Informe Detallado por Ubicación");
+                addPageFooter(doc, data.pageNumber, (doc.internal as any).getNumberOfPages());
             },
             margin: { top: 50 }
         });
 
         const totalPages = (doc.internal as any).getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          doc.setPage(i);
-          addPageFooter(doc, i, totalPages);
-        }
+        // The didDrawPage handles all footers, no need for this loop.
+        // for (let i = 1; i <= totalPages; i++) {
+        //   doc.setPage(i);
+        //   addPageFooter(doc, i, totalPages);
+        // }
         
         doc.save(`Informe-Resumen-Detallado.pdf`);
     } catch (error) {
@@ -322,15 +329,16 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
              columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
               addPageHeader(doc, title);
+              addPageFooter(doc, data.pageNumber, (doc.internal as any).getNumberOfPages());
             },
             margin: { top: 50 }
         });
 
-        const totalPages = (doc.internal as any).getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          doc.setPage(i);
-          addPageFooter(doc, i, totalPages);
-        }
+        // const totalPages = (doc.internal as any).getNumberOfPages();
+        // for (let i = 1; i <= totalPages; i++) {
+        //   doc.setPage(i);
+        //   addPageFooter(doc, i, totalPages);
+        // }
         
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
     } catch (error) {
@@ -436,7 +444,9 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                                 <div className="text-2xl font-bold">{summaryData[card.key].count}</div>
                                  <Accordion type="single" collapsible className="w-full text-xs">
                                   <AccordionItem value="item-1">
-                                    <AccordionTrigger className="p-0 hover:no-underline" onClick={() => handleCategoryClick(card.key, card.title)}>Ver desglose</AccordionTrigger>
+                                    <AccordionTrigger className="p-0 hover:no-underline">
+                                      <div onClick={(e) => { e.stopPropagation(); handleCategoryClick(card.key, card.title); }} className="cursor-pointer">Ver desglose</div>
+                                    </AccordionTrigger>
                                   </AccordionItem>
                                 </Accordion>
                             </div>
@@ -506,7 +516,9 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                             <div className="text-2xl font-bold">{otrosCount}</div>
                             <Accordion type="single" collapsible className="w-full text-xs">
                               <AccordionItem value="item-1">
-                                <AccordionTrigger className="p-0 hover:no-underline" onClick={() => handleCategoryClick('otros', 'Resguardo en Otros Lugares')}>Ver desglose</AccordionTrigger>
+                                <AccordionTrigger className="p-0 hover:no-underline">
+                                  <div onClick={(e) => { e.stopPropagation(); handleCategoryClick('otros', 'Resguardo en Otros Lugares');}} className="cursor-pointer">Ver desglose</div>
+                                </AccordionTrigger>
                                 <AccordionContent className="pt-2 space-y-1">
                                   <div className="flex justify-between items-center cursor-pointer hover:font-semibold text-xs" onClick={(e) => { e.stopPropagation(); handleCategoryClick('parroquia', 'Parroquia');}}>
                                     <span className="flex items-center"><Landmark className="mr-2 h-4 w-4 text-amber-600" />Parroquia:</span>
@@ -607,7 +619,3 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
-
-    
-
-    
