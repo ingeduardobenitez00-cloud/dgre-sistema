@@ -172,21 +172,21 @@ export default function FichaPage() {
             yPos += 12;
         }
 
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Informe Edilicio Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
-        yPos += 8;
-        
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`${selectedDepartment.toUpperCase()} - ${selectedDistrict.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 8;
-
-        doc.setLineWidth(0.5);
-        doc.line(margin, yPos, pageWidth - margin, yPos);
-        yPos += 10;
-        
         if (currentReport) {
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Informe Edilicio Registro Electoral', pageWidth / 2, yPos, { align: 'center' });
+            yPos += 8;
+            
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${selectedDepartment.toUpperCase()} - ${selectedDistrict.toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
+            yPos += 8;
+
+            doc.setLineWidth(0.5);
+            doc.line(margin, yPos, pageWidth - margin, yPos);
+            yPos += 10;
+        
             const reportBody = [
                 ['Estado Físico', currentReport['estado-fisico']],
                 ['Habitación Segura', currentReport['habitacion-segura']],
@@ -204,7 +204,7 @@ export default function FichaPage() {
                 body: reportBody,
                 theme: 'striped',
                 headStyles: {
-                    fillColor: [41, 128, 185],
+                    fillColor: [0, 0, 0],
                     textColor: 255,
                     fontStyle: 'bold',
                 },
@@ -230,6 +230,10 @@ export default function FichaPage() {
                 doc.addPage();
                 yPos = margin;
                 addImageHeader();
+            } else if (currentReport) {
+                // Do not add image header on the first page if there is a report
+            } else {
+                 addImageHeader();
             }
 
             for (const image of imagesData) {
@@ -438,6 +442,8 @@ function InfoItem({ label, value, icon: Icon, fullWidth = false }: { label: stri
 
 
 
+
+    
 
     
 
