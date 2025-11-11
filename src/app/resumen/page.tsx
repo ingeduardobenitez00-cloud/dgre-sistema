@@ -234,10 +234,11 @@ const handleGeneratePdf = async () => {
     try {
         const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 15;
         const title = "Informe Detallado por Ubicación";
 
-        const addHeader = (data: any) => {
+        const addHeader = () => {
             if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 10, 20, 20);
             if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 10, 20, 20);
             doc.setFontSize(16);
@@ -247,12 +248,8 @@ const handleGeneratePdf = async () => {
         
         const addFooter = (data: any) => {
             const pageNum = data.pageNumber;
-            let totalPages = (doc.internal as any).getNumberOfPages();
-            if (typeof (doc.internal as any).putTotalPages === 'function') {
-                totalPages = '{totalPages}';
-            }
             doc.setFontSize(10);
-            doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.text(`Página ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
         };
         
         let finalBody: any[] = [];
@@ -275,8 +272,10 @@ const handleGeneratePdf = async () => {
             styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.1, lineColor: [189, 195, 199] },
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
-                addHeader(data);
-                addFooter(data);
+                addHeader();
+                if (data.pageNumber > 1) {
+                    addFooter(data);
+                }
             },
             margin: { top: 35, bottom: 20 }
         });
@@ -301,13 +300,15 @@ const handleGeneratePdf = async () => {
             headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             didDrawPage: (data) => {
-                addHeader(data);
+                addHeader();
                 addFooter(data);
             }
         });
         
-        if (typeof (doc.internal as any).putTotalPages === 'function') {
-            (doc.internal as any).putTotalPages('{totalPages}');
+        const pageCount = (doc.internal as any).getNumberOfPages();
+        for(let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - margin, doc.internal.pageSize.height - 10, { align: 'right' });
         }
         
         doc.save(`Informe-Resumen-Detallado.pdf`);
@@ -339,9 +340,10 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     try {
         const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 15;
         
-        const addHeader = (data: any) => {
+        const addHeader = () => {
             if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 10, 20, 20);
             if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 10, 20, 20);
             doc.setFontSize(16);
@@ -351,12 +353,8 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
 
         const addFooter = (data: any) => {
             const pageNum = data.pageNumber;
-            let totalPages = (doc.internal as any).getNumberOfPages();
-            if (typeof (doc.internal as any).putTotalPages === 'function') {
-                totalPages = '{totalPages}';
-            }
             doc.setFontSize(10);
-            doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.text(`Página ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
         };
         
         const groupedByDept: Record<string, ReportData[]> = categoryReports
@@ -388,8 +386,10 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.1, lineColor: [189, 195, 199] },
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
-              addHeader(data);
-              addFooter(data);
+              addHeader();
+              if (data.pageNumber > 1) {
+                  addFooter(data);
+              }
             },
             margin: { top: 35, bottom: 20 }
         });
@@ -405,13 +405,15 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             didDrawPage: (data) => {
-                addHeader(data);
+                addHeader();
                 addFooter(data);
             }
         });
 
-        if (typeof (doc.internal as any).putTotalPages === 'function') {
-            (doc.internal as any).putTotalPages('{totalPages}');
+        const pageCount = (doc.internal as any).getNumberOfPages();
+        for(let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - margin, doc.internal.pageSize.height - 10, { align: 'right' });
         }
         
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
@@ -749,3 +751,6 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
 
 
 
+
+
+    

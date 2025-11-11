@@ -204,9 +204,10 @@ export default function FichaPage() {
     try {
         const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 15;
 
-        const addHeader = (data: any) => {
+        const addHeader = () => {
             if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
             if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
             doc.setFontSize(18);
@@ -215,17 +216,16 @@ export default function FichaPage() {
         };
         
         const addFooter = (data: any) => {
-            const pageCount = doc.internal.pages.length;
+            const pageCount = doc.internal.pages.length -1;
             doc.setFontSize(10);
-            const pageNum = data.pageNumber || doc.internal.getNumberOfPages();
-            const totalPages = (doc.internal as any).getNumberOfPages();
-            doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            const pageNum = data.pageNumber;
+            doc.text(`Página ${pageNum} de ${pageCount}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
         };
 
         let contentY = 40;
 
         if (currentReport) {
-            addHeader({});
+            
             doc.setFontSize(14);
             doc.setFont('helvetica', 'normal');
             doc.text(`${selectedDepartment.toUpperCase()} - ${selectedDistrict.toUpperCase()}`, pageWidth / 2, contentY, { align: 'center' });
@@ -255,7 +255,7 @@ export default function FichaPage() {
                 styles: { cellPadding: 3, fontSize: 10 },
                 columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 'auto' } },
                 didDrawPage: (data) => {
-                   addHeader(data);
+                   addHeader();
                    addFooter(data);
                 },
                 margin: { top: 40, bottom: 20 }
@@ -266,17 +266,13 @@ export default function FichaPage() {
         if (imagesData && imagesData.length > 0) {
             if (currentReport) {
                 doc.addPage();
+                contentY = 40;
             }
-            addHeader({});
-            addFooter({ pageNumber: (doc.internal as any).getNumberOfPages() });
-            contentY = 40;
-
+            
             doc.setFontSize(12);
             doc.setFont('helvetica', 'normal');
             doc.text(`${selectedDepartment!.toUpperCase()} - ${selectedDistrict!.toUpperCase()}`, pageWidth / 2, contentY, { align: 'center' });
             contentY += 12;
-            
-            const pageHeight = doc.internal.pageSize.getHeight();
             
             for (const image of imagesData) {
                 try {
@@ -293,8 +289,6 @@ export default function FichaPage() {
 
                     if (contentY + imgHeight + titleHeight > pageHeight - margin - 10) {
                         doc.addPage();
-                        addHeader({});
-                        addFooter({ pageNumber: (doc.internal as any).getNumberOfPages() });
                         contentY = 40;
                         doc.setFontSize(12);
                         doc.setFont('helvetica', 'normal');
@@ -315,8 +309,6 @@ export default function FichaPage() {
                     console.error("Error loading image for PDF:", error);
                     if (contentY + 10 > pageHeight - margin) {
                         doc.addPage();
-                        addHeader({});
-                        addFooter({ pageNumber: (doc.internal as any).getNumberOfPages() });
                         contentY = 40;
                     }
                     doc.setFontSize(10);
@@ -328,11 +320,11 @@ export default function FichaPage() {
             }
         }
         
-        const totalPages = (doc.internal as any).getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
+        const pageCount = (doc.internal as any).getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
-            doc.setFontSize(10);
-            doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+            addHeader();
+            addFooter({ pageNumber: i });
         }
         
         doc.save(`Informe-${cleanFileName(selectedDepartment)}-${cleanFileName(selectedDistrict)}.pdf`);
@@ -662,3 +654,5 @@ export default function FichaPage() {
     </div>
   );
 }
+
+    
