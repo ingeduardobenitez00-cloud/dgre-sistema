@@ -57,7 +57,7 @@ type SummaryData = {
     otrosNoEspecificado: CategoryData;
 };
 
-type ComisariaData = {
+type BreakdownData = {
     [department: string]: string[];
 }
 
@@ -88,7 +88,8 @@ export default function ResumenPage() {
 
   const [structuredData, setStructuredData] = useState<DepartmentWithDistricts[]>([]);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
-  const [comisariaData, setComisariaData] = useState<ComisariaData>({});
+  const [comisariaData, setComisariaData] = useState<BreakdownData>({});
+  const [habitacionSeguraData, setHabitacionSeguraData] = useState<BreakdownData>({});
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -191,19 +192,28 @@ export default function ResumenPage() {
 
   useEffect(() => {
     if (reportsData) {
-        const comisariaSummary: ComisariaData = {};
+        const comisariaSummary: BreakdownData = {};
+        const habitacionSeguraSummary: BreakdownData = {};
+
         reportsData.forEach(report => {
             const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase().trim() : '';
+            const deptName = report.departamento!;
+            const distName = report.distrito!;
+
             if (lugar.includes('comisaria')) {
-                const deptName = report.departamento!;
-                const distName = report.distrito!;
                 if (!comisariaSummary[deptName]) {
                     comisariaSummary[deptName] = [];
                 }
                 comisariaSummary[deptName].push(distName);
+            } else if (lugar.includes('habitacion segura') || lugar.includes('registro electoral')) {
+                 if (!habitacionSeguraSummary[deptName]) {
+                    habitacionSeguraSummary[deptName] = [];
+                }
+                habitacionSeguraSummary[deptName].push(distName);
             }
         });
         setComisariaData(comisariaSummary);
+        setHabitacionSeguraData(habitacionSeguraSummary);
     }
 }, [reportsData]);
 
@@ -382,7 +392,6 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
 
   const summaryCards = [
     { key: 'totalReports', title: 'Total de Informes', icon: FileText },
-    { key: 'habitacionSegura', title: 'Registros con Habitaciones Seguras', icon: CheckCircle, className: 'text-green-600' },
   ] as const;
 
   const otrosCount = summaryData.parroquia.count + summaryData.localVotacion.count + summaryData.juzgado.count + summaryData.propiedadIntendencia.count + summaryData.otrosNoEspecificado.count;
@@ -425,7 +434,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                         <div className="h-full rounded-md p-6 pb-4">
                             <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <h3 className="text-sm font-medium">{card.title}</h3>
-                                <Icon className={`h-4 w-4 text-muted-foreground ${card.className || ''}`} />
+                                <Icon className={`h-4 w-4 text-muted-foreground`} />
                             </div>
                             <div>
                                 <div className="text-2xl font-bold cursor-pointer" onClick={() => handleCategoryClick(card.key, card.title)}>
@@ -436,6 +445,50 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                     </Card>
                  )
                })}
+                <Card className="relative">
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
+                        onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf('habitacionSegura', 'Detalle: Registros con Habitaciones Seguras'); }}
+                        disabled={isGeneratingPdf}
+                        aria-label="Generar PDF para Registros con Habitaciones Seguras"
+                    >
+                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    </Button>
+                    <div className="h-full rounded-md p-6 pb-4">
+                        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <h3 className="text-sm font-medium">Registros con Habitaciones Seguras</h3>
+                            <CheckCircle className="h-4 w-4 text-muted-foreground text-green-600" />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="text-2xl font-bold">{summaryData.habitacionSegura.count}</div>
+                            <Accordion type="single" collapsible className="w-full text-xs">
+                              <AccordionItem value="item-1">
+                                <AccordionTrigger className="p-0 hover:no-underline">
+                                    <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); handleCategoryClick('habitacionSegura', 'Detalle: Registros con Habitaciones Seguras');}}>Ver desglose</div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 space-y-1">
+                                    <Accordion type="multiple" className="w-full">
+                                    {Object.entries(habitacionSeguraData).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([dept, districts]) => (
+                                        <AccordionItem value={dept} key={dept}>
+                                            <AccordionTrigger className="p-0 hover:no-underline text-xs">
+                                               {dept} ({districts.length})
+                                            </AccordionTrigger>
+                                            <AccordionContent className="pt-2 pl-4 space-y-1">
+                                                {districts.map(dist => (
+                                                    <div key={dist} className="text-xs cursor-pointer hover:font-semibold" onClick={(e) => { e.stopPropagation(); handleDistrictClick(dept, dist); }}>{dist}</div>
+                                                ))}
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                    </Accordion>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                        </div>
+                    </div>
+                </Card>
                 <Card className="relative">
                      <Button
                         variant="ghost"
@@ -608,5 +661,3 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
-
-    
