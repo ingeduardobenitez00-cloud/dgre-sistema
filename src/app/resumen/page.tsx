@@ -36,6 +36,7 @@ type DistrictWithReport = {
 };
 
 type DepartmentWithDistricts = {
+  id: string;
   name: string;
   districts: DistrictWithReport[];
 };
@@ -131,6 +132,7 @@ export default function ResumenPage() {
         departments[d.departamento].add(d.distrito);
       });
 
+      let deptIdCounter = 0;
       const structured: DepartmentWithDistricts[] = Object.keys(departments).sort().map(deptName => {
         const districts = Array.from(departments[deptName]).sort();
         const districtsWithReports: DistrictWithReport[] = districts.map(distName => {
@@ -138,7 +140,7 @@ export default function ResumenPage() {
           return { name: distName, report };
         });
 
-        return { name: deptName, districts: districtsWithReports };
+        return { id: `dept-${deptIdCounter++}`, name: deptName, districts: districtsWithReports };
       });
       setStructuredData(structured);
       
@@ -248,8 +250,9 @@ const handleGeneratePdf = async () => {
         
         const addFooter = (data: any) => {
             const pageNum = data.pageNumber;
+            const totalPages = data.doc.internal.getNumberOfPages();
             doc.setFontSize(10);
-            doc.text(`Página ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
         };
         
         let finalBody: any[] = [];
@@ -273,9 +276,7 @@ const handleGeneratePdf = async () => {
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
                 addHeader();
-                if (data.pageNumber > 1) {
-                    addFooter(data);
-                }
+                addFooter(data);
             },
             margin: { top: 35, bottom: 20 }
         });
@@ -304,12 +305,6 @@ const handleGeneratePdf = async () => {
                 addFooter(data);
             }
         });
-        
-        const pageCount = (doc.internal as any).getNumberOfPages();
-        for(let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - margin, doc.internal.pageSize.height - 10, { align: 'right' });
-        }
         
         doc.save(`Informe-Resumen-Detallado.pdf`);
     } catch (error) {
@@ -353,8 +348,9 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
 
         const addFooter = (data: any) => {
             const pageNum = data.pageNumber;
+            const totalPages = data.doc.internal.getNumberOfPages();
             doc.setFontSize(10);
-            doc.text(`Página ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
         };
         
         const groupedByDept: Record<string, ReportData[]> = categoryReports
@@ -387,9 +383,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
               addHeader();
-              if (data.pageNumber > 1) {
-                  addFooter(data);
-              }
+              addFooter(data);
             },
             margin: { top: 35, bottom: 20 }
         });
@@ -410,12 +404,6 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             }
         });
 
-        const pageCount = (doc.internal as any).getNumberOfPages();
-        for(let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - margin, doc.internal.pageSize.height - 10, { align: 'right' });
-        }
-        
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
     } catch (error) {
         console.error("Error generating category PDF:", error);
@@ -675,7 +663,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
           <CardContent>
               <Accordion type="multiple" className="w-full">
                 {structuredData.map((department) => (
-                  <AccordionItem value={department.name} key={department.name}>
+                  <AccordionItem value={department.id} key={department.id}>
                     <AccordionTrigger className="text-lg font-semibold hover:no-underline data-[state=open]:text-primary">
                       {department.name}
                     </AccordionTrigger>

@@ -33,7 +33,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (pathname === '/login') {
-    return <>{children}</>;
+    return <main key={pathname}>{children}</main>;
   }
 
   return (
@@ -41,7 +41,9 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
       <Sidebar collapsible="icon">
         <AppSidebar />
       </Sidebar>
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset>
+        <main key={pathname}>{children}</main>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
