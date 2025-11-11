@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, ImageIcon, Loader2, Trash2 } from 'lucide-react';
+import { Upload, ImageIcon, Loader2, Trash2, AlertCircle } from 'lucide-react';
 import { type Dato, type District, type ImageData } from '@/lib/data';
 import { UploadDialog } from '@/components/upload-dialog';
 import { ImageViewerDialog } from '@/components/image-viewer-dialog';
@@ -34,6 +34,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type DepartmentWithDistricts = {
   id: string;
@@ -51,7 +52,9 @@ export default function PhotoGallery() {
 
   const [departments, setDepartments] = useState<DepartmentWithDistricts[]>([]);
   const [images, setImages] = useState<Record<string, ImageData[]>>({});
-  const [checkedDepartments, setCheckedDepartments] = useState<Set<string>>(new Set());
+  const [loadingDepartments, setLoadingDepartments] = useState<Set<string>>(new Set());
+  const [errorDepartments, setErrorDepartments] = useState<Set<string>>(new Set());
+  
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [isUploadOpen, setUploadOpen] = useState(false);
@@ -94,19 +97,23 @@ export default function PhotoGallery() {
   }, [datosData]);
   
   const getImagesForDepartment = async (department: DepartmentWithDistricts) => {
-    if (!firestore || !user || checkedDepartments.has(department.id)) return;
+    if (!firestore || !user || loadingDepartments.has(department.id) || images[Object.keys(images).find(k => k.startsWith(department.name))!] !== undefined) return;
 
-    setCheckedDepartments(prev => new Set(prev.add(department.id)));
+    setLoadingDepartments(prev => new Set(prev).add(department.id));
+    setErrorDepartments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(department.id);
+        return newSet;
+    });
     
-    const imageQueries = department.districts.map(dist => 
-      getDocs(query(
-        collection(firestore, 'imagenes'),
-        where('departamento', '==', department.name),
-        where('distrito', '==', dist.name)
-      ))
-    );
-
     try {
+        const imageQueries = department.districts.map(dist => 
+          getDocs(query(
+            collection(firestore, 'imagenes'),
+            where('departamento', '==', department.name),
+            where('distrito', '==', dist.name)
+          ))
+        );
         const querySnapshots = await Promise.all(imageQueries);
         const newImagesState: Record<string, ImageData[]> = {};
         
@@ -120,11 +127,18 @@ export default function PhotoGallery() {
         setImages(prev => ({ ...prev, ...newImagesState }));
 
     } catch (error) {
+        setErrorDepartments(prev => new Set(prev).add(department.id));
         const contextualError = new FirestorePermissionError({
             operation: 'list',
-            path: `imagenes`,
+            path: `imagenes where departamento == ${department.name}`,
         });
         errorEmitter.emit('permission-error', contextualError);
+    } finally {
+        setLoadingDepartments(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(department.id);
+            return newSet;
+        });
     }
   };
 
@@ -270,122 +284,127 @@ export default function PhotoGallery() {
         </p>
       </div>
 
-      <Accordion type="single" collapsible className="w-full">
+      <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
+          const department = departments.find(d => d.id === value);
+          if (department) {
+              getImagesForDepartment(department);
+          }
+      }}>
         {departments.map((department) => {
-          const districtsWithImages = department.districts.filter(
-            (dist) => (images[`${department.name}-${dist.name}`] || []).length > 0
-          ).length;
-          
-          const completionPercentage = checkedDepartments.has(department.id)
-            ? (districtsWithImages / department.districts.length) * 100
-            : 0;
-
           return (
-            <AccordionItem value={department.id} key={department.id} onFocus={() => getImagesForDepartment(department)}>
-              <div className='flex flex-col'>
-                <div className='flex items-center w-full'>
-                    <AccordionTrigger className="text-lg font-medium hover:no-underline data-[state=open]:text-primary flex-1">
-                    <div className='flex flex-col items-start gap-2'>
-                        <span>{department.name}</span>
-                        <div className="w-full flex items-center gap-2 pr-4">
-                            <Progress value={completionPercentage} className="h-2 w-full max-w-xs" />
-                            <span className="text-xs font-mono text-muted-foreground">{Math.round(completionPercentage)}%</span>
-                        </div>
-                    </div>
-                    </AccordionTrigger>
-                </div>
-              </div>
+            <AccordionItem value={department.id} key={department.id}>
+                <AccordionTrigger className="text-lg font-medium hover:no-underline data-[state=open]:text-primary flex-1">
+                    {department.name}
+                </AccordionTrigger>
               <AccordionContent>
-                <Accordion type="multiple" className="w-full space-y-4 px-4">
-                  {department.districts.map((district) => {
-                    const imagesKey = `${department.name}-${district.name}`;
-                    const districtImages = images[imagesKey] || [];
-                    const hasImages = districtImages.length > 0;
-                    return (
-                      <AccordionItem value={district.id} key={district.id}>
-                          <div className="flex w-full items-center">
-                              <AccordionTrigger
-                                  className={cn(
-                                      "flex-1 text-md font-medium border-b-0",
-                                      !hasImages && checkedDepartments.has(department.id) && "text-destructive hover:text-destructive"
-                                  )}
-                              >
-                                  {district.name}
-                              </AccordionTrigger>
-                              <Button variant="outline" size="sm" onClick={() => handleOpenUpload(department.name, district.name)} className="ml-4 shrink-0">
-                                  <Upload className="mr-2 h-4 w-4" />
-                                  Subir Foto
-                              </Button>
-                          </div>
-                        <AccordionContent className="pt-4">
-                        {images[imagesKey] ? (
-                          hasImages ? (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                            {districtImages.map((image) => (
-                              <Card
-                                key={image.id}
-                                className="group/image-card overflow-hidden transition-all hover:shadow-lg"
-                              >
-                                <CardContent className="p-0 relative">
-                                    <div className='cursor-pointer' onClick={() => handleOpenImageViewer(image)}>
-                                        <Image
-                                            src={image.src}
-                                            alt={image.alt}
-                                            width={600}
-                                            height={400}
-                                            className="aspect-[3/2] w-full object-cover transition-transform group-hover/image-card:scale-[1.02]"
-                                            data-ai-hint={image.hint}
-                                        />
-                                    </div>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button
-                                                variant="destructive"
-                                                size="icon"
-                                                className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover/image-card:opacity-100 transition-opacity"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>¿Estás seguro de que quieres eliminar esta imagen?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Esta acción no se puede deshacer. La imagen se eliminará permanentemente.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteImage(image)} className="bg-destructive hover:bg-destructive/90">
-                                                    Eliminar
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                          ) : (
-                          <button
-                            onClick={() => handleOpenUpload(department.name, district.name)}
-                            className="w-full text-center py-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center hover:bg-muted/50 transition-colors"
-                          >
-                            <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                            <p className="text-destructive font-medium">No hay imágenes en este distrito.</p>
-                            <p className="text-sm text-muted-foreground">Haz clic aquí para subir una.</p>
-                          </button>
-                          )
-                        ) : (
-                             <div className="flex justify-center items-center h-24">
-                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                {loadingDepartments.has(department.id) && (
+                    <div className="flex justify-center items-center h-48">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                )}
+                {errorDepartments.has(department.id) && (
+                    <Alert variant="destructive" className="m-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Error de Permisos</AlertTitle>
+                        <AlertDescription>
+                            No se pudieron cargar las imágenes para este departamento. Revisa tus permisos de Firestore.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {!loadingDepartments.has(department.id) && !errorDepartments.has(department.id) &&(
+                    <Accordion type="multiple" className="w-full space-y-4 px-4">
+                    {department.districts.map((district) => {
+                        const imagesKey = `${department.name}-${district.name}`;
+                        const districtImages = images[imagesKey] || [];
+                        const hasImages = districtImages.length > 0;
+                        const isLoaded = images[imagesKey] !== undefined;
+
+                        return (
+                        <AccordionItem value={district.id} key={district.id}>
+                            <div className="flex w-full items-center">
+                                <AccordionTrigger
+                                    className={cn(
+                                        "flex-1 text-md font-medium border-b-0",
+                                        !hasImages && isLoaded && "text-destructive hover:text-destructive"
+                                    )}
+                                >
+                                    {district.name}
+                                </AccordionTrigger>
+                                <Button variant="outline" size="sm" onClick={() => handleOpenUpload(department.name, district.name)} className="ml-4 shrink-0">
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Subir Foto
+                                </Button>
                             </div>
-                        )}
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-                </Accordion>
+                            <AccordionContent className="pt-4">
+                            {isLoaded ? (
+                            hasImages ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                {districtImages.map((image) => (
+                                <Card
+                                    key={image.id}
+                                    className="group/image-card overflow-hidden transition-all hover:shadow-lg"
+                                >
+                                    <CardContent className="p-0 relative">
+                                        <div className='cursor-pointer' onClick={() => handleOpenImageViewer(image)}>
+                                            <Image
+                                                src={image.src}
+                                                alt={image.alt}
+                                                width={600}
+                                                height={400}
+                                                className="aspect-[3/2] w-full object-cover transition-transform group-hover/image-card:scale-[1.02]"
+                                                data-ai-hint={image.hint}
+                                            />
+                                        </div>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover/image-card:opacity-100 transition-opacity"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>¿Estás seguro de que quieres eliminar esta imagen?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Esta acción no se puede deshacer. La imagen se eliminará permanentemente.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteImage(image)} className="bg-destructive hover:bg-destructive/90">
+                                                        Eliminar
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </CardContent>
+                                </Card>
+                                ))}
+                            </div>
+                            ) : (
+                            <button
+                                onClick={() => handleOpenUpload(department.name, district.name)}
+                                className="w-full text-center py-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center hover:bg-muted/50 transition-colors"
+                            >
+                                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                                <p className="text-destructive font-medium">No hay imágenes en este distrito.</p>
+                                <p className="text-sm text-muted-foreground">Haz clic aquí para subir una.</p>
+                            </button>
+                            )
+                            ) : (
+                                <div className="flex justify-center items-center h-24">
+                                    <p className="text-sm text-muted-foreground">Expande una sección para cargar imágenes.</p>
+                                </div>
+                            )}
+                            </AccordionContent>
+                        </AccordionItem>
+                        );
+                    })}
+                    </Accordion>
+                )}
               </AccordionContent>
             </AccordionItem>
           );
@@ -410,3 +429,5 @@ export default function PhotoGallery() {
     </div>
   );
 }
+
+    
