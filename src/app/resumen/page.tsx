@@ -362,7 +362,6 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
         autoTable(doc, {
             head: [['Distrito', 'Lugar de Resguardo']],
             body: finalBody,
-            startY: 40,
             theme: 'grid',
             headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
             styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.1, lineColor: [189, 195, 199] },
@@ -373,13 +372,10 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             margin: { top: 35, bottom: 20 }
         });
         
-        let finalY = (doc as any).lastAutoTable.finalY + 10;
-        
-        if (finalY > doc.internal.pageSize.getHeight() - 40) {
-            doc.addPage();
-            addPageHeader(doc, title);
-            finalY = 35;
-        }
+        // Force the summary table to a new page
+        doc.addPage();
+        addPageHeader(doc, title);
+        let finalY = 35;
 
         const summaryBody = Object.entries(groupedByDept).map(([dept, reports]) => [dept, reports.length]);
         const totalGeneral = summaryBody.reduce((sum, row) => sum + (row[1] as number), 0);
@@ -393,9 +389,8 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             didDrawPage: (data) => {
-                if(data.pageNumber > 1 && data.cursor?.y) {
-                    addPageHeader(doc, title);
-                }
+                // This is a new page, so no need to check cursor position
+                addPageHeader(doc, title);
             }
         });
         
@@ -733,5 +728,6 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     
 
     
+
 
 
