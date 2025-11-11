@@ -220,19 +220,23 @@ export default function ResumenPage() {
 const addPageHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 15;
-    if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 10, 25, 25);
-    if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 25, 10, 25, 25);
+    if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 10, 20, 20);
+    if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 10, 20, 20);
 
-    doc.setFontSize(18);
+    doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text(title, pageWidth / 2, 40, { align: 'center' });
+    doc.text(title, pageWidth / 2, 22, { align: 'center' });
 };
 
-const addPageFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
-    const pageHeight = doc.internal.pageSize.getHeight();
+const addPageFooter = (doc: jsPDF) => {
+    const pageCount = doc.internal.getNumberOfPages();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     doc.setFontSize(10);
-    doc.text(`Página ${pageNumber} / ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.text(`Página ${i} de ${pageCount}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+    }
 };
 
 const handleGeneratePdf = async () => {
@@ -240,15 +244,11 @@ const handleGeneratePdf = async () => {
     setIsGeneratingPdf(true);
 
     try {
-        const doc = new jsPDF() as jsPDFWithAutoTable;
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }) as jsPDFWithAutoTable;
         
         let finalBody: any[] = [];
         structuredData.forEach(department => {
-             finalBody.push([{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [220, 220, 220] } }]);
-            finalBody.push([
-                { content: 'Distrito', styles: { fontStyle: 'bold' } }, 
-                { content: 'Lugar de Resguardo', styles: { fontStyle: 'bold' } }
-            ]);
+             finalBody.push([{ content: `Departamento: ${department.name.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'left', fillColor: [230, 230, 230] } }]);
             department.districts.forEach(district => {
                 finalBody.push([
                     district.name,
@@ -258,23 +258,23 @@ const handleGeneratePdf = async () => {
         });
 
         autoTable(doc, {
+            head: [['Distrito', 'Lugar de Resguardo']],
             body: finalBody,
-            startY: 50,
+            startY: 40,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
+            headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.1, lineColor: [189, 195, 199] },
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
                 addPageHeader(doc, "Informe Detallado por Ubicación");
-                addPageFooter(doc, data.pageNumber, (doc.internal as any).getNumberOfPages());
             },
-            margin: { top: 50 }
+            margin: { top: 40, bottom: 20 }
         });
         
-        let finalY = (doc as any).lastAutoTable.finalY + 15;
-        if (finalY > doc.internal.pageSize.getHeight() - 60) {
+        let finalY = (doc as any).lastAutoTable.finalY + 10;
+        if (finalY > doc.internal.pageSize.getHeight() - 40) { // Check for space
             doc.addPage();
-            finalY = 50;
-            addPageHeader(doc, "Informe Detallado por Ubicación");
+            finalY = 40;
         }
 
         const summaryBody = [
@@ -287,25 +287,22 @@ const handleGeneratePdf = async () => {
             ['Otros / No Especificado', summaryData.otrosNoEspecificado.count],
         ];
 
+        const totalGeneral = summaryBody.reduce((sum, row) => sum + (row[1] as number), 0);
+
         autoTable(doc, {
             head: [['Resumen de Lugares de Resguardo', 'Total']],
             body: summaryBody,
+            foot: [['TOTAL GENERAL', totalGeneral]],
             startY: finalY,
             theme: 'striped',
-            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+            headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
+            footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             didDrawPage: (data) => {
                 addPageHeader(doc, "Informe Detallado por Ubicación");
-                addPageFooter(doc, data.pageNumber, (doc.internal as any).getNumberOfPages());
             }
         });
         
-        // Final pass for footers on all pages
-        const totalPages = (doc.internal as any).getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          doc.setPage(i);
-          addPageFooter(doc, i, totalPages);
-        }
-
+        addPageFooter(doc);
         doc.save(`Informe-Resumen-Detallado.pdf`);
     } catch (error) {
         console.error("Error generating PDF:", error);
@@ -333,7 +330,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     }
 
     try {
-        const doc = new jsPDF() as jsPDFWithAutoTable;
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }) as jsPDFWithAutoTable;
         
         const groupedByDept: Record<string, ReportData[]> = categoryReports
             .sort((a,b) => (a.departamento || '').localeCompare(b.departamento || ''))
@@ -349,11 +346,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
         let finalBody: any[] = [];
         Object.entries(groupedByDept).forEach(([dept, reports]) => {
             finalBody.push([
-                { content: `Departamento: ${dept.toUpperCase()} (${reports.length})`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [220, 220, 220], textColor: 0 } },
-            ]);
-            finalBody.push([
-                { content: 'Distrito', styles: { fontStyle: 'bold' } },
-                { content: 'Lugar de Resguardo', styles: { fontStyle: 'bold' } }
+                { content: `Departamento: ${dept.toUpperCase()}`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], textColor: 0 } },
             ]);
             reports.sort((a,b) => (a.distrito || '').localeCompare(b.distrito || '')).forEach(report => {
                 finalBody.push([report.distrito || 'N/A', report['lugar-resguardo'] || 'N/A']);
@@ -361,46 +354,42 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
         });
         
         autoTable(doc, {
+            head: [['Distrito', 'Lugar de Resguardo']],
             body: finalBody,
-            startY: 50,
+            startY: 40,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1, lineColor: [100, 100, 100] },
-             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
+            headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.1, lineColor: [189, 195, 199] },
+            columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
               addPageHeader(doc, title);
-              addPageFooter(doc, data.pageNumber, (doc.internal as any).getNumberOfPages());
             },
-            margin: { top: 50 }
+            margin: { top: 40, bottom: 20 }
         });
         
-        let finalY = (doc as any).lastAutoTable.finalY + 15;
-        if (finalY > doc.internal.pageSize.getHeight() - 60) {
+        let finalY = (doc as any).lastAutoTable.finalY + 10;
+        if (finalY > doc.internal.pageSize.getHeight() - 40) {
             doc.addPage();
-            finalY = 50;
-            addPageHeader(doc, title);
+            finalY = 40;
         }
 
         const summaryBody = Object.entries(groupedByDept).map(([dept, reports]) => [dept, reports.length]);
+        const totalGeneral = summaryBody.reduce((sum, row) => sum + (row[1] as number), 0);
 
         autoTable(doc, {
             head: [['Resumen por Departamento', 'Total']],
             body: summaryBody,
+            foot: [['TOTAL GENERAL', totalGeneral]],
             startY: finalY,
             theme: 'striped',
-            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-             didDrawPage: (data) => {
+            headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
+            footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
+            didDrawPage: (data) => {
                 addPageHeader(doc, title);
-                addPageFooter(doc, data.pageNumber, (doc.internal as any).getNumberOfPages());
             }
         });
 
-         // Final pass for footers on all pages
-        const totalPages = (doc.internal as any).getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          doc.setPage(i);
-          addPageFooter(doc, i, totalPages);
-        }
-
+        addPageFooter(doc);
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
     } catch (error) {
         console.error("Error generating category PDF:", error);
