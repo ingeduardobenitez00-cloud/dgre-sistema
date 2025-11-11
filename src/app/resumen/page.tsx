@@ -232,9 +232,9 @@ const addPageFooter = (doc: jsPDF) => {
     const pageCount = doc.internal.getNumberOfPages();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    doc.setFontSize(10);
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
+        doc.setFontSize(10);
         doc.text(`Página ${i} de ${pageCount}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
     }
 };
@@ -256,6 +256,8 @@ const handleGeneratePdf = async () => {
                 ]);
             });
         });
+        
+        const title = "Informe Detallado por Ubicación";
 
         autoTable(doc, {
             head: [['Distrito', 'Lugar de Resguardo']],
@@ -266,7 +268,7 @@ const handleGeneratePdf = async () => {
             styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.1, lineColor: [189, 195, 199] },
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
-                addPageHeader(doc, "Informe Detallado por Ubicación");
+                addPageHeader(doc, title);
             },
             margin: { top: 40, bottom: 20 }
         });
@@ -298,7 +300,7 @@ const handleGeneratePdf = async () => {
             headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             didDrawPage: (data) => {
-                addPageHeader(doc, "Informe Detallado por Ubicación");
+                addPageHeader(doc, title);
             }
         });
         
@@ -370,6 +372,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
         let finalY = (doc as any).lastAutoTable.finalY + 10;
         if (finalY > doc.internal.pageSize.getHeight() - 40) {
             doc.addPage();
+            addPageHeader(doc, title);
             finalY = 40;
         }
 
@@ -714,5 +717,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
+
+    
 
     
