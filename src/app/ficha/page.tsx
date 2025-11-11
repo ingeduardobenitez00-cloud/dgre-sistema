@@ -55,9 +55,6 @@ export default function FichaPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   
-  const [departmentFromUrl, setDepartmentFromUrl] = useState<string | null>(null);
-  const [districtFromUrl, setDistrictFromUrl] = useState<string | null>(null);
-  
   const [shouldFetch, setShouldFetch] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -108,40 +105,40 @@ export default function FichaPage() {
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isViewerOpen, setViewerOpen] = useState(false);
 
-  useEffect(() => {
-    const dept = searchParams.get('dept');
-    const dist = searchParams.get('dist');
-    if (dept) setDepartmentFromUrl(decodeURIComponent(dept));
-    if (dist) setDistrictFromUrl(decodeURIComponent(dist));
-  }, [searchParams]);
-
-
+  // Effect to populate departments and handle navigation from URL
   useEffect(() => {
     if (datosData) {
       const uniqueDepts = [...new Set(datosData.map(d => d.departamento))].sort();
       setDepartments(uniqueDepts);
-      
-      if(departmentFromUrl && uniqueDepts.includes(departmentFromUrl)) {
-        setSelectedDepartment(departmentFromUrl);
+
+      const deptFromUrl = searchParams.get('dept');
+      const distFromUrl = searchParams.get('dist');
+
+      if (deptFromUrl && distFromUrl && uniqueDepts.includes(decodeURIComponent(deptFromUrl))) {
+        const decodedDept = decodeURIComponent(deptFromUrl);
+        const decodedDist = decodeURIComponent(distFromUrl);
+
+        const districtsForDept = [...new Set(datosData.filter(d => d.departamento === decodedDept).map(d => d.distrito))].sort();
+        
+        if (districtsForDept.includes(decodedDist)) {
+          setSelectedDepartment(decodedDept);
+          setDistricts(districtsForDept);
+          setSelectedDistrict(decodedDist);
+          setShouldFetch(true);
+        }
       }
     }
-  }, [datosData, departmentFromUrl]);
+  }, [datosData, searchParams]);
 
+  // Effect to update districts when department changes
   useEffect(() => {
     if (selectedDepartment && datosData) {
       const uniqueDistricts = [...new Set(datosData.filter(d => d.departamento === selectedDepartment).map(d => d.distrito))].sort();
       setDistricts(uniqueDistricts);
-      
-       if (districtFromUrl && uniqueDistricts.includes(districtFromUrl)) {
-          setSelectedDistrict(districtFromUrl);
-          setShouldFetch(true);
-          setDepartmentFromUrl(null);
-          setDistrictFromUrl(null);
-      }
     } else {
       setDistricts([]);
     }
-  }, [selectedDepartment, datosData, districtFromUrl]);
+  }, [selectedDepartment, datosData]);
   
   const handleDepartmentChange = (value: string) => {
     setSelectedDepartment(value);
@@ -467,5 +464,7 @@ export default function FichaPage() {
     </div>
   );
 }
+
+    
 
     
