@@ -265,14 +265,19 @@ const handleGeneratePdf = async () => {
             columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 'auto' } },
             didDrawPage: (data) => {
                 addPageHeader(doc, title);
+                addPageFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
             },
             margin: { top: 35, bottom: 20 }
         });
         
         let finalY = (doc as any).lastAutoTable.finalY + 10;
+        let currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+
         if (finalY > doc.internal.pageSize.getHeight() - 40) { // Check for space
             doc.addPage();
+            currentPage++;
             addPageHeader(doc, title);
+            addPageFooter(doc, currentPage, currentPage); // Assuming this is last page for now
             finalY = 35;
         }
 
@@ -297,9 +302,8 @@ const handleGeneratePdf = async () => {
             headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             didDrawPage: (data) => {
-                if(data.pageNumber > 1 && data.cursor?.y) {
-                  addPageHeader(doc, title);
-                }
+                addPageHeader(doc, title);
+                addPageFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
             }
         });
         
@@ -389,7 +393,6 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
             headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             didDrawPage: (data) => {
-                // This is a new page, so no need to check cursor position
                 addPageHeader(doc, title);
             }
         });
@@ -579,7 +582,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                                     <Accordion type="multiple" className="w-full">
                                     {Object.entries(comisariaData).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([dept, districts]) => (
                                         <AccordionItem value={dept} key={dept}>
-                                            <AccordionTrigger className="p-0 hover:no-underline text-xs">
+                                            <AccordionTrigger className="p-0 hover-no-underline text-xs">
                                                {dept} ({districts.length})
                                             </AccordionTrigger>
                                             <AccordionContent className="pt-2 pl-4 space-y-1">
@@ -700,7 +703,9 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                   {districtsForCategory.length > 0 ? (
                       <div className="p-4 space-y-1">
                           {districtsForCategory.map((dist, index) => {
-                             const [deptName, distName] = dist.split(' - ');
+                             const parts = dist.split(' - ');
+                             const deptName = parts[0].trim();
+                             const distName = parts.slice(1).join(' - ').trim();
                              return (
                               <Button
                                   key={index}
@@ -728,6 +733,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     
 
     
+
 
 
 
