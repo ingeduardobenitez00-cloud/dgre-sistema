@@ -38,8 +38,8 @@ service cloud.firestore {
     match /users/{userId} {
 
       // 🔹 Lectura
-      allow get: if canReadUser(userId);
-      allow list: if isSignedIn();
+      allow get: if canReadUser(userId) || isOwner(userId);
+      allow list: if isAdmin();
 
       // 🔹 Escritura
       allow create: if isOwner(userId) || isAdmin();
