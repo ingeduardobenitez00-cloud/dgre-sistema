@@ -315,7 +315,7 @@ export default function PhotoGallery() {
                     {department.districts.map((district) => {
                         const imagesKey = `${department.name}-${district.name}`;
                         const isLoaded = images[imagesKey] !== undefined;
-                        const districtImages = images[imagesKey] || [];
+                        const districtImages = isLoaded ? images[imagesKey] : [];
                         const hasImages = districtImages.length > 0;
 
                         return (

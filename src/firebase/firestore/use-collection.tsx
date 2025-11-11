@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Query,
   onSnapshot,
@@ -77,7 +77,7 @@ export function useCollection<T = any>(
     // If the query is null or undefined, reset state and stop.
     if (!query) {
       setData(null);
-      setIsLoading(false);
+      setIsLoading(true);
       setError(null);
       previousQueryRef.current = null;
       return;
