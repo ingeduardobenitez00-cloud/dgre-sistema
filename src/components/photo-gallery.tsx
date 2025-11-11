@@ -35,6 +35,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+
 
 type DepartmentWithDistricts = {
   id: string;
@@ -254,6 +256,28 @@ export default function PhotoGallery() {
           setSelectedImage(currentImageList[currentImageIndex - 1]);
       }
   };
+  
+  const calculateCompletionPercentage = (department: DepartmentWithDistricts): number | null => {
+    const isDepartmentDataLoaded = department.districts.some(dist => images[`${department.name}-${dist.name}`] !== undefined);
+    if (!isDepartmentDataLoaded) {
+      return null;
+    }
+
+    const totalDistricts = department.districts.length;
+    if (totalDistricts === 0) {
+      return 100;
+    }
+
+    const districtsWithImages = department.districts.reduce((count, district) => {
+      const imagesKey = `${department.name}-${district.name}`;
+      if (images[imagesKey] && images[imagesKey].length > 0) {
+        return count + 1;
+      }
+      return count;
+    }, 0);
+
+    return Math.round((districtsWithImages / totalDistricts) * 100);
+  };
 
 
   if (isLoadingDatos || isUserLoading) {
@@ -290,10 +314,18 @@ export default function PhotoGallery() {
           }
       }}>
         {departments.map((department) => {
+          const completionPercentage = calculateCompletionPercentage(department);
           return (
             <AccordionItem value={department.id} key={department.id}>
                 <AccordionTrigger className="text-lg font-medium hover:no-underline data-[state=open]:text-primary flex-1">
-                    {department.name}
+                    <div className="flex items-center gap-4">
+                      <span>{department.name}</span>
+                      {completionPercentage !== null && (
+                        <Badge variant={completionPercentage === 100 ? 'default' : 'secondary'} className="text-sm">
+                          {completionPercentage}%
+                        </Badge>
+                      )}
+                    </div>
                 </AccordionTrigger>
               <AccordionContent>
                 {loadingDepartments.has(department.id) && (
@@ -428,5 +460,3 @@ export default function PhotoGallery() {
     </div>
   );
 }
-
-    
