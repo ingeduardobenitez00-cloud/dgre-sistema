@@ -44,6 +44,15 @@ export type Dato = {
     distrito: string;
 }
 
-export const initialDepartments: Department[] = [];
+export type AuditLog = {
+  id: string;
+  userId: string;
+  userEmail: string;
+  action: string;
+  entity: string;
+  entityId: string;
+  timestamp: any;
+  details?: Record<string, any>;
+};
 
-    
+export const initialDepartments: Department[] = [];

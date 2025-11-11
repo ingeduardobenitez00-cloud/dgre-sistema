@@ -38,6 +38,7 @@ import { useFirebase, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch, getDocs, deleteDoc, setDoc, addDoc, updateDoc, where, query } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { logUserAction } from '@/lib/audit-log';
 
 
 type PreviewData = {
@@ -59,7 +60,7 @@ export default function SettingsPage() {
   const [editingItem, setEditingItem] = useState<{type: 'department' | 'district', deptId: string, distId?: string, name: string} | null>(null);
   const [newItemName, setNewItemName] = useState('');
 
-  const { firestore } = useFirebase();
+  const { firestore, user: currentUser } = useFirebase();
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
@@ -223,7 +224,7 @@ export default function SettingsPage() {
 
 
   const handleSaveData = async () => {
-    if (!firestore || previewData.length === 0) return;
+    if (!firestore || previewData.length === 0 || !currentUser) return;
     setIsUploading(true);
 
     const BATCH_SIZE = 100;
@@ -242,6 +243,15 @@ export default function SettingsPage() {
         await batch.commit();
         await delay(2000); // Pause for 2 seconds between batches
       }
+
+      await logUserAction({
+        firestore,
+        user: currentUser,
+        action: 'import-datos',
+        entity: 'import',
+        entityId: fileName || 'batch-upload',
+        details: { count: previewData.length }
+      });
 
       toast({
           title: 'Datos importados',
@@ -269,21 +279,22 @@ export default function SettingsPage() {
 
 
   const handleAddItem = async (type: 'department' | 'district', deptId?: string) => {
-      if (!firestore) return;
+      if (!firestore || !currentUser) return;
       const name = prompt(`Introduce el nombre del nuevo ${type === 'department' ? 'departamento' : 'distrito'}`);
       if (name) {
-          if (type === 'department') {
-              const newDato = { departamento: name, distrito: 'Nuevo Distrito (Editar)' };
-              addDoc(collection(firestore, 'datos'), newDato).catch(err => {
+          try {
+            if (type === 'department') {
+                const newDato = { departamento: name, distrito: 'Nuevo Distrito (Editar)' };
+                const docRef = await addDoc(collection(firestore, 'datos'), newDato);
+                await logUserAction({ firestore, user: currentUser, action: 'create-dato', entity: 'dato', entityId: docRef.id, details: { type: 'department', name } });
+            } else if (type === 'district' && deptId) {
+                const newDato = { departamento: deptId, distrito: name };
+                const docRef = await addDoc(collection(firestore, 'datos'), newDato);
+                await logUserAction({ firestore, user: currentUser, action: 'create-dato', entity: 'dato', entityId: docRef.id, details: { type: 'district', name, department: deptId } });
+            }
+          } catch(err) {
                  const contextualError = new FirestorePermissionError({operation: 'create', path: `datos`});
                  errorEmitter.emit('permission-error', contextualError);
-              });
-          } else if (type === 'district' && deptId) {
-              const newDato = { departamento: deptId, distrito: name };
-              addDoc(collection(firestore, 'datos'), newDato).catch(err => {
-                 const contextualError = new FirestorePermissionError({operation: 'create', path: `datos`});
-                 errorEmitter.emit('permission-error', contextualError);
-              });
           }
       }
   };
@@ -295,9 +306,9 @@ export default function SettingsPage() {
   };
   
   const handleUpdateItem = async () => {
-    if (!editingItem || !newItemName || !firestore) return;
+    if (!editingItem || !newItemName || !firestore || !currentUser) return;
     setIsUploading(true);
-    const { type, deptId, distId } = editingItem;
+    const { type, deptId, distId, name: oldName } = editingItem;
     
     try {
       if (type === 'department') {
@@ -310,9 +321,12 @@ export default function SettingsPage() {
         });
         await batch.commit();
 
+        await logUserAction({ firestore, user: currentUser, action: 'update-dato', entity: 'dato', entityId: deptId, details: { type: 'department', oldName, newName: newItemName }});
+
       } else if (type === 'district' && distId) {
         const distRef = doc(firestore, 'datos', distId);
         await updateDoc(distRef, { distrito: newItemName });
+        await logUserAction({ firestore, user: currentUser, action: 'update-dato', entity: 'dato', entityId: distId, details: { type: 'district', oldName, newName: newItemName }});
       }
       setEditModalOpen(false);
       setEditingItem(null);
@@ -330,7 +344,7 @@ export default function SettingsPage() {
   };
   
   const handleDeleteItem = async (type: 'department' | 'district', deptId: string, distId?: string) => {
-      if (!firestore) return;
+      if (!firestore || !currentUser) return;
       setIsUploading(true);
       try {
         if (type === 'department') {
@@ -342,8 +356,10 @@ export default function SettingsPage() {
                 batch.delete(docRef);
             });
             await batch.commit();
+            await logUserAction({ firestore, user: currentUser, action: 'delete-dato', entity: 'dato', entityId: deptId, details: { type: 'department' }});
         } else if (distId) {
             await deleteDoc(doc(firestore, 'datos', distId));
+            await logUserAction({ firestore, user: currentUser, action: 'delete-dato', entity: 'dato', entityId: distId, details: { type: 'district' }});
         }
         toast({ title: 'Elemento eliminado', variant: 'destructive' });
       } catch (error) {
@@ -359,7 +375,7 @@ export default function SettingsPage() {
   };
 
   const handleSaveReportData = async () => {
-    if (!firestore) return;
+    if (!firestore || !currentUser) return;
     setIsUploading(true);
 
     const BATCH_SIZE = 100;
@@ -376,6 +392,15 @@ export default function SettingsPage() {
             await batch.commit();
             await delay(2000); // Pause for 2 seconds between batches
         }
+
+        await logUserAction({
+            firestore,
+            user: currentUser,
+            action: 'import-reports',
+            entity: 'import',
+            entityId: fileName || 'batch-upload',
+            details: { count: reportPreviewData.length }
+        });
 
         toast({
             title: 'Datos del informe guardados',
@@ -679,5 +704,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

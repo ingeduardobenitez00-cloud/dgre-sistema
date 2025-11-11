@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { logUserAction } from '@/lib/audit-log';
 
 type UserProfile = {
   id: string;
@@ -60,7 +61,7 @@ const PERMISSION_LABELS: { [key: string]: string } = {
 export default function UsersPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const { toast } = useToast();
-  const { auth, firestore } = useFirebase();
+  const { auth, firestore, user: currentUser } = useFirebase();
 
   const usersQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
   const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
@@ -76,7 +77,7 @@ export default function UsersPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
-    if (!auth || !firestore) {
+    if (!auth || !firestore || !currentUser) {
       toast({
         variant: "destructive",
         title: "Error de Firebase",
@@ -94,18 +95,24 @@ export default function UsersPage() {
     
     const modules = ALL_MODULES.filter(module => formData.get(`access-${module}`));
     const permissions = ALL_PERMISSIONS.filter(permission => formData.get(`perm-${permission}`));
+    
+    const newUserProfile = { username, email, role, modules, permissions };
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      await setDoc(doc(firestore, 'users', user.uid), {
-        username,
-        email,
-        role,
-        modules,
-        permissions,
+      await setDoc(doc(firestore, 'users', user.uid), newUserProfile);
+      
+      await logUserAction({
+        firestore,
+        user: currentUser,
+        action: 'create-user',
+        entity: 'user',
+        entityId: user.uid,
+        details: { username, email, role }
       });
+
 
       toast({
         title: 'Usuario Creado',
@@ -144,7 +151,7 @@ export default function UsersPage() {
 
   const handleUpdateUser = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!firestore || !editingUser) return;
+    if (!firestore || !editingUser || !currentUser) return;
 
     setIsSubmitting(true);
     const formData = new FormData(event.currentTarget);
@@ -152,14 +159,22 @@ export default function UsersPage() {
     const modules = ALL_MODULES.filter(module => formData.get(`access-${module}`));
     const permissions = ALL_PERMISSIONS.filter(permission => formData.get(`perm-${permission}`));
     
+    const updatedFields = { role, modules, permissions };
+
     const userDocRef = doc(firestore, 'users', editingUser.id);
 
     try {
-      await updateDoc(userDocRef, {
-        role,
-        modules,
-        permissions
+      await updateDoc(userDocRef, updatedFields);
+      
+      await logUserAction({
+        firestore,
+        user: currentUser,
+        action: 'update-user',
+        entity: 'user',
+        entityId: editingUser.id,
+        details: { email: editingUser.email, updatedFields }
       });
+
       toast({ title: 'Usuario Actualizado', description: 'Los datos del usuario se han guardado.' });
       setEditModalOpen(false);
       setEditingUser(null);
@@ -175,10 +190,20 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!firestore) return;
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    if (!firestore || !currentUser) return;
     try {
         await deleteDoc(doc(firestore, 'users', userId));
+        
+        await logUserAction({
+            firestore,
+            user: currentUser,
+            action: 'delete-user',
+            entity: 'user',
+            entityId: userId,
+            details: { email: userEmail }
+        });
+
         toast({ title: 'Usuario Eliminado', description: 'El registro del usuario ha sido eliminado de Firestore.' });
     } catch (error) {
         const contextualError = new FirestorePermissionError({
@@ -191,9 +216,19 @@ export default function UsersPage() {
   };
 
   const handleResetPassword = async (email: string) => {
-    if (!auth) return;
+    if (!auth || !firestore || !currentUser) return;
     try {
       await sendPasswordResetEmail(auth, email);
+      
+       await logUserAction({
+            firestore,
+            user: currentUser,
+            action: 'reset-password',
+            entity: 'user',
+            entityId: email,
+            details: { targetEmail: email }
+        });
+
       toast({
         title: 'Correo enviado',
         description: `Se ha enviado un correo para restablecer la contraseña a ${email}.`,
@@ -392,7 +427,7 @@ export default function UsersPage() {
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteUser(user.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                                <AlertDialogAction onClick={() => handleDeleteUser(user.id, user.email)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
@@ -484,5 +519,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

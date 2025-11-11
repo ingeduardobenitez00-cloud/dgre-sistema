@@ -33,6 +33,7 @@ import {
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
+import { logUserAction } from '@/lib/audit-log';
 
 
 interface jsPDFWithAutoTable extends jsPDF {
@@ -40,7 +41,7 @@ interface jsPDFWithAutoTable extends jsPDF {
 }
 
 export default function FichaPage() {
-  const { firestore } = useFirebase();
+  const { firestore, user: currentUser } = useFirebase();
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
@@ -333,16 +334,18 @@ export default function FichaPage() {
   };
 
   const handleSaveReport = async (data: Omit<ReportData, 'id'>) => {
-    if (!firestore) return;
+    if (!firestore || !currentUser) return;
     try {
       if (currentReport) {
         // Update existing report
         const reportRef = doc(firestore, 'reports', currentReport.id);
         await setDoc(reportRef, data, { merge: true });
+        await logUserAction({ firestore, user: currentUser, action: 'update-report', entity: 'report', entityId: currentReport.id, details: data });
         toast({ title: "Informe actualizado", description: "Los cambios han sido guardados." });
       } else {
         // Create new report
-        await addDoc(collection(firestore, 'reports'), data);
+        const docRef = await addDoc(collection(firestore, 'reports'), data);
+        await logUserAction({ firestore, user: currentUser, action: 'create-report', entity: 'report', entityId: docRef.id, details: data });
         toast({ title: "Informe creado", description: "El nuevo informe ha sido guardado." });
       }
       setEditModalOpen(false);
