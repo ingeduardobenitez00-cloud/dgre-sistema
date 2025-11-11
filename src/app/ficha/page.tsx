@@ -216,10 +216,9 @@ export default function FichaPage() {
         };
         
         const addFooter = (data: any) => {
-            const pageCount = doc.internal.pages.length -1;
+            const pageCount = doc.internal.pages.length;
             doc.setFontSize(10);
-            const pageNum = data.pageNumber;
-            doc.text(`Página ${pageNum} de ${pageCount}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+            doc.text(`Página ${data.pageNumber} de ${pageCount}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
         };
 
         let contentY = 40;
@@ -320,11 +319,12 @@ export default function FichaPage() {
             }
         }
         
-        const pageCount = (doc.internal as any).getNumberOfPages();
+       const pageCount = (doc.internal as any).getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
             addHeader();
-            addFooter({ pageNumber: i });
+            doc.setFontSize(10);
+            doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
         }
         
         doc.save(`Informe-${cleanFileName(selectedDepartment)}-${cleanFileName(selectedDistrict)}.pdf`);
@@ -627,7 +627,7 @@ export default function FichaPage() {
                   departamento={selectedDepartment!}
                   distrito={selectedDistrict!}
                >
-                 <DialogFooter className="mt-6">
+                 <DialogFooter className="mt-6 sm:justify-end space-y-2 sm:space-y-0">
                     <DialogClose asChild>
                         <Button type="button" variant="secondary">Cancelar</Button>
                     </DialogClose>
@@ -654,5 +654,7 @@ export default function FichaPage() {
     </div>
   );
 }
+
+    
 
     
