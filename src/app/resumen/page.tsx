@@ -40,9 +40,15 @@ type DepartmentWithDistricts = {
   districts: DistrictWithReport[];
 };
 
+type CategoryDistrictInfo = {
+    displayName: string;
+    departamento: string;
+    distrito: string;
+};
+
 type CategoryData = {
     count: number;
-    districts: string[];
+    districts: CategoryDistrictInfo[];
     reports: ReportData[];
 }
 
@@ -93,7 +99,7 @@ export default function ResumenPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [districtsForCategory, setDistrictsForCategory] = useState<string[]>([]);
+  const [districtsForCategory, setDistrictsForCategory] = useState<CategoryDistrictInfo[]>([]);
   
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
@@ -149,40 +155,44 @@ export default function ResumenPage() {
       };
       
       summary.totalReports.count = reportsData.length;
-      summary.totalReports.districts = reportsData.map(r => `${r.departamento} - ${r.distrito}`);
+      summary.totalReports.districts = reportsData.map(r => ({ displayName: `${r.departamento} - ${r.distrito}`, departamento: r.departamento!, distrito: r.distrito! }));
       summary.totalReports.reports = reportsData;
 
       reportsData.forEach(report => {
         const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase().trim() : '';
-        const fullDistrictName = `${report.departamento} - ${report.distrito}`;
+        const districtInfo: CategoryDistrictInfo = {
+            displayName: `${report.departamento} - ${report.distrito}`,
+            departamento: report.departamento!,
+            distrito: report.distrito!,
+        };
         
         if (lugar.includes('habitacion segura') || lugar.includes('registro electoral')) {
             summary.habitacionSegura.count++;
-            summary.habitacionSegura.districts.push(fullDistrictName);
+            summary.habitacionSegura.districts.push(districtInfo);
             summary.habitacionSegura.reports.push(report);
         } else if (lugar.includes('comisaria')) {
             summary.comisaria.count++;
-            summary.comisaria.districts.push(fullDistrictName);
+            summary.comisaria.districts.push(districtInfo);
             summary.comisaria.reports.push(report);
         } else if (lugar.includes('parroquia')) {
             summary.parroquia.count++;
-            summary.parroquia.districts.push(fullDistrictName);
+            summary.parroquia.districts.push(districtInfo);
             summary.parroquia.reports.push(report);
         } else if (lugar.includes('local de votacion') || lugar.includes('local votacion')) {
             summary.localVotacion.count++;
-            summary.localVotacion.districts.push(fullDistrictName);
+            summary.localVotacion.districts.push(districtInfo);
             summary.localVotacion.reports.push(report);
         } else if (lugar.includes('juzgado')) {
             summary.juzgado.count++;
-            summary.juzgado.districts.push(fullDistrictName);
+            summary.juzgado.districts.push(districtInfo);
             summary.juzgado.reports.push(report);
         } else if (lugar.includes('intendencia')) {
             summary.propiedadIntendencia.count++;
-            summary.propiedadIntendencia.districts.push(fullDistrictName);
+            summary.propiedadIntendencia.districts.push(districtInfo);
             summary.propiedadIntendencia.reports.push(report);
         } else {
             summary.otrosNoEspecificado.count++;
-            summary.otrosNoEspecificado.districts.push(fullDistrictName);
+            summary.otrosNoEspecificado.districts.push(districtInfo);
             summary.otrosNoEspecificado.reports.push(report);
         }
       });
@@ -271,13 +281,12 @@ const handleGeneratePdf = async () => {
         });
         
         let finalY = (doc as any).lastAutoTable.finalY + 10;
-        let currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+        let currentPageInfo = (doc as any).internal.getCurrentPageInfo();
 
         if (finalY > doc.internal.pageSize.getHeight() - 40) { // Check for space
             doc.addPage();
-            currentPage++;
+            currentPageInfo = (doc as any).internal.getCurrentPageInfo();
             addPageHeader(doc, title);
-            addPageFooter(doc, currentPage, currentPage); // Assuming this is last page for now
             finalY = 35;
         }
 
@@ -303,7 +312,6 @@ const handleGeneratePdf = async () => {
             footStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
             didDrawPage: (data) => {
                 addPageHeader(doc, title);
-                addPageFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
             }
         });
         
@@ -415,7 +423,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
   const handleCategoryClick = (category: keyof SummaryData | 'otros', title: string) => {
     if (!summaryData) return;
     
-    let districts: string[] = [];
+    let districts: CategoryDistrictInfo[] = [];
     if (category === 'otros') {
         districts = [
             ...summaryData.parroquia.districts,
@@ -429,7 +437,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     }
     
     setSelectedCategory(title);
-    setDistrictsForCategory(districts.sort());
+    setDistrictsForCategory(districts.sort((a,b) => a.displayName.localeCompare(b.displayName)));
     setIsDialogOpen(true);
   };
   
@@ -702,18 +710,15 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
               <ScrollArea className="h-72 w-full rounded-md border">
                   {districtsForCategory.length > 0 ? (
                       <div className="p-4 space-y-1">
-                          {districtsForCategory.map((dist, index) => {
-                             const parts = dist.split(' - ');
-                             const deptName = parts[0].trim();
-                             const distName = parts.slice(1).join(' - ').trim();
+                          {districtsForCategory.map((districtInfo, index) => {
                              return (
                               <Button
                                   key={index}
                                   variant="ghost"
                                   className="w-full justify-start text-left h-auto py-2"
-                                  onClick={() => handleDistrictClick(deptName, distName)}
+                                  onClick={() => handleDistrictClick(districtInfo.departamento, districtInfo.distrito)}
                               >
-                                {dist}
+                                {districtInfo.displayName}
                               </Button>
                              )
                           })}
@@ -733,6 +738,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     
 
     
+
 
 
 
