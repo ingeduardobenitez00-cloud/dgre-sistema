@@ -228,15 +228,11 @@ const addPageHeader = (doc: jsPDF, title: string) => {
     doc.text(title, pageWidth / 2, 22, { align: 'center' });
 };
 
-const addPageFooter = (doc: jsPDF) => {
-    const pageCount = doc.internal.getNumberOfPages();
+const addPageFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(10);
-        doc.text(`Página ${i} de ${pageCount}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-    }
+    doc.setFontSize(10);
+    doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
 };
 
 const handleGeneratePdf = async () => {
@@ -276,6 +272,7 @@ const handleGeneratePdf = async () => {
         let finalY = (doc as any).lastAutoTable.finalY + 10;
         if (finalY > doc.internal.pageSize.getHeight() - 40) { // Check for space
             doc.addPage();
+            addPageHeader(doc, title);
             finalY = 40;
         }
 
@@ -304,7 +301,12 @@ const handleGeneratePdf = async () => {
             }
         });
         
-        addPageFooter(doc);
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          doc.setPage(i);
+          addPageFooter(doc, i, totalPages);
+        }
+        
         doc.save(`Informe-Resumen-Detallado.pdf`);
     } catch (error) {
         console.error("Error generating PDF:", error);
@@ -391,8 +393,13 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                 addPageHeader(doc, title);
             }
         });
+        
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          doc.setPage(i);
+          addPageFooter(doc, i, totalPages);
+        }
 
-        addPageFooter(doc);
         doc.save(`Informe-${cleanFileName(title)}.pdf`);
     } catch (error) {
         console.error("Error generating category PDF:", error);
