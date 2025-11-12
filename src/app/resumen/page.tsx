@@ -629,10 +629,12 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                                     <span className="flex items-center"><Landmark className="mr-2 h-4 w-4 text-amber-600" />Parroquia:</span>
                                     <span>{summaryData.parroquia.count}</span>
                                   </div>
-                                  <div className="flex justify-between items-center cursor-pointer hover:font-semibold text-xs" onClick={(e) => { e.stopPropagation(); handleCategoryClick('localVotacion', 'Local de Votación');}}>
-                                    <span className="flex items-center"><Vote className="mr-2 h-4 w-4 text-cyan-600" />Local de Votación:</span>
-                                    <span>{summaryData.localVotacion.count}</span>
-                                  </div>
+                                  {summaryData.localVotacion.count > 0 && (
+                                    <div className="flex justify-between items-center cursor-pointer hover:font-semibold text-xs" onClick={(e) => { e.stopPropagation(); handleCategoryClick('localVotacion', 'Local de Votación');}}>
+                                        <span className="flex items-center"><Vote className="mr-2 h-4 w-4 text-cyan-600" />Local de Votación:</span>
+                                        <span>{summaryData.localVotacion.count}</span>
+                                    </div>
+                                  )}
                                   <div className="flex justify-between items-center cursor-pointer hover:font-semibold text-xs" onClick={(e) => { e.stopPropagation(); handleCategoryClick('juzgado', 'Juzgado');}}>
                                     <span className="flex items-center"><Scale className="mr-2 h-4 w-4 text-gray-600" />Juzgado:</span>
                                     <span>{summaryData.juzgado.count}</span>
