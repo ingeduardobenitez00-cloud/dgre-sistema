@@ -19,6 +19,7 @@ import type { ImageData } from '@/lib/data';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { cleanFileName } from '@/lib/utils';
+import heic2any from 'heic2any';
 
 type UploadDialogProps = {
   isOpen: boolean;
@@ -41,57 +42,103 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
     setFiles([]);
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files;
     if (!selectedFiles) return;
 
     setIsProcessing(true);
-    const newFilePreviews: FilePreview[] = Array.from(selectedFiles).map(file => ({
+    let newFilePreviews: FilePreview[] = [];
+
+    // Separate HEIC from other files
+    const heicFiles: File[] = [];
+    const otherFiles: File[] = [];
+    Array.from(selectedFiles).forEach(file => {
+        if (file.name.toLowerCase().endsWith('.heic')) {
+            heicFiles.push(file);
+        } else {
+            otherFiles.push(file);
+        }
+    });
+
+    // Process other files first
+    newFilePreviews = otherFiles.map(file => ({
       id: `${file.name}-${file.lastModified}-${Math.random()}`,
       file,
       previewUrl: '', // Will be filled by FileReader
     }));
-    
     setFiles(prev => [...prev, ...newFilePreviews]);
+    await processFiles(newFilePreviews);
 
-    const filePromises = newFilePreviews.map((filePreview) => {
-      return new Promise<void>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = document.createElement('img');
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200;
-            const scaleSize = Math.min(1, MAX_WIDTH / img.width);
-            canvas.width = img.width * scaleSize;
-            canvas.height = img.height * scaleSize;
-            
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              const dataUri = canvas.toDataURL(filePreview.file.type, 0.7);
-              
-              setFiles(prev => prev.map(f => f.id === filePreview.id ? { ...f, previewUrl: dataUri } : f));
-              resolve();
-            } else {
-              reject(new Error(`No se pudo procesar la imagen: ${filePreview.file.name}.`));
+
+    // Process HEIC files
+    if (heicFiles.length > 0) {
+        const heicFilePreviews = heicFiles.map(file => ({
+            id: `${file.name}-${file.lastModified}-${Math.random()}`,
+            file,
+            previewUrl: '',
+        }));
+        setFiles(prev => [...prev, ...heicFilePreviews]);
+
+        for (const filePreview of heicFilePreviews) {
+            try {
+                const conversionResult = await heic2any({
+                    blob: filePreview.file,
+                    toType: "image/jpeg",
+                    quality: 0.7,
+                });
+                
+                const convertedBlob = Array.isArray(conversionResult) ? conversionResult[0] : conversionResult;
+                const convertedFile = new File([convertedBlob], `${filePreview.file.name.split('.')[0]}.jpg`, { type: 'image/jpeg' });
+                
+                await processFiles([{ ...filePreview, file: convertedFile }]);
+
+            } catch (error) {
+                console.error('Error converting HEIC file:', error);
+                toast({ variant: 'destructive', title: 'Error de Conversión', description: `No se pudo convertir el archivo HEIC: ${filePreview.file.name}` });
+                // Remove failed file
+                setFiles(prev => prev.filter(f => f.id !== filePreview.id));
             }
-          };
-          img.onerror = () => reject(new Error('Error al cargar la imagen en el elemento img.'));
-          img.src = e.target?.result as string;
-        };
-        reader.onerror = () => reject(new Error('Error al leer el archivo.'));
-        reader.readAsDataURL(filePreview.file);
-      });
-    });
+        }
+    }
 
-    Promise.all(filePromises)
-      .catch(error => {
-        toast({ variant: 'destructive', title: 'Error de Procesamiento', description: error.message });
-      })
-      .finally(() => {
-        setIsProcessing(false);
+    setIsProcessing(false);
+  };
+  
+  const processFiles = (filesToProcess: FilePreview[]) => {
+      const filePromises = filesToProcess.map((filePreview) => {
+          return new Promise<void>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                  const img = document.createElement('img');
+                  img.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      const MAX_WIDTH = 1200;
+                      const scaleSize = Math.min(1, MAX_WIDTH / img.width);
+                      canvas.width = img.width * scaleSize;
+                      canvas.height = img.height * scaleSize;
+                      
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                          const dataUri = canvas.toDataURL(filePreview.file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.7);
+                          
+                          setFiles(prev => prev.map(f => f.id === filePreview.id ? { ...f, previewUrl: dataUri } : f));
+                          resolve();
+                      } else {
+                          reject(new Error(`No se pudo procesar la imagen: ${filePreview.file.name}.`));
+                      }
+                  };
+                  img.onerror = () => reject(new Error('Error al cargar la imagen en el elemento img.'));
+                  img.src = e.target?.result as string;
+              };
+              reader.onerror = () => reject(new Error('Error al leer el archivo.'));
+              reader.readAsDataURL(filePreview.file);
+          });
       });
+      return Promise.all(filePromises)
+          .catch(error => {
+              toast({ variant: 'destructive', title: 'Error de Procesamiento', description: error.message });
+          });
   };
 
   const handleRemoveFile = (fileId: string) => {
@@ -150,7 +197,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
                   </p>
                   <p className="text-xs text-muted-foreground">Puedes seleccionar varias imágenes</p>
                 </div>
-                <Input id="picture" type="file" onChange={handleFileChange} accept="image/*" multiple className="hidden" disabled={isProcessing} />
+                <Input id="picture" type="file" onChange={handleFileChange} accept="image/*,.heic,.heif" multiple className="hidden" disabled={isProcessing} />
               </label>
           </div>
 
@@ -190,7 +237,7 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={!allFilesProcessed && !isProcessing && files.length > 0}>
+            <Button type="submit" disabled={!allFilesProcessed}>
               {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Subir {files.length > 0 ? `${files.length} imágen${files.length > 1 ? 'es' : ''}` : 'Imágenes'}
             </Button>
