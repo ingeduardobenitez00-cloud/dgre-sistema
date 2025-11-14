@@ -20,7 +20,7 @@ export default function FotosPage() {
         {isClient ? (
           <PhotoGallery />
         ) : (
-          <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-1 items-center justify-center h-full">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
         )}
@@ -28,5 +28,3 @@ export default function FotosPage() {
     </div>
   );
 }
-
-    
