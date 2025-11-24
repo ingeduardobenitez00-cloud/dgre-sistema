@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, ImageIcon, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { Upload, ImageIcon, Loader2, Trash2, AlertCircle, Download } from 'lucide-react';
 import { type Dato, type District, type ImageData } from '@/lib/data';
 import { UploadDialog } from '@/components/upload-dialog';
 import { ImageViewerDialog } from '@/components/image-viewer-dialog';
@@ -36,6 +36,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: any) => jsPDF;
+}
 
 
 type DepartmentWithDistricts = {
@@ -62,6 +69,26 @@ export default function PhotoGallery() {
   const [activeDistrict, setActiveDistrict] = useState<{ deptName: string, distName: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+
+   useEffect(() => {
+    const fetchLogo = async (path: string, setter: (data: string | null) => void) => {
+        try {
+            const response = await fetch(path);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => setter(reader.result as string);
+            reader.readAsDataURL(blob);
+        } catch (error) {
+            console.error(`Error fetching logo ${path}:`, error);
+        }
+    };
+    fetchLogo('/logo1.png', setLogo1Base64);
+    fetchLogo('/logo.png', setLogoBase64);
+  }, []);
+
   const currentImageList = useMemo(() => {
     if (!selectedImage) return [];
     const key = `${selectedImage.departamento}-${selectedImage.distrito}`;
@@ -280,6 +307,90 @@ export default function PhotoGallery() {
     return Math.floor((districtsWithImages / totalDistricts) * 100);
   };
 
+  const handleGenerateMissingImagesPdf = async () => {
+    if (!departments.length || !logo1Base64 || !logoBase64) return;
+    setIsGeneratingPdf(true);
+    toast({ title: "Generando reporte...", description: "Cargando todos los datos, esto puede tardar un momento." });
+
+    // Ensure all department data is loaded
+    await Promise.all(departments.map(dept => getImagesForDepartment(dept)));
+
+    const districtsWithoutImages: { department: string, district: string }[] = [];
+
+    departments.forEach(department => {
+        department.districts.forEach(district => {
+            const imagesKey = `${department.name}-${district.name}`;
+            if (!images[imagesKey] || images[imagesKey].length === 0) {
+                districtsWithoutImages.push({ department: department.name, district: district.name });
+            }
+        });
+    });
+
+    if (districtsWithoutImages.length === 0) {
+        toast({ title: "¡Todo completo!", description: "No se encontraron distritos sin imágenes." });
+        setIsGeneratingPdf(false);
+        return;
+    }
+    
+    try {
+      const doc = new jsPDF() as jsPDFWithAutoTable;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+
+      const addHeader = () => {
+          if (logo1Base64) doc.addImage(logo1Base64, 'PNG', margin, 5, 20, 20);
+          if (logoBase64) doc.addImage(logoBase64, 'PNG', pageWidth - margin - 20, 5, 20, 20);
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Tribunal Superior de Justicia Electoral', pageWidth / 2, 15, { align: 'center' });
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Reporte de Distritos Sin Imágenes', pageWidth / 2, 22, { align: 'center' });
+      };
+
+      const addFooter = (data: any) => {
+          doc.setFontSize(10);
+          doc.text(`Página ${data.pageNumber}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      };
+
+      const groupedByDept: { [key: string]: string[] } = districtsWithoutImages.reduce((acc, { department, district }) => {
+          if (!acc[department]) {
+              acc[department] = [];
+          }
+          acc[department].push(district);
+          return acc;
+      }, {} as { [key: string]: string[] });
+      
+      let finalBody: any[] = [];
+      Object.keys(groupedByDept).sort().forEach(department => {
+        finalBody.push([{ content: `Departamento: ${department}`, colSpan: 1, styles: { fontStyle: 'bold', halign: 'left', fillColor: [230, 230, 230] } }]);
+        groupedByDept[department].forEach(district => {
+          finalBody.push([district]);
+        });
+      });
+
+      autoTable(doc, {
+          head: [['Distrito']],
+          body: finalBody,
+          startY: 35,
+          theme: 'grid',
+          headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+          didDrawPage: (data) => {
+              addHeader();
+              addFooter(data);
+          },
+      });
+
+      doc.save('Reporte-Distritos-Sin-Imagenes.pdf');
+    } catch(e) {
+        console.error("PDF Generation failed", e);
+        toast({variant: 'destructive', title: 'Error', description: 'No se pudo generar el PDF.'});
+    } finally {
+        setIsGeneratingPdf(false);
+    }
+  };
+
 
   if (isLoadingDatos || isUserLoading) {
       return (
@@ -299,13 +410,19 @@ export default function PhotoGallery() {
              </div>
           </div>
         )}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Imágenes de los Registros Electorales
-        </h1>
-        <p className="mt-2 text-base text-muted-foreground">
-          Explore y gestione las imágenes de los registros organizadas por ubicación.
-        </p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Imágenes de los Registros Electorales
+          </h1>
+          <p className="mt-2 text-base text-muted-foreground">
+            Explore y gestione las imágenes de los registros organizadas por ubicación.
+          </p>
+        </div>
+        <Button onClick={handleGenerateMissingImagesPdf} disabled={isGeneratingPdf}>
+          {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+          Generar Reporte Sin Imágenes
+        </Button>
       </div>
 
       <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
