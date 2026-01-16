@@ -183,31 +183,37 @@ export default function InformeGeneralPage() {
 
           if (currentImages.length > 0) {
             const desiredOrder = [
-                "FOTOGRAFIA #1 DEL FRENTE DEL REGISTRO",
-                "FOTOGRAFIA #2 COSTADO DERECHO DEL REGISTRO",
-                "FOTOGRAFIA #3 COSTADOS IZQUIERDO DEL REGISTRO",
-                "FOTOGRAFIA #4 DEL FONDO DEL REGISTRO",
-                "FOTOGRAFIA #5 HABITACION SEGURA INTERIOR",
-                "FOTOGRAFIA #6 HABITACION SEGURA TECHO",
-                "FOTOGRAFIA #7 TODAS LAS HABITACIONES DEL REGISTRO ELECTORAL",
-                "FOTOGRAFIA #8 DEL FORMULARIO FIRMADO Y SELLADO"
+                "FOTOGRAFIA 1 DEL FRENTE DEL REGISTRO",
+                "FOTOGRAFIA 2 COSTADO DERECHO DEL REGISTRO",
+                "FOTOGRAFIA 3 COSTADOS IZQUIERDO DEL REGISTRO",
+                "FOTOGRAFIA 4 DEL FONDO DEL REGISTRO",
+                "FOTOGRAFIA 5 HABITACION SEGURA INTERIOR",
+                "FOTOGRAFIA 6 HABITACION SEGURA TECHO",
+                "FOTOGRAFIA 7 TODAS LAS HABITACIONES DEL REGISTRO ELECTORAL",
+                "FOTOGRAFIA 8 DEL FORMULARIO FIRMADO Y SELLADO"
             ];
 
             const sortedImages = [...currentImages].sort((a, b) => {
-              const cleanedA = cleanFileName(a.alt).toUpperCase();
-              const cleanedB = cleanFileName(b.alt).toUpperCase();
-              const getOrderIndex = (name: string) => {
-                  if (name.startsWith(desiredOrder[7])) return 7;
-                  if (name.startsWith(desiredOrder[6])) return 6;
-                  const index = desiredOrder.findIndex(orderKey => name.startsWith(orderKey));
-                  return index === -1 ? Infinity : index;
-              };
-              const indexA = getOrderIndex(cleanedA);
-              const indexB = getOrderIndex(cleanedB);
-              if (indexA !== indexB) {
-                  return indexA - indexB;
-              }
-              return cleanedA.localeCompare(cleanedB);
+                const cleanedA = cleanFileName(a.alt).toUpperCase();
+                const cleanedB = cleanFileName(b.alt).toUpperCase();
+                
+                const getOrderIndex = (name: string) => {
+                    for (let i = 0; i < desiredOrder.length; i++) {
+                        if (name.startsWith(desiredOrder[i])) {
+                            return i;
+                        }
+                    }
+                    return Infinity;
+                };
+
+                const indexA = getOrderIndex(cleanedA);
+                const indexB = getOrderIndex(cleanedB);
+                
+                if (indexA !== indexB) {
+                    return indexA - indexB;
+                }
+                
+                return cleanedA.localeCompare(cleanedB);
             });
 
             if (contentY + 15 > pageHeight - margin) {
