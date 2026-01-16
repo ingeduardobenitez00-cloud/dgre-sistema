@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useUser } from '@/firebase/auth/use-user';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,9 @@ import {
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { type Dato } from '@/lib/data';
+import { initializeApp, getApps, deleteApp, type FirebaseApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
+
 
 type UserProfile = {
   id: string;
@@ -105,11 +108,11 @@ export default function UsersPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
-    if (!auth || !firestore || !currentUser) {
+    if (!firestore || !currentUser) {
       toast({
-        variant: "destructive",
-        title: "Error de Firebase",
-        description: "Los servicios de autenticación no están disponibles.",
+        variant: 'destructive',
+        title: 'Error de Firebase',
+        description: 'Los servicios principales no están disponibles.',
       });
       return;
     }
@@ -122,18 +125,26 @@ export default function UsersPage() {
     const role = formData.get('role') as UserProfile['role'];
     const departamento = formData.get('departamento') as string;
     const distrito = formData.get('distrito') as string;
-    
+
     const modules = ALL_MODULES.filter(module => formData.get(`access-${module}`));
     const permissions = ALL_PERMISSIONS.filter(permission => formData.get(`perm-${permission}`));
-    
+
     const newUserProfile: Omit<UserProfile, 'id'> = { username, email, role, modules, permissions, departamento, distrito };
 
+    const tempAppName = 'temp-user-creation';
+    let tempApp: FirebaseApp | undefined = undefined;
+
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      tempApp = getApps().find(app => app.name === tempAppName) || initializeApp(firebaseConfig, tempAppName);
+      const tempAuth = getAuth(tempApp);
+
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       const user = userCredential.user;
 
       await setDoc(doc(firestore, 'users', user.uid), newUserProfile);
       
+      await signOut(tempAuth);
+
       toast({
         title: 'Usuario Creado',
         description: 'El nuevo usuario ha sido guardado con éxito.',
@@ -141,26 +152,34 @@ export default function UsersPage() {
       form.reset();
       setSelectedDepartment('');
     } catch (error: any) {
-      console.error("Error creating user:", error);
+      console.error('Error creating user:', error);
       if (error.code === 'auth/email-already-in-use') {
         toast({
-            variant: "destructive",
-            title: 'Error al crear usuario',
-            description: 'El correo electrónico ya está registrado. Por favor, utiliza otro.',
+          variant: 'destructive',
+          title: 'Error al crear usuario',
+          description: 'El correo electrónico ya está registrado. Por favor, utiliza otro.',
         });
       } else {
         const contextualError = new FirestorePermissionError({
-            operation: 'create',
-            path: `users/<new_user_id>`,
+          operation: 'create',
+          path: `users/<new_user_id>`,
+          requestResourceData: newUserProfile,
         });
         errorEmitter.emit('permission-error', contextualError);
         toast({
-            variant: "destructive",
-            title: 'Error al crear usuario',
-            description: error.message || 'Ocurrió un error inesperado.',
+          variant: 'destructive',
+          title: 'Error al crear usuario',
+          description: error.message || 'Ocurrió un error inesperado.',
         });
       }
     } finally {
+      if (tempApp) {
+        try {
+          await deleteApp(tempApp);
+        } catch (e) {
+          console.error('Failed to delete temporary Firebase app instance:', e);
+        }
+      }
       setIsSubmitting(false);
     }
   };
