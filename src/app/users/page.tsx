@@ -85,6 +85,10 @@ export default function UsersPage() {
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
+  const [editRole, setEditRole] = useState<UserProfile['role']>();
+  const [editDept, setEditDept] = useState<string | undefined>('');
+  const [editDist, setEditDist] = useState<string | undefined>('');
+
   useEffect(() => {
     if (datosData) {
       const uniqueDepts = [...new Set(datosData.map(d => d.departamento))].sort();
@@ -186,6 +190,9 @@ export default function UsersPage() {
   
   const handleOpenEditModal = (user: UserProfile) => {
     setEditingUser(user);
+    setEditRole(user.role);
+    setEditDept(user.departamento || '');
+    setEditDist(user.distrito || '');
     if(user.departamento) {
         setSelectedDepartment(user.departamento);
     } else {
@@ -544,7 +551,14 @@ export default function UsersPage() {
                     <div className="py-4 space-y-6">
                         <div className="space-y-2">
                             <Label htmlFor="edit-role">Rol</Label>
-                            <Select name="role" required defaultValue={editingUser.role}>
+                            <Select name="role" required value={editRole} onValueChange={(value: UserProfile['role']) => {
+                                setEditRole(value);
+                                if (value === 'admin') {
+                                    setEditDept('');
+                                    setEditDist('');
+                                    setSelectedDepartment('');
+                                }
+                            }}>
                                 <SelectTrigger id="edit-role">
                                 <SelectValue placeholder="Seleccionar un rol" />
                                 </SelectTrigger>
@@ -561,7 +575,11 @@ export default function UsersPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="departamento-edit">Departamento</Label>
-                                    <Select name="departamento" defaultValue={editingUser.departamento} onValueChange={setSelectedDepartment}>
+                                    <Select name="departamento" value={editDept} onValueChange={(value) => {
+                                        setEditDept(value);
+                                        setEditDist('');
+                                        setSelectedDepartment(value);
+                                    }} disabled={editRole === 'admin'}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Seleccionar departamento"/>
                                         </SelectTrigger>
@@ -572,7 +590,7 @@ export default function UsersPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="distrito-edit">Distrito</Label>
-                                    <Select name="distrito" defaultValue={editingUser.distrito} disabled={!selectedDepartment}>
+                                    <Select name="distrito" value={editDist} onValueChange={setEditDist} disabled={!selectedDepartment || editRole === 'admin'}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Seleccionar distrito"/>
                                         </SelectTrigger>
