@@ -45,9 +45,9 @@ type UserProfile = {
   distrito?: string;
 };
 
-const ALL_MODULES = ['imagenes', 'ficha', 'resumen', 'settings', 'users'];
+const ALL_MODULES = ['fotos', 'ficha', 'resumen', 'settings', 'users'];
 const MODULE_LABELS: { [key: string]: string } = {
-  imagenes: 'Imágenes',
+  fotos: 'Imágenes',
   ficha: 'Vista de Ficha',
   resumen: 'Resumen',
   settings: 'Configuración',
