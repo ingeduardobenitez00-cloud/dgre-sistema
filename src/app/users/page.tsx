@@ -45,13 +45,15 @@ type UserProfile = {
   distrito?: string;
 };
 
-const ALL_MODULES = ['fotos', 'ficha', 'resumen', 'settings', 'users'];
+const ALL_MODULES = ['fotos', 'ficha', 'resumen', 'settings', 'users', 'cargar-ficha', 'informe-general'];
 const MODULE_LABELS: { [key: string]: string } = {
   fotos: 'Imágenes',
   ficha: 'Vista de Ficha',
   resumen: 'Resumen',
   settings: 'Configuración',
   users: 'Usuarios',
+  'cargar-ficha': 'Cargar Ficha',
+  'informe-general': 'Informe General',
 };
 const ALL_PERMISSIONS = ['add', 'edit', 'delete'];
 const PERMISSION_LABELS: { [key: string]: string } = {

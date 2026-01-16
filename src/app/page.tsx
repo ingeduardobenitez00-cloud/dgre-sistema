@@ -60,10 +60,11 @@ export default function Home() {
   }
 
   const accessibleMenuItems = menuItems.filter(item => {
-    if (item.href === '/users' || item.href === '/settings') {
-      return user?.profile?.role === 'admin';
+    if (user?.profile?.role === 'admin') {
+      return true;
     }
-    return true;
+    const moduleName = item.href.substring(1);
+    return user?.profile?.modules?.includes(moduleName);
   });
 
   return (
