@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, Loader2 } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, Loader2, ImageIcon } from 'lucide-react';
 import Header from '@/components/header';
 import { useUser } from '@/firebase/auth/use-user';
 
@@ -12,6 +14,12 @@ const menuItems = [
     label: 'Vista de Ficha',
     icon: FileText,
     description: 'Consulta informes detallados e imágenes por distrito.',
+  },
+  {
+    href: '/fotos',
+    label: 'Imágenes',
+    icon: ImageIcon,
+    description: 'Explora y gestiona las imágenes de los registros.',
   },
   {
     href: '/cargar-ficha',
@@ -47,8 +55,29 @@ const menuItems = [
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
+  const router = useRouter();
 
-  if (isUserLoading) {
+  const accessibleMenuItems = useMemo(() => {
+    if (!user) return [];
+    return menuItems.filter(item => {
+      if (user.profile?.role === 'admin') {
+        return true;
+      }
+      const moduleName = item.href.substring(1);
+      return user.profile?.modules?.includes(moduleName);
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!isUserLoading && user?.profile?.role !== 'admin') {
+      if (accessibleMenuItems.length === 1) {
+        router.replace(accessibleMenuItems[0].href);
+      }
+    }
+  }, [isUserLoading, user, accessibleMenuItems, router]);
+
+  // Show a loading screen while user data is loading or during redirection
+  if (isUserLoading || (user?.profile?.role !== 'admin' && accessibleMenuItems.length === 1)) {
     return (
       <div className="flex min-h-screen w-full flex-col">
         <Header title="Panel Principal" />
@@ -58,14 +87,6 @@ export default function Home() {
       </div>
     );
   }
-
-  const accessibleMenuItems = menuItems.filter(item => {
-    if (user?.profile?.role === 'admin') {
-      return true;
-    }
-    const moduleName = item.href.substring(1);
-    return user?.profile?.modules?.includes(moduleName);
-  });
 
   return (
     <div className="flex min-h-screen w-full flex-col">
