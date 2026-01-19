@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -55,7 +54,7 @@ export default function PhotoGallery() {
   const { firestore, user, isUserLoading } = useFirebase();
   const { toast } = useToast();
 
-  const datosQuery = useMemoFirebase(() => (firestore && user ? collection(firestore, 'datos') : null), [firestore, user]);
+  const datosQuery = useMemoFirebase(() => (firestore && user?.profile?.role === 'admin' ? collection(firestore, 'datos') : null), [firestore, user]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
   const [departments, setDepartments] = useState<DepartmentWithDistricts[]>([]);
@@ -102,7 +101,25 @@ export default function PhotoGallery() {
 
 
   useEffect(() => {
-    if (datosData) {
+    if (isUserLoading) return; // Wait for user to be loaded
+
+    // If the user is a 'funcionario' with an assigned location, only show that location.
+    if (user?.profile?.role === 'funcionario' && user.profile.departamento && user.profile.distrito) {
+      const { departamento, distrito } = user.profile;
+      
+      const funcionarioDept: DepartmentWithDistricts = {
+        id: departamento,
+        name: departamento,
+        districts: [{
+          id: distrito,
+          name: distrito,
+          departmentId: departamento,
+        }],
+      };
+      setDepartments([funcionarioDept]);
+
+    } else if (datosData) {
+      // For admins or other roles with full data access
       const depts: Record<string, Set<string>> = {};
       datosData.forEach(d => {
         if (!depts[d.departamento]) {
@@ -121,8 +138,11 @@ export default function PhotoGallery() {
         })),
       }));
       setDepartments(deptsArray);
+    } else {
+        // If no data (e.g. non-admin, non-funcionario), show an empty list.
+        setDepartments([]);
     }
-  }, [datosData]);
+  }, [datosData, user, isUserLoading]);
   
   const getImagesForDepartment = async (department: DepartmentWithDistricts) => {
     if (!firestore || !user || loadingDepartments.has(department.id) || images[Object.keys(images).find(k => k.startsWith(department.name))!] !== undefined) return;
@@ -421,10 +441,12 @@ export default function PhotoGallery() {
             Explore y gestione las imágenes de los registros organizadas por ubicación.
           </p>
         </div>
-        <Button onClick={handleGenerateMissingImagesPdf} disabled={isGeneratingPdf}>
-          {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-          Generar Reporte Sin Imágenes
-        </Button>
+        {user?.profile?.role === 'admin' && (
+          <Button onClick={handleGenerateMissingImagesPdf} disabled={isGeneratingPdf}>
+            {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Generar Reporte Sin Imágenes
+          </Button>
+        )}
       </div>
 
       <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
@@ -440,7 +462,7 @@ export default function PhotoGallery() {
                 <AccordionTrigger className="text-lg font-medium hover:no-underline data-[state=open]:text-primary flex-1">
                     <div className="flex items-center gap-4">
                       <span>{department.name}</span>
-                      {completionPercentage !== null && (
+                      {completionPercentage !== null && user?.profile?.role === 'admin' && (
                         <Badge variant={completionPercentage === 100 ? 'default' : 'secondary'} className="text-sm">
                           {completionPercentage}%
                         </Badge>
