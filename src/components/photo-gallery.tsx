@@ -48,6 +48,7 @@ interface jsPDFWithAutoTable extends jsPDF {
 type DepartmentWithDistricts = {
   id: string;
   name: string;
+  departamento_codigo?: string;
   districts: (District & {departamento_codigo?: string, distrito_codigo?: string})[];
 };
 
@@ -111,6 +112,7 @@ export default function PhotoGallery() {
       const funcionarioDept: DepartmentWithDistricts = {
         id: departamento,
         name: departamento,
+        departamento_codigo: dato?.departamento_codigo,
         districts: [{
           id: dato?.id || distrito,
           name: distrito,
@@ -129,6 +131,7 @@ export default function PhotoGallery() {
               deptsMap.set(dato.departamento, {
                   id: dato.departamento,
                   name: dato.departamento,
+                  departamento_codigo: dato.departamento_codigo,
                   districts: [],
               });
           }
@@ -145,7 +148,12 @@ export default function PhotoGallery() {
           }
       });
       
-      const sortedDepartments = Array.from(deptsMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+      const sortedDepartments = Array.from(deptsMap.values()).sort((a,b) => {
+        if (a.departamento_codigo && b.departamento_codigo) {
+            return a.departamento_codigo.localeCompare(b.departamento_codigo, undefined, { numeric: true });
+        }
+        return a.name.localeCompare(b.name)
+      });
       sortedDepartments.forEach(dept => dept.districts.sort((a,b) => a.name.localeCompare(b.name)));
       setDepartments(sortedDepartments);
     } else {
@@ -470,7 +478,7 @@ export default function PhotoGallery() {
             <AccordionItem value={department.id} key={department.id}>
                 <AccordionTrigger className="text-lg font-medium hover:no-underline data-[state=open]:text-primary flex-1">
                     <div className="flex items-center gap-4">
-                      <span>{department.name}</span>
+                      <span>{department.departamento_codigo ? `${department.departamento_codigo} - ${department.name}` : department.name}</span>
                       {completionPercentage !== null && user?.profile?.role === 'admin' && (
                         <Badge variant={completionPercentage === 100 ? 'default' : 'secondary'} className="text-sm">
                           {completionPercentage}%
@@ -510,7 +518,7 @@ export default function PhotoGallery() {
                                         !hasImages && isLoaded && "text-destructive hover:text-destructive"
                                     )}
                                 >
-                                    {user?.profile?.role === 'funcionario' && district.departamento_codigo && district.distrito_codigo 
+                                    {district.departamento_codigo && district.distrito_codigo 
                                       ? `${district.departamento_codigo} - ${district.distrito_codigo} - ${district.name}`
                                       : district.name}
                                 </AccordionTrigger>
