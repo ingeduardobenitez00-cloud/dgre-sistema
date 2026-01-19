@@ -558,14 +558,15 @@ export default function PhotoGallery() {
                                 ))}
                             </div>
                             ) : (
-                            <button
-                                onClick={() => handleOpenUpload(department.name, district.name)}
-                                className="w-full text-center py-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center hover:bg-muted/50 transition-colors"
-                            >
-                                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                                <p className="text-destructive font-medium">No hay imágenes en este distrito.</p>
-                                <p className="text-sm text-muted-foreground">Haz clic aquí para subir una.</p>
-                            </button>
+                              <div className="w-full text-center py-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center">
+                                  <ImageIcon className="h-8 w-8 text-muted-foreground mb-4" />
+                                  <p className="text-lg font-semibold text-foreground">No hay imágenes</p>
+                                  <p className="text-sm text-muted-foreground mt-1 mb-4">Añade las fotos para este distrito.</p>
+                                  <Button onClick={() => handleOpenUpload(department.name, district.name)}>
+                                      <Upload className="mr-2 h-4 w-4" />
+                                      Añadir Imágenes
+                                  </Button>
+                              </div>
                             )
                             ) : (
                                 <div className="flex justify-center items-center h-24">
