@@ -127,15 +127,13 @@ export default function SettingsPage() {
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: ['DEPARTAMENTO', 'DISTRITO'] });
-        
-        if (json[0] && (json[0] as any)['DEPARTAMENTO'] === 'DEPARTAMENTO' && (json[0] as any)['DISTRITO'] === 'DISTRITO') {
-          json.shift();
-        }
+        const json = XLSX.utils.sheet_to_json(worksheet);
 
         const parsedData: Dato[] = json.map((row: any) => ({
           departamento: row.DEPARTAMENTO,
           distrito: row.DISTRITO,
+          departamento_codigo: row.DEPARTAMENTO_CODIGO,
+          distrito_codigo: row.DISTRITO_CODIGO,
         }));
         
         setPreviewData(parsedData);
@@ -148,7 +146,7 @@ export default function SettingsPage() {
         toast({
           variant: 'destructive',
           title: 'Error al procesar el archivo',
-          description: 'Asegúrate de que el archivo tenga las columnas DEPARTAMENTO y DISTRITO.',
+          description: 'Asegúrate de que el archivo tenga las columnas DEPARTAMENTO y DISTRITO. Las columnas DEPARTAMENTO_CODIGO y DISTRITO_CODIGO son opcionales.',
         });
       } finally {
         setIsParsing(false);
@@ -460,14 +458,18 @@ export default function SettingsPage() {
                         <TableHeader className="sticky top-0 bg-muted">
                             <TableRow>
                                 <TableHead>Departamento</TableHead>
+                                <TableHead>Código Dept.</TableHead>
                                 <TableHead>Distrito</TableHead>
+                                <TableHead>Código Dist.</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {previewData.map((row, index) => (
                                 <TableRow key={index}>
                                     <TableCell>{row.departamento}</TableCell>
+                                    <TableCell>{row.departamento_codigo || '-'}</TableCell>
                                     <TableCell>{row.distrito}</TableCell>
+                                    <TableCell>{row.distrito_codigo || '-'}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>

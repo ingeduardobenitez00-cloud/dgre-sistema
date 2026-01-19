@@ -14,9 +14,17 @@
           "type": "string",
           "description": "The name of the department."
         },
+        "departamento_codigo": {
+          "type": "string",
+          "description": "The code for the department."
+        },
         "distrito": {
           "type": "string",
           "description": "The name of the district."
+        },
+        "distrito_codigo": {
+          "type": "string",
+          "description": "The code for the district."
         }
       },
       "required": [

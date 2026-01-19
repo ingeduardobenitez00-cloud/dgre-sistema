@@ -1,4 +1,5 @@
 
+
 export interface ImageData {
   id: string;
   src: string;
@@ -41,7 +42,9 @@ export type ReportData = {
 export type Dato = {
     id?: string;
     departamento: string;
+    departamento_codigo?: string;
     distrito: string;
+    distrito_codigo?: string;
 }
 
 export const initialDepartments: Department[] = [];

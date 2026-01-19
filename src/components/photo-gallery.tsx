@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -47,7 +48,7 @@ interface jsPDFWithAutoTable extends jsPDF {
 type DepartmentWithDistricts = {
   id: string;
   name: string;
-  districts: District[];
+  districts: (District & {departamento_codigo?: string, distrito_codigo?: string})[];
 };
 
 export default function PhotoGallery() {
@@ -101,45 +102,53 @@ export default function PhotoGallery() {
 
 
   useEffect(() => {
-    if (isUserLoading) return; // Wait for user to be loaded
+    if (isUserLoading || !datosData) return;
 
-    // If the user is a 'funcionario' with an assigned location, only show that location.
     if (user?.profile?.role === 'funcionario' && user.profile.departamento && user.profile.distrito) {
       const { departamento, distrito } = user.profile;
+      const dato = datosData.find(d => d.departamento === departamento && d.distrito === distrito);
       
       const funcionarioDept: DepartmentWithDistricts = {
         id: departamento,
         name: departamento,
         districts: [{
-          id: distrito,
+          id: dato?.id || distrito,
           name: distrito,
           departmentId: departamento,
+          departamento_codigo: dato?.departamento_codigo,
+          distrito_codigo: dato?.distrito_codigo,
         }],
       };
       setDepartments([funcionarioDept]);
 
     } else if (datosData) {
-      // For admins or other roles with full data access
-      const depts: Record<string, Set<string>> = {};
-      datosData.forEach(d => {
-        if (!depts[d.departamento]) {
-          depts[d.departamento] = new Set();
-        }
-        depts[d.departamento].add(d.distrito);
-      });
+      const deptsMap: Map<string, DepartmentWithDistricts> = new Map();
+      
+      datosData.forEach(dato => {
+          if (!deptsMap.has(dato.departamento)) {
+              deptsMap.set(dato.departamento, {
+                  id: dato.departamento,
+                  name: dato.departamento,
+                  districts: [],
+              });
+          }
 
-      const deptsArray: DepartmentWithDistricts[] = Object.keys(depts).sort().map(deptName => ({
-        id: deptName,
-        name: deptName,
-        districts: Array.from(depts[deptName]).sort().map(distName => ({
-          id: distName,
-          name: distName,
-          departmentId: deptName,
-        })),
-      }));
-      setDepartments(deptsArray);
+          const department = deptsMap.get(dato.departamento);
+          if (department && !department.districts.some(d => d.name === dato.distrito)) {
+               department.districts.push({
+                   id: dato.id!,
+                   name: dato.distrito,
+                   departmentId: dato.departamento,
+                   departamento_codigo: dato.departamento_codigo,
+                   distrito_codigo: dato.distrito_codigo,
+               });
+          }
+      });
+      
+      const sortedDepartments = Array.from(deptsMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+      sortedDepartments.forEach(dept => dept.districts.sort((a,b) => a.name.localeCompare(b.name)));
+      setDepartments(sortedDepartments);
     } else {
-        // If no data (e.g. non-admin, non-funcionario), show an empty list.
         setDepartments([]);
     }
   }, [datosData, user, isUserLoading]);
@@ -501,7 +510,9 @@ export default function PhotoGallery() {
                                         !hasImages && isLoaded && "text-destructive hover:text-destructive"
                                     )}
                                 >
-                                    {district.name}
+                                    {user?.profile?.role === 'funcionario' && district.departamento_codigo && district.distrito_codigo 
+                                      ? `${district.departamento_codigo} - ${district.distrito_codigo} - ${district.name}`
+                                      : district.name}
                                 </AccordionTrigger>
                                 <Button variant="outline" size="sm" onClick={() => handleOpenUpload(department.name, district.name)} className="ml-4 shrink-0">
                                     <Upload className="mr-2 h-4 w-4" />
