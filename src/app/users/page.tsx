@@ -450,90 +450,88 @@ export default function UsersPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <div className="border rounded-md overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                        <TableRow>
-                            <TableHead>Usuario</TableHead>
-                            <TableHead>Correo</TableHead>
-                            <TableHead>Rol</TableHead>
-                            <TableHead>Departamento</TableHead>
-                            <TableHead>Distrito</TableHead>
-                            <TableHead>Módulos</TableHead>
-                            <TableHead className="text-right">Acciones</TableHead>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Usuario</TableHead>
+                        <TableHead>Correo</TableHead>
+                        <TableHead>Rol</TableHead>
+                        <TableHead>Departamento</TableHead>
+                        <TableHead>Distrito</TableHead>
+                        <TableHead>Módulos</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {users && users.length > 0 ? (
+                        users.map((user) => (
+                        <TableRow key={user.id}>
+                            <TableCell className="font-medium">{user.username}</TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>
+                                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
+                            </TableCell>
+                            <TableCell>{user.departamento || '-'}</TableCell>
+                            <TableCell>{user.distrito || '-'}</TableCell>
+                            <TableCell>
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                    {user.modules.map(module => <Badge key={module} variant="outline" className="capitalize">{MODULE_LABELS[module] || module}</Badge>)}
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal(user)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                 <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <KeyRound className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Restablecer Contraseña</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                               ¿Estás seguro de que quieres enviar un correo de restablecimiento de contraseña a {user.email}?
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleResetPassword(user.email)}>Enviar Correo</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Esta acción eliminará el registro del usuario de la base de datos, pero no su cuenta de autenticación.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteUser(user.id, user.email)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </TableCell>
                         </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                        {users && users.length > 0 ? (
-                            users.map((user) => (
-                            <TableRow key={user.id}>
-                                <TableCell className="font-medium">{user.username}</TableCell>
-                                <TableCell>{user.email}</TableCell>
-                                <TableCell>
-                                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
-                                </TableCell>
-                                <TableCell>{user.departamento || '-'}</TableCell>
-                                <TableCell>{user.distrito || '-'}</TableCell>
-                                <TableCell>
-                                    <div className="flex flex-wrap gap-1 max-w-xs">
-                                        {user.modules.map(module => <Badge key={module} variant="outline" className="capitalize">{MODULE_LABELS[module] || module}</Badge>)}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal(user)}>
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <KeyRound className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Restablecer Contraseña</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                   ¿Estás seguro de que quieres enviar un correo de restablecimiento de contraseña a {user.email}?
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleResetPassword(user.email)}>Enviar Correo</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Esta acción eliminará el registro del usuario de la base de datos, pero no su cuenta de autenticación.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteUser(user.id, user.email)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </TableCell>
-                            </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center">
-                                    No hay usuarios registrados.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                        </TableBody>
-                    </Table>
-                </div>
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={7} className="h-24 text-center">
+                                No hay usuarios registrados.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                    </TableBody>
+                </Table>
             )}
           </CardContent>
         </Card>
