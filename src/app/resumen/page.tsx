@@ -176,11 +176,12 @@ export default function ResumenPage() {
       summary.totalReports.reports = reportsData;
 
       reportsData.forEach(report => {
+        if (!report.departamento || !report.distrito) return;
         const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase().trim() : '';
         const districtInfo: CategoryDistrictInfo = {
             displayName: `${report.departamento} - ${report.distrito}`,
-            departamento: report.departamento!,
-            distrito: report.distrito!,
+            departamento: report.departamento,
+            distrito: report.distrito,
         };
         
         if (lugar.includes('habitacion') || lugar.includes('segura') || lugar.includes('registro')) {
@@ -232,8 +233,13 @@ export default function ResumenPage() {
 
         reportsData.forEach(report => {
             const lugar = report['lugar-resguardo'] ? report['lugar-resguardo'].toLowerCase().trim() : '';
-            const deptName = report.departamento!;
-            const distName = report.distrito!;
+            const deptName = report.departamento;
+            const distName = report.distrito;
+
+            if (!deptName || !distName) {
+                return;
+            }
+
             const datoInfo = datosMap.get(`${deptName}-${distName}`);
 
             const districtInfo: DistrictInfoForBreakdown = {
@@ -583,7 +589,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                                               </AccordionTrigger>
                                               <AccordionContent className="pt-2 pl-4 space-y-1">
                                                   {districts
-                                                      .sort((a, b) => (a.code || a.name).localeCompare(b.code || b.name, undefined, { numeric: true }))
+                                                      .sort((a, b) => (a?.code || a?.name || '').localeCompare(b?.code || b?.name || '', undefined, { numeric: true }))
                                                       .map(dist => (
                                                       <div key={dist.name} className="text-xs cursor-pointer hover:font-semibold" onClick={(e) => { e.stopPropagation(); handleDistrictClick(dist.deptName, dist.name); }}>
                                                          {dist.deptCode && dist.code ? `${dist.deptCode} - ${dist.code} - ${dist.name}` : dist.name}
@@ -640,7 +646,7 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                                             </AccordionTrigger>
                                             <AccordionContent className="pt-2 pl-4 space-y-1">
                                                 {districts
-                                                    .sort((a, b) => (a.code || a.name).localeCompare(b.code || b.name, undefined, { numeric: true }))
+                                                    .sort((a, b) => (a?.code || a?.name || '').localeCompare(b?.code || b?.name || '', undefined, { numeric: true }))
                                                     .map(dist => (
                                                       <div key={dist.name} className="text-xs cursor-pointer hover:font-semibold" onClick={(e) => { e.stopPropagation(); handleDistrictClick(dist.deptName, dist.name); }}>
                                                          {dist.deptCode && dist.code ? `${dist.deptCode} - ${dist.code} - ${dist.name}` : dist.name}
@@ -788,6 +794,3 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
-
-
-    
