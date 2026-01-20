@@ -74,6 +74,7 @@ export default function PhotoGallery() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const canGeneratePdf = user?.profile?.role === 'admin' || user?.profile?.permissions?.includes('generar_pdf');
 
    useEffect(() => {
     const fetchLogo = async (path: string, setter: (data: string | null) => void) => {
@@ -459,7 +460,7 @@ export default function PhotoGallery() {
             Explore y gestione las imágenes de los registros organizadas por ubicación.
           </p>
         </div>
-        {user?.profile?.role === 'admin' && (
+        {canGeneratePdf && (
           <Button onClick={handleGenerateMissingImagesPdf} disabled={isGeneratingPdf}>
             {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Generar Reporte Sin Imágenes
@@ -582,10 +583,12 @@ export default function PhotoGallery() {
                                   <ImageIcon className="h-8 w-8 text-muted-foreground mb-4" />
                                   <p className="text-lg font-semibold text-foreground">No hay imágenes</p>
                                   <p className="text-sm text-muted-foreground mt-1 mb-4">Añade las fotos para este distrito.</p>
-                                  <Button onClick={() => handleOpenUpload(department.name, district.name)}>
-                                      <Upload className="mr-2 h-4 w-4" />
-                                      Añadir Imágenes
-                                  </Button>
+                                  <div className="flex items-center justify-center gap-4">
+                                      <Button onClick={() => handleOpenUpload(department.name, district.name)}>
+                                          <Upload className="mr-2 h-4 w-4" />
+                                          Añadir Imágenes
+                                      </Button>
+                                  </div>
                               </div>
                             )
                             ) : (
@@ -623,3 +626,5 @@ export default function PhotoGallery() {
     </div>
   );
 }
+
+    

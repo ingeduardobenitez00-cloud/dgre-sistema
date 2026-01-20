@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -89,6 +90,7 @@ export default function FichaPage() {
   const canEditReport = isAdmin || currentUser?.profile?.permissions?.includes('edit');
   const canAddImages = isAdmin || currentUser?.profile?.permissions?.includes('add');
   const canDeleteImages = isAdmin || (currentUser?.profile?.permissions?.includes('add') || currentUser?.profile?.permissions?.includes('delete'));
+  const canGeneratePdf = isAdmin || currentUser?.profile?.permissions?.includes('generar_pdf');
 
 
   useEffect(() => {
@@ -613,10 +615,12 @@ export default function FichaPage() {
                                   Editar Informe
                                </Button>
                              )}
-                             <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf || (!currentReport && (!imagesData || imagesData.length === 0))} size="sm">
-                                {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                                Generar PDF
-                             </Button>
+                            {canGeneratePdf && (
+                                <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf || (!currentReport && (!imagesData || imagesData.length === 0))} size="sm">
+                                    {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                                    Generar PDF
+                                </Button>
+                            )}
                           </div>
                         </div>
                       </CardHeader>
@@ -739,3 +743,5 @@ export default function FichaPage() {
     </div>
   );
 }
+
+    

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Header from "@/components/header";
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { type Dato, type ReportData, type ImageData } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ interface jsPDFWithAutoTable extends jsPDF {
 
 export default function InformeGeneralPage() {
   const { firestore } = useFirebase();
+  const { user: currentUser } = useUser();
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
 
@@ -46,6 +47,8 @@ export default function InformeGeneralPage() {
   const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   
+  const canGeneratePdf = currentUser?.profile?.role === 'admin' || currentUser?.profile?.permissions?.includes('generar_pdf');
+
   useEffect(() => {
     const fetchLogo = async (path: string, setter: (data: string | null) => void) => {
         try {
@@ -297,18 +300,24 @@ export default function InformeGeneralPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-             <Button 
-                onClick={handleGenerateGeneralReport} 
-                disabled={isLoading || isGeneratingGeneralReport} 
-                className="w-full"
-                size="lg"
-            >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : isGeneratingGeneralReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                {isLoading ? 'Cargando datos...' : 'Generar Informe General'}
-            </Button>
+             {canGeneratePdf ? (
+                <Button 
+                    onClick={handleGenerateGeneralReport} 
+                    disabled={isLoading || isGeneratingGeneralReport} 
+                    className="w-full"
+                    size="lg"
+                >
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : isGeneratingGeneralReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    {isLoading ? 'Cargando datos...' : 'Generar Informe General'}
+                </Button>
+             ) : (
+                <p className="text-muted-foreground text-center py-4">No tienes permiso para generar este informe.</p>
+             )}
           </CardContent>
         </Card>
       </main>
     </div>
   );
 }
+
+    

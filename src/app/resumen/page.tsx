@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useFirebase, useMemoFirebase, useUser } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection } from 'firebase/firestore';
 import { type Dato, type ReportData } from '@/lib/data';
@@ -87,6 +87,7 @@ export default function ResumenPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
+  const { user: currentUser } = useUser();
 
   useEffect(() => {
     setIsClient(true);
@@ -110,6 +111,8 @@ export default function ResumenPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+
+  const canGeneratePdf = currentUser?.profile?.role === 'admin' || currentUser?.profile?.permissions?.includes('generar_pdf');
 
   useEffect(() => {
     const fetchLogo = async (path: string, setter: (data: string | null) => void) => {
@@ -478,10 +481,12 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                           Visión global de los informes registrados en el sistema.
                       </CardDescription>
                   </div>
-                   <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf} size="sm">
-                       {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                       Generar Resumen PDF
-                   </Button>
+                    {canGeneratePdf && (
+                        <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf} size="sm">
+                            {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                            Generar Resumen PDF
+                        </Button>
+                    )}
                 </div>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -489,16 +494,18 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                  const Icon = card.icon;
                  return (
                     <Card key={card.key} className="relative">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
-                            onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf(card.key, card.title); }}
-                            disabled={isGeneratingPdf}
-                            aria-label={`Generar PDF para ${card.title}`}
-                        >
-                           {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                        </Button>
+                        {canGeneratePdf && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
+                                onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf(card.key, card.title); }}
+                                disabled={isGeneratingPdf}
+                                aria-label={`Generar PDF para ${card.title}`}
+                            >
+                            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                            </Button>
+                        )}
                         <div className="h-full rounded-md p-6 pb-4">
                             <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <h3 className="text-sm font-medium">{card.title}</h3>
@@ -514,16 +521,18 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                  )
                })}
                 <Card className="relative">
-                     <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
-                        onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf('habitacionSegura', 'Detalle: Registros con Habitaciones Seguras'); }}
-                        disabled={isGeneratingPdf}
-                        aria-label="Generar PDF para Registros con Habitaciones Seguras"
-                    >
-                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    </Button>
+                    {canGeneratePdf && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
+                            onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf('habitacionSegura', 'Detalle: Registros con Habitaciones Seguras'); }}
+                            disabled={isGeneratingPdf}
+                            aria-label="Generar PDF para Registros con Habitaciones Seguras"
+                        >
+                            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        </Button>
+                    )}
                     <div className="h-full rounded-md p-6 pb-4">
                         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <h3 className="text-sm font-medium">Registros con Habitaciones Seguras</h3>
@@ -558,16 +567,18 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                     </div>
                 </Card>
                 <Card className="relative">
-                     <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
-                        onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf('comisaria', 'Detalle: Lugar de Resguardo Comisaria'); }}
-                        disabled={isGeneratingPdf}
-                        aria-label="Generar PDF para Lugar de Resguardo Comisaria"
-                    >
-                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    </Button>
+                    {canGeneratePdf && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
+                            onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf('comisaria', 'Detalle: Lugar de Resguardo Comisaria'); }}
+                            disabled={isGeneratingPdf}
+                            aria-label="Generar PDF para Lugar de Resguardo Comisaria"
+                        >
+                            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        </Button>
+                    )}
                     <div className="h-full rounded-md p-6 pb-4">
                         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <h3 className="text-sm font-medium">Lugar de Resguardo Comisaria</h3>
@@ -602,16 +613,18 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
                     </div>
                 </Card>
                  <Card className="relative">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
-                        onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf('otros', 'Detalle: Resguardo en Otros Lugares'); }}
-                        disabled={isGeneratingPdf}
-                        aria-label="Generar PDF para Resguardo en Otros Lugares"
-                    >
-                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    </Button>
+                    {canGeneratePdf && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 h-7 w-7 text-muted-foreground"
+                            onClick={(e) => { e.stopPropagation(); handleGenerateCategoryPdf('otros', 'Detalle: Resguardo en Otros Lugares'); }}
+                            disabled={isGeneratingPdf}
+                            aria-label="Generar PDF para Resguardo en Otros Lugares"
+                        >
+                            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        </Button>
+                    )}
                     <div className="h-full rounded-md p-6 pb-4">
                         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <h3 className="text-sm font-medium">Resguardo en Otros Lugares</h3>
@@ -730,3 +743,5 @@ const handleGenerateCategoryPdf = async (categoryKey: keyof SummaryData | 'otros
     </div>
   );
 }
+
+    
