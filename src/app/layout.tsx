@@ -12,6 +12,9 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 export const metadata: Metadata = {
   title: 'Informe Edilicio',
   description: 'Gestión de informes y registros electorales.',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
