@@ -13,7 +13,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { type LocalVotacion, type Dato } from '@/lib/data';
 import Header from '@/components/header';
-import { Loader2, Vote, Search } from 'lucide-react';
+import { Loader2, Vote, Search, MapPin } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -241,7 +241,22 @@ export default function LocalesVotacionPage() {
                       <p><span className="font-semibold">Código:</span> {selectedLocal.codigo_local || 'N/A'}</p>
                       <p><span className="font-semibold">Zona:</span> {selectedLocal.zona || 'N/A'}</p>
                       <p className="md:col-span-2"><span className="font-semibold">Dirección:</span> {selectedLocal.direccion || 'N/A'}</p>
-                      <p className="md:col-span-2"><span className="font-semibold">GPS:</span> {selectedLocal.gps || 'N/A'}</p>
+                      <div className="md:col-span-2">
+                        <span className="font-semibold">GPS:</span>{' '}
+                        {selectedLocal.gps ? (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${selectedLocal.gps}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <span>{selectedLocal.gps}</span>
+                            <MapPin className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          'N/A'
+                        )}
+                      </div>
                   </div>
                   
                   <Separator />
