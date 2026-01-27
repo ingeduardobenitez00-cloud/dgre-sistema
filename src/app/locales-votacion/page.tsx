@@ -253,7 +253,7 @@ export default function LocalesVotacionPage() {
                           {photos.map(({ key, src }) => (
                               <Card key={key} className="overflow-hidden">
                                   <div className="relative aspect-video">
-                                      <Image src={src} alt={`Foto ${key}`} fill className="object-cover" />
+                                      <Image src={`/${src}`} alt={`Foto ${key}`} fill className="object-cover" />
                                   </div>
                                   <CardFooter className="p-2 text-xs text-muted-foreground capitalize">
                                       {key.replace(/_/g, ' ')}
