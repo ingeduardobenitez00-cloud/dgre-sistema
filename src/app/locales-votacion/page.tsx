@@ -35,7 +35,7 @@ export default function LocalesVotacionPage() {
 
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
-  const [selectedZone, setSelectedZone] = useState<string | null>('');
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [shouldFetch, setShouldFetch] = useState(false);
 
   // Data for locales
@@ -89,7 +89,7 @@ export default function LocalesVotacionPage() {
         .map(l => l.zona!)
       )].sort();
       setZonas(uniqueZonas);
-      setSelectedZone(''); 
+      setSelectedZone(null); 
     } else {
       setZonas([]);
     }
@@ -103,18 +103,18 @@ export default function LocalesVotacionPage() {
   const handleDepartmentChange = (value: string) => {
     setSelectedDepartment(value);
     setSelectedDistrict(null);
-    setSelectedZone('');
+    setSelectedZone(null);
     setShouldFetch(false);
   };
   
   const handleDistrictChange = (value: string) => {
-    setSelectedDistrict(value);
-    setSelectedZone('');
+    setSelectedDistrict(value === 'all' ? null : value);
+    setSelectedZone(null);
     setShouldFetch(false);
   };
 
   const handleZoneChange = (value: string) => {
-    setSelectedZone(value);
+    setSelectedZone(value === 'all' ? null : value);
     setShouldFetch(false);
   };
 
@@ -156,24 +156,24 @@ export default function LocalesVotacionPage() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Distrito</label>
-                <Select onValueChange={handleDistrictChange} value={selectedDistrict || ''} disabled={!selectedDepartment}>
+                <Select onValueChange={handleDistrictChange} value={selectedDistrict || 'all'} disabled={!selectedDepartment}>
                   <SelectTrigger>
-                    <SelectValue placeholder={!selectedDepartment ? 'Primero selecciona un dpto.' : 'Todos'} />
+                    <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                     <SelectItem value="">Todos</SelectItem>
+                     <SelectItem value="all">Todos</SelectItem>
                     {districts.map(dist => <SelectItem key={dist} value={dist}>{dist}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
                <div className="space-y-2">
                 <label className="text-sm font-medium">Zona</label>
-                <Select onValueChange={handleZoneChange} value={selectedZone || ''} disabled={!selectedDistrict}>
+                <Select onValueChange={handleZoneChange} value={selectedZone || 'all'} disabled={!selectedDistrict}>
                   <SelectTrigger>
-                    <SelectValue placeholder={!selectedDistrict ? 'Primero selecciona un dist.' : 'Todas'} />
+                    <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                     {zonas.map(zona => <SelectItem key={zona} value={zona}>{zona}</SelectItem>)}
                   </SelectContent>
                 </Select>
