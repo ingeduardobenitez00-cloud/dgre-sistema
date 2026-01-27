@@ -201,6 +201,34 @@
         "departamento",
         "distrito"
       ]
+    },
+    "LocalVotacion": {
+      "title": "Local de Votacion",
+      "type": "object",
+      "description": "Represents a polling station.",
+      "properties": {
+        "departamento": {
+          "type": "string",
+          "description": "The name of the department."
+        },
+        "distrito": {
+          "type": "string",
+          "description": "The name of the district."
+        },
+        "local": {
+          "type": "string",
+          "description": "The name of the polling station."
+        },
+        "direccion": {
+          "type": "string",
+          "description": "The address of the polling station."
+        }
+      },
+      "required": [
+        "departamento",
+        "distrito",
+        "local"
+      ]
     }
   },
   "auth": {
@@ -244,6 +272,12 @@
         "$ref": "#/entities/Reporte"
       },
       "description": "Stores detailed report information."
+    },
+    "/locales-votacion/{localId}": {
+      "schema": {
+        "$ref": "#/entities/LocalVotacion"
+      },
+      "description": "Stores polling station information."
     }
   }
 }

@@ -47,7 +47,7 @@ type UserProfile = {
   distrito?: string;
 };
 
-const ALL_MODULES = ['fotos', 'ficha', 'resumen', 'settings', 'users', 'cargar-ficha', 'informe-general', 'importar-reportes'];
+const ALL_MODULES = ['fotos', 'ficha', 'resumen', 'settings', 'users', 'cargar-ficha', 'informe-general', 'importar-reportes', 'importar-locales', 'locales-votacion'];
 const MODULE_LABELS: { [key: string]: string } = {
   fotos: 'Imágenes',
   ficha: 'Vista de Ficha',
@@ -57,6 +57,8 @@ const MODULE_LABELS: { [key: string]: string } = {
   'cargar-ficha': 'Cargar Ficha',
   'informe-general': 'Informe General',
   'importar-reportes': 'Importar Reportes',
+  'importar-locales': 'Importar Locales',
+  'locales-votacion': 'Locales de Votación',
 };
 const ALL_PERMISSIONS = ['add', 'edit', 'delete', 'view_report', 'view_images', 'generar_pdf'];
 const PERMISSION_LABELS: { [key: string]: string } = {

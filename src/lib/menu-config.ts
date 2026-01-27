@@ -1,4 +1,4 @@
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -36,6 +36,18 @@ export const dashboardMenuItems = [
     label: 'Importar Reportes',
     icon: FileUp,
     description: 'Importa datos de informes desde un archivo Excel.',
+  },
+  {
+    href: '/importar-locales',
+    label: 'Importar Locales',
+    icon: FileUp,
+    description: 'Importa locales de votación desde un archivo Excel.',
+  },
+  {
+    href: '/locales-votacion',
+    label: 'Locales de Votación',
+    icon: Vote,
+    description: 'Consulta los locales de votación importados.',
   },
   {
     href: '/users',

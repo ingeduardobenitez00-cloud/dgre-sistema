@@ -49,6 +49,11 @@ service cloud.firestore {
     }
 
     /** Main Data Collections **/
+    match /locales-votacion/{localId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
     match /imagenes/{imagenId} {
       allow read: if isAdmin() || hasPermission('view_images');
       // A 'funcionario' with the 'add' permission can manage images for their assigned location.

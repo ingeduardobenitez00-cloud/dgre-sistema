@@ -47,4 +47,12 @@ export type Dato = {
     distrito_codigo?: string;
 }
 
+export type LocalVotacion = {
+  id: string;
+  departamento: string;
+  distrito: string;
+  local: string;
+  direccion?: string;
+}
+
 export const initialDepartments: Department[] = [];
