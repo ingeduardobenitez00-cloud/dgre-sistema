@@ -21,7 +21,7 @@ type FilePreview = {
   status: 'pending' | 'processing' | 'matched' | 'unmatched' | 'error';
 };
 
-const BATCH_SIZE = 450; // Firestore batch limit is 500 writes
+const BATCH_SIZE = 150; // Reduced to avoid exceeding the 10MB payload limit. The operation limit is 500.
 const PREVIEW_LIMIT = 200;
 
 export default function CargarFotosLocalesPage() {
