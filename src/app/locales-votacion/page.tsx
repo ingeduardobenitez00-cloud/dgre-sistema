@@ -289,25 +289,6 @@ export default function LocalesVotacionPage() {
                                     </div>
                                 </div>
 
-                                {local.gps && <Separator />}
-
-                                {local.gps && (
-                                    <div>
-                                        <h3 className="font-semibold mb-4 text-lg">Ubicación en el Mapa</h3>
-                                        <div className="aspect-video w-full rounded-md overflow-hidden border">
-                                            <iframe
-                                                width="100%"
-                                                height="100%"
-                                                loading="lazy"
-                                                allowFullScreen
-                                                referrerPolicy="no-referrer-when-downgrade"
-                                                src={`https://maps.google.com/maps?q=${encodeURIComponent(local.gps)}&z=16&output=embed`}
-                                            >
-                                            </iframe>
-                                        </div>
-                                    </div>
-                                )}
-
                                 {(local.gps && fichaPhotos.length > 0) && <Separator />}
 
                                 <div>
@@ -329,6 +310,25 @@ export default function LocalesVotacionPage() {
                                         <p className="text-sm text-muted-foreground text-center py-8">No hay fotos para este local.</p>
                                     )}
                                 </div>
+
+                                {local.gps && <Separator />}
+
+                                {local.gps && (
+                                    <div>
+                                        <h3 className="font-semibold mb-4 text-lg">Ubicación en el Mapa</h3>
+                                        <div className="aspect-video w-full rounded-md overflow-hidden border">
+                                            <iframe
+                                                width="100%"
+                                                height="100%"
+                                                loading="lazy"
+                                                allowFullScreen
+                                                referrerPolicy="no-referrer-when-downgrade"
+                                                src={`https://maps.google.com/maps?q=${encodeURIComponent(local.gps)}&z=16&output=embed`}
+                                            >
+                                            </iframe>
+                                        </div>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     );
@@ -433,25 +433,6 @@ export default function LocalesVotacionPage() {
                   </div>
                   
                   <Separator />
-
-                  {selectedLocal.gps && (
-                    <div>
-                        <h4 className="font-semibold mb-4 text-lg">Ubicación en el Mapa</h4>
-                        <div className="aspect-video w-full rounded-md overflow-hidden border">
-                            <iframe
-                                width="100%"
-                                height="100%"
-                                loading="lazy"
-                                allowFullScreen
-                                referrerPolicy="no-referrer-when-downgrade"
-                                src={`https://maps.google.com/maps?q=${encodeURIComponent(selectedLocal.gps)}&z=16&output=embed`}
-                            >
-                            </iframe>
-                        </div>
-                    </div>
-                  )}
-
-                  {selectedLocal.gps && <Separator />}
                   
                   <div>
                     <h4 className="font-semibold mb-4 text-lg">Fotos</h4>
@@ -472,6 +453,25 @@ export default function LocalesVotacionPage() {
                       <p className="text-sm text-muted-foreground text-center py-8">No hay fotos para este local.</p>
                     )}
                   </div>
+
+                  {selectedLocal.gps && <Separator />}
+                  
+                  {selectedLocal.gps && (
+                    <div>
+                        <h4 className="font-semibold mb-4 text-lg">Ubicación en el Mapa</h4>
+                        <div className="aspect-video w-full rounded-md overflow-hidden border">
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                loading="lazy"
+                                allowFullScreen
+                                referrerPolicy="no-referrer-when-downgrade"
+                                src={`https://maps.google.com/maps?q=${encodeURIComponent(selectedLocal.gps)}&z=16&output=embed`}
+                            >
+                            </iframe>
+                        </div>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </>
