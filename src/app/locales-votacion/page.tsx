@@ -32,31 +32,43 @@ export default function LocalesVotacionPage() {
   // Data for filters
   const datosQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'datos') : null), [firestore]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
+  const allLocalesForFiltersQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'locales-votacion') : null), [firestore]);
+  const { data: allLocalesForFilters, isLoading: isLoadingAllLocales } = useCollection<LocalVotacion>(allLocalesForFiltersQuery);
 
   const [departments, setDepartments] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
+  const [zonas, setZonas] = useState<string[]>([]);
 
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [shouldFetch, setShouldFetch] = useState(false);
 
   // Data for locales
   const localesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    if (!shouldFetch && !selectedDepartment && !selectedDistrict) return collection(firestore, 'locales-votacion');
 
-    if (selectedDepartment && selectedDistrict) {
-      return query(
-        collection(firestore, 'locales-votacion'),
-        where('departamento', '==', selectedDepartment),
-        where('distrito', '==', selectedDistrict)
-      );
+    if (!shouldFetch) {
+      return collection(firestore, 'locales-votacion');
     }
+
+    const conditions = [];
     if (selectedDepartment) {
-      return query(collection(firestore, 'locales-votacion'), where('departamento', '==', selectedDepartment));
+      conditions.push(where('departamento', '==', selectedDepartment));
     }
+    if (selectedDistrict) {
+      conditions.push(where('distrito', '==', selectedDistrict));
+    }
+    if (selectedZone) {
+      conditions.push(where('zona', '==', selectedZone));
+    }
+
+    if (conditions.length > 0) {
+      return query(collection(firestore, 'locales-votacion'), ...conditions);
+    }
+    
     return collection(firestore, 'locales-votacion');
-  }, [firestore, shouldFetch, selectedDepartment, selectedDistrict]);
+  }, [firestore, shouldFetch, selectedDepartment, selectedDistrict, selectedZone]);
 
   const { data: localesData, isLoading: isLoadingLocales } = useCollection<LocalVotacion>(localesQuery);
   
@@ -92,6 +104,19 @@ export default function LocalesVotacionPage() {
       setDistricts([]);
     }
   }, [selectedDepartment, datosData]);
+
+  useEffect(() => {
+    if (selectedDistrict && allLocalesForFilters) {
+      const uniqueZonas = [...new Set(allLocalesForFilters
+        .filter(l => l.departamento === selectedDepartment && l.distrito === selectedDistrict && l.zona)
+        .map(l => l.zona!)
+      )].sort();
+      setZonas(uniqueZonas);
+      setSelectedZone(null); 
+    } else {
+      setZonas([]);
+    }
+  }, [selectedDistrict, selectedDepartment, allLocalesForFilters]);
   
   const handleViewFicha = (local: LocalVotacion) => {
     setSelectedLocal(local);
@@ -101,11 +126,18 @@ export default function LocalesVotacionPage() {
   const handleDepartmentChange = (value: string) => {
     setSelectedDepartment(value);
     setSelectedDistrict(null);
+    setSelectedZone(null);
     setShouldFetch(false);
   };
   
   const handleDistrictChange = (value: string) => {
     setSelectedDistrict(value);
+    setSelectedZone(null);
+    setShouldFetch(false);
+  };
+
+  const handleZoneChange = (value: string) => {
+    setSelectedZone(value);
     setShouldFetch(false);
   };
 
@@ -113,7 +145,7 @@ export default function LocalesVotacionPage() {
     setShouldFetch(true);
   };
 
-  const isLoading = isLoadingDatos || (shouldFetch && isLoadingLocales);
+  const isLoading = isLoadingDatos || isLoadingAllLocales || (shouldFetch && isLoadingLocales);
 
   const photos = selectedLocal ? fotoKeys.map(key => ({ key, src: selectedLocal[key] as string })).filter(p => p.src) : [];
 
@@ -132,7 +164,7 @@ export default function LocalesVotacionPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Departamento</label>
                 <Select onValueChange={handleDepartmentChange} value={selectedDepartment || ''} disabled={isLoadingDatos}>
@@ -152,6 +184,17 @@ export default function LocalesVotacionPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {districts.map(dist => <SelectItem key={dist} value={dist}>{dist}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+               <div className="space-y-2">
+                <label className="text-sm font-medium">Zona</label>
+                <Select onValueChange={handleZoneChange} value={selectedZone || ''} disabled={!selectedDistrict}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={!selectedDistrict ? 'Primero selecciona un dist.' : 'Selecciona una zona'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {zonas.map(zona => <SelectItem key={zona} value={zona}>{zona}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
