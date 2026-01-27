@@ -151,7 +151,7 @@ export default function LocalesVotacionPage() {
         )}
         
         {!isLoading && localesData && (
-          <Card className="w-full max-w-6xl mx-auto">
+          <Card className="w-full max-w-7xl mx-auto">
             <CardContent className="pt-6">
               {Object.keys(localesByDepartment).length > 0 ? (
                 <Accordion type="single" collapsible className="w-full" defaultValue={Object.keys(localesByDepartment)[0]}>
@@ -165,17 +165,23 @@ export default function LocalesVotacionPage() {
                            <Table>
                               <TableHeader>
                                 <TableRow>
+                                  <TableHead>Código</TableHead>
                                   <TableHead>Distrito</TableHead>
+                                  <TableHead>Zona</TableHead>
                                   <TableHead>Local</TableHead>
                                   <TableHead>Dirección</TableHead>
+                                  <TableHead>GPS</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {localesByDepartment[department].map((local) => (
                                   <TableRow key={local.id}>
+                                    <TableCell>{local.codigo_local}</TableCell>
                                     <TableCell>{local.distrito}</TableCell>
+                                    <TableCell>{local.zona}</TableCell>
                                     <TableCell>{local.local}</TableCell>
                                     <TableCell>{local.direccion}</TableCell>
+                                    <TableCell>{local.gps}</TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>

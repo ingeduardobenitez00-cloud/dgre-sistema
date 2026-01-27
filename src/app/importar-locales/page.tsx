@@ -85,20 +85,47 @@ export default function ImportarLocalesPage() {
           return null;
         };
 
+        const codigoLocalHeader = findHeader(['codigo_local']);
         const depHeader = findHeader(['departamento']);
         const distHeader = findHeader(['distrito']);
+        const zonaHeader = findHeader(['zona']);
         const localHeader = findHeader(['local']);
         const dirHeader = findHeader(['direccion', 'dirección']);
+        const gpsHeader = findHeader(['gps']);
+        const fotoFrenteHeader = findHeader(['foto_frente']);
+        const foto2Header = findHeader(['foto2']);
+        const foto3Header = findHeader(['foto3']);
+        const foto4Header = findHeader(['foto4']);
+        const foto5Header = findHeader(['foto5']);
+        const foto6Header = findHeader(['foto6']);
+        const foto7Header = findHeader(['foto7']);
+        const foto8Header = findHeader(['foto8']);
+        const foto9Header = findHeader(['foto9']);
+        const foto10Header = findHeader(['foto10']);
+
 
         if (!depHeader || !distHeader || !localHeader) {
           throw new Error('Columnas requeridas no encontradas. Asegúrate de que tu archivo contenga "departamento", "distrito" y "local".');
         }
 
         const parsedData: Omit<LocalVotacion, 'id'>[] = json.map((row) => ({
+          codigo_local: codigoLocalHeader ? String(row[codigoLocalHeader] || '') : '',
           departamento: String(row[depHeader] || ''),
           distrito: String(row[distHeader] || ''),
+          zona: zonaHeader ? String(row[zonaHeader] || '') : '',
           local: String(row[localHeader] || ''),
           direccion: dirHeader ? String(row[dirHeader] || '') : '',
+          gps: gpsHeader ? String(row[gpsHeader] || '') : '',
+          foto_frente: fotoFrenteHeader ? String(row[fotoFrenteHeader] || '') : '',
+          foto2: foto2Header ? String(row[foto2Header] || '') : '',
+          foto3: foto3Header ? String(row[foto3Header] || '') : '',
+          foto4: foto4Header ? String(row[foto4Header] || '') : '',
+          foto5: foto5Header ? String(row[foto5Header] || '') : '',
+          foto6: foto6Header ? String(row[foto6Header] || '') : '',
+          foto7: foto7Header ? String(row[foto7Header] || '') : '',
+          foto8: foto8Header ? String(row[foto8Header] || '') : '',
+          foto9: foto9Header ? String(row[foto9Header] || '') : '',
+          foto10: foto10Header ? String(row[foto10Header] || '') : '',
         }));
 
         setPreviewData(parsedData);
@@ -173,6 +200,8 @@ export default function ImportarLocalesPage() {
     }
   };
 
+  const previewHeaders = previewData.length > 0 ? Object.keys(previewData[0]) : [];
+
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header title="Importar Locales de Votación" />
@@ -184,7 +213,7 @@ export default function ImportarLocalesPage() {
               Importar Locales de Votación
             </CardTitle>
             <CardDescription>
-              Sube un archivo .xlsx o .csv con las columnas "departamento", "distrito", "local" y "direccion". El sistema es flexible con mayúsculas/minúsculas.
+              Sube un archivo .xlsx o .csv con los datos de los locales. El sistema es flexible con los nombres de las columnas.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -231,7 +260,7 @@ export default function ImportarLocalesPage() {
         </Card>
 
         {previewData.length > 0 && (
-          <Card className="w-full max-w-6xl">
+          <Card className="w-full max-w-7xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TableIcon className="h-5 w-5" />
@@ -246,19 +275,15 @@ export default function ImportarLocalesPage() {
                 <Table>
                   <TableHeader className="sticky top-0 bg-muted">
                     <TableRow>
-                      <TableHead>Departamento</TableHead>
-                      <TableHead>Distrito</TableHead>
-                      <TableHead>Local</TableHead>
-                      <TableHead>Dirección</TableHead>
+                      {previewHeaders.map(header => <TableHead key={header} className="capitalize">{header.replace(/_/g, ' ')}</TableHead>)}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {previewData.map((row, index) => (
                       <TableRow key={index}>
-                        <TableCell>{row.departamento}</TableCell>
-                        <TableCell>{row.distrito}</TableCell>
-                        <TableCell>{row.local}</TableCell>
-                        <TableCell>{row.direccion}</TableCell>
+                        {previewHeaders.map(header => (
+                          <TableCell key={`${index}-${header}`}>{(row as any)[header]}</TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>

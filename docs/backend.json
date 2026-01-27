@@ -207,6 +207,10 @@
       "type": "object",
       "description": "Represents a polling station.",
       "properties": {
+        "codigo_local": {
+          "type": "string",
+          "description": "The code for the polling station."
+        },
         "departamento": {
           "type": "string",
           "description": "The name of the department."
@@ -215,6 +219,10 @@
           "type": "string",
           "description": "The name of the district."
         },
+        "zona": {
+          "type": "string",
+          "description": "The zone of the polling station."
+        },
         "local": {
           "type": "string",
           "description": "The name of the polling station."
@@ -222,6 +230,40 @@
         "direccion": {
           "type": "string",
           "description": "The address of the polling station."
+        },
+        "gps": {
+          "type": "string",
+          "description": "GPS coordinates of the polling station."
+        },
+        "foto_frente": {
+          "type": "string"
+        },
+        "foto2": {
+          "type": "string"
+        },
+        "foto3": {
+          "type": "string"
+        },
+        "foto4": {
+          "type": "string"
+        },
+        "foto5": {
+          "type": "string"
+        },
+        "foto6": {
+          "type": "string"
+        },
+        "foto7": {
+          "type": "string"
+        },
+        "foto8": {
+          "type": "string"
+        },
+        "foto9": {
+          "type": "string"
+        },
+        "foto10": {
+          "type": "string"
         }
       },
       "required": [

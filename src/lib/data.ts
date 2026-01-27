@@ -49,10 +49,23 @@ export type Dato = {
 
 export type LocalVotacion = {
   id: string;
+  codigo_local?: string;
   departamento: string;
   distrito: string;
+  zona?: string;
   local: string;
   direccion?: string;
+  gps?: string;
+  foto_frente?: string;
+  foto2?: string;
+  foto3?: string;
+  foto4?: string;
+  foto5?: string;
+  foto6?: string;
+  foto7?: string;
+  foto8?: string;
+  foto9?: string;
+  foto10?: string;
 }
 
 export const initialDepartments: Department[] = [];
