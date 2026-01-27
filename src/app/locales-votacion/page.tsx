@@ -260,6 +260,25 @@ export default function LocalesVotacionPage() {
                   </div>
                   
                   <Separator />
+
+                  {selectedLocal.gps && (
+                    <div>
+                        <h4 className="font-semibold mb-4 text-lg">Ubicación en el Mapa</h4>
+                        <div className="aspect-video w-full rounded-md overflow-hidden border">
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                loading="lazy"
+                                allowFullScreen
+                                referrerPolicy="no-referrer-when-downgrade"
+                                src={`https://maps.google.com/maps?q=${encodeURIComponent(selectedLocal.gps)}&z=16&output=embed`}
+                            >
+                            </iframe>
+                        </div>
+                    </div>
+                  )}
+
+                  {selectedLocal.gps && <Separator />}
                   
                   <div>
                     <h4 className="font-semibold mb-4 text-lg">Fotos</h4>
