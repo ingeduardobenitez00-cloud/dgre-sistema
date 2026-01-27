@@ -20,6 +20,16 @@ const fotoKeys: (keyof LocalVotacion)[] = [
   'foto6', 'foto7', 'foto8', 'foto9', 'foto10'
 ];
 
+const getImageUrl = (src: string) => {
+    if (!src) return '';
+    // If it's a data URI or a full URL, use it as is.
+    if (src.startsWith('data:image') || src.startsWith('http')) {
+        return src;
+    }
+    // Otherwise, assume it's a path in the public folder.
+    return `/${src}`;
+};
+
 export default function LocalesVotacionPage() {
   const { firestore } = useFirebase();
 
@@ -289,7 +299,7 @@ export default function LocalesVotacionPage() {
                                     </div>
                                 </div>
 
-                                {(local.gps && fichaPhotos.length > 0) && <Separator />}
+                                {(fichaPhotos.length > 0) && <Separator />}
 
                                 <div>
                                     <h3 className="font-semibold mb-4 text-lg">Fotos</h3>
@@ -298,7 +308,7 @@ export default function LocalesVotacionPage() {
                                             {fichaPhotos.map(({ key, src }) => (
                                                 <Card key={key} className="overflow-hidden">
                                                     <div className="relative aspect-video">
-                                                        <Image src={`/${src}`} alt={`Foto ${key}`} fill className="object-cover" />
+                                                        <Image src={getImageUrl(src)} alt={`Foto ${key}`} fill className="object-cover" />
                                                     </div>
                                                     <CardFooter className="p-2 text-xs text-muted-foreground capitalize">
                                                         {key.replace(/_/g, ' ')}
@@ -441,7 +451,7 @@ export default function LocalesVotacionPage() {
                           {photos.map(({ key, src }) => (
                               <Card key={key} className="overflow-hidden">
                                   <div className="relative aspect-video">
-                                      <Image src={`/${src}`} alt={`Foto ${key}`} fill className="object-cover" />
+                                      <Image src={getImageUrl(src)} alt={`Foto ${key}`} fill className="object-cover" />
                                   </div>
                                   <CardFooter className="p-2 text-xs text-muted-foreground capitalize">
                                       {key.replace(/_/g, ' ')}

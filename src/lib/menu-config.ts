@@ -44,6 +44,12 @@ export const dashboardMenuItems = [
     description: 'Importa locales de votación desde un archivo Excel.',
   },
   {
+    href: '/cargar-fotos-locales',
+    label: 'Cargar Fotos Locales',
+    icon: UploadCloud,
+    description: 'Sube un lote de fotos para los locales de votación.',
+  },
+  {
     href: '/locales-votacion',
     label: 'Locales de Votación',
     icon: Vote,
