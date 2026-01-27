@@ -7,7 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -16,6 +16,15 @@ import Header from '@/components/header';
 import { Loader2, Vote, Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import Image from 'next/image';
+
+const fotoKeys: (keyof LocalVotacion)[] = [
+  'foto_frente', 'foto2', 'foto3', 'foto4', 'foto5',
+  'foto6', 'foto7', 'foto8', 'foto9', 'foto10'
+];
 
 export default function LocalesVotacionPage() {
   const { firestore } = useFirebase();
@@ -51,6 +60,9 @@ export default function LocalesVotacionPage() {
 
   const { data: localesData, isLoading: isLoadingLocales } = useCollection<LocalVotacion>(localesQuery);
   
+  const [selectedLocal, setSelectedLocal] = useState<LocalVotacion | null>(null);
+  const [isFichaOpen, setIsFichaOpen] = useState(false);
+
   // Group data by department
   const localesByDepartment = useMemo(() => {
     if (!localesData) return {};
@@ -80,6 +92,11 @@ export default function LocalesVotacionPage() {
       setDistricts([]);
     }
   }, [selectedDepartment, datosData]);
+  
+  const handleViewFicha = (local: LocalVotacion) => {
+    setSelectedLocal(local);
+    setIsFichaOpen(true);
+  };
 
   const handleDepartmentChange = (value: string) => {
     setSelectedDepartment(value);
@@ -97,6 +114,8 @@ export default function LocalesVotacionPage() {
   };
 
   const isLoading = isLoadingDatos || (shouldFetch && isLoadingLocales);
+
+  const photos = selectedLocal ? fotoKeys.map(key => ({ key, src: selectedLocal[key] as string })).filter(p => p.src) : [];
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -179,7 +198,12 @@ export default function LocalesVotacionPage() {
                                     <TableCell>{local.codigo_local}</TableCell>
                                     <TableCell>{local.distrito}</TableCell>
                                     <TableCell>{local.zona}</TableCell>
-                                    <TableCell>{local.local}</TableCell>
+                                    <TableCell 
+                                      className="font-medium cursor-pointer hover:underline"
+                                      onClick={() => handleViewFicha(local)}
+                                    >
+                                      {local.local}
+                                    </TableCell>
                                     <TableCell>{local.direccion}</TableCell>
                                     <TableCell>{local.gps}</TableCell>
                                   </TableRow>
@@ -200,6 +224,54 @@ export default function LocalesVotacionPage() {
           </Card>
         )}
       </main>
+      
+      <Dialog open={isFichaOpen} onOpenChange={setIsFichaOpen}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+          {selectedLocal && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedLocal.local}</DialogTitle>
+                <DialogDescription>
+                  {selectedLocal.departamento} - {selectedLocal.distrito}
+                </DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="flex-1 -mx-6 px-6">
+                <div className="py-4 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <p><span className="font-semibold">Código:</span> {selectedLocal.codigo_local || 'N/A'}</p>
+                      <p><span className="font-semibold">Zona:</span> {selectedLocal.zona || 'N/A'}</p>
+                      <p className="md:col-span-2"><span className="font-semibold">Dirección:</span> {selectedLocal.direccion || 'N/A'}</p>
+                      <p className="md:col-span-2"><span className="font-semibold">GPS:</span> {selectedLocal.gps || 'N/A'}</p>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div>
+                    <h4 className="font-semibold mb-4 text-lg">Fotos</h4>
+                    {photos.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          {photos.map(({ key, src }) => (
+                              <Card key={key} className="overflow-hidden">
+                                  <div className="relative aspect-video">
+                                      <Image src={src} alt={`Foto ${key}`} fill className="object-cover" />
+                                  </div>
+                                  <CardFooter className="p-2 text-xs text-muted-foreground capitalize">
+                                      {key.replace(/_/g, ' ')}
+                                  </CardFooter>
+                              </Card>
+                          ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-8">No hay fotos para este local.</p>
+                    )}
+                  </div>
+                </div>
+              </ScrollArea>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
