@@ -84,7 +84,7 @@ export default function CargarFotosLocalesPage() {
             const ctx = canvas.getContext('2d');
             if (ctx) {
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const dataUri = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.7);
+                const dataUri = canvas.toDataURL('image/jpeg', 0.7);
                 resolve(dataUri);
             } else {
                 reject(new Error(`No se pudo procesar: ${file.name}.`));
