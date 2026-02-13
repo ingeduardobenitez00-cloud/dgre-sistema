@@ -45,52 +45,62 @@ export default function SolicitudCapacitacionPage() {
     let isMounted = true;
 
     const initMap = async () => {
+      // Pequeño retraso para asegurar que el DOM esté completamente listo y el CSS aplicado
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       if (typeof window !== 'undefined' && mapRef.current && !leafletMap.current) {
-        // Importación dinámica para evitar errores de SSR
-        const L = (await import('leaflet')).default;
-        
-        if (!isMounted) return;
-
-        // Ubicación predeterminada fija: Asunción, Paraguay (Zona TSJE)
-        const defaultPos: [number, number] = [-25.3006, -57.6359];
-        
-        const map = L.map(mapRef.current).setView(defaultPos, 15);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap'
-        }).addTo(map);
-
-        // Icono personalizado para evitar problemas de rutas de archivos en Next.js
-        const customIcon = L.icon({
-          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowSize: [41, 41]
-        });
-
-        // Evento de doble clic para fijar ubicación
-        map.on('dblclick', (e: any) => {
-          const { lat, lng } = e.latlng;
-          const latStr = lat.toFixed(6);
-          const lngStr = lng.toFixed(6);
+        try {
+          const L = (await import('leaflet')).default;
           
-          setCoords({ lat: latStr, lng: lngStr });
-          setFormData(prev => ({ ...prev, gps: `${latStr}, ${lngStr}` }));
+          if (!isMounted || !mapRef.current) return;
 
-          if (markerRef.current) {
-            markerRef.current.setLatLng(e.latlng);
-          } else {
-            markerRef.current = L.marker(e.latlng, { icon: customIcon }).addTo(map);
-          }
-        });
+          // Ubicación predeterminada fija: Asunción, Paraguay (TSJE)
+          const defaultPos: [number, number] = [-25.3006, -57.6359];
+          
+          const map = L.map(mapRef.current, {
+            center: defaultPos,
+            zoom: 15,
+            doubleClickZoom: false
+          });
+          
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }).addTo(map);
 
-        // Desactivar zoom por doble clic para permitir nuestra interacción
-        map.doubleClickZoom.disable();
+          const customIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+          });
 
-        leafletMap.current = map;
+          map.on('dblclick', (e: any) => {
+            const { lat, lng } = e.latlng;
+            const latStr = lat.toFixed(6);
+            const lngStr = lng.toFixed(6);
+            
+            setCoords({ lat: latStr, lng: lngStr });
+            setFormData(prev => ({ ...prev, gps: `${latStr}, ${lngStr}` }));
+
+            if (markerRef.current) {
+              markerRef.current.setLatLng(e.latlng);
+            } else {
+              markerRef.current = L.marker(e.latlng, { icon: customIcon }).addTo(map);
+            }
+          });
+
+          // Forzar el redibujado para corregir problemas de visualización inicial
+          setTimeout(() => {
+            map.invalidateSize();
+          }, 200);
+
+          leafletMap.current = map;
+        } catch (error) {
+          console.error("Error initializing Leaflet map:", error);
+        }
       }
     };
 
@@ -176,7 +186,6 @@ export default function SolicitudCapacitacionPage() {
       
       toast({ title: "Solicitud Guardada", description: "La capacitación ha sido agendada con éxito." });
       
-      // Resetear formulario
       setFormData({
         solicitante: '',
         cedula: '',
@@ -242,7 +251,6 @@ export default function SolicitudCapacitacionPage() {
               <Input id="lugar" name="lugar" value={formData.lugar} onChange={handleInputChange} placeholder="Dirección o local" />
             </div>
 
-            {/* Sección de Mapa Interactivo */}
             <div className="space-y-4 border rounded-xl p-4 bg-muted/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-primary font-bold">
@@ -255,24 +263,26 @@ export default function SolicitudCapacitacionPage() {
                 </Badge>
               </div>
               
-              <div className="relative aspect-video w-full rounded-xl overflow-hidden border-2 shadow-sm bg-background">
-                <div ref={mapRef} className="h-full w-full z-0" />
+              <div className="relative aspect-video w-full rounded-xl overflow-hidden border-2 shadow-sm bg-background" style={{ minHeight: '300px' }}>
+                <div ref={mapRef} className="absolute inset-0 z-0 h-full w-full" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Latitud</Label>
                   <Input 
                     readOnly 
                     value={coords.lat} 
-                    placeholder="Latitud" 
+                    placeholder="Esperando ubicación..." 
                     className="bg-background border-dashed text-center text-sm font-mono" 
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Longitud</Label>
                   <Input 
                     readOnly 
                     value={coords.lng} 
-                    placeholder="Longitud" 
+                    placeholder="Esperando ubicación..." 
                     className="bg-background border-dashed text-center text-sm font-mono" 
                   />
                 </div>
