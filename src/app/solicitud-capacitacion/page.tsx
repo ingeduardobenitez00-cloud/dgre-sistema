@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -45,21 +46,21 @@ export default function SolicitudCapacitacionPage() {
 
     const initMap = async () => {
       if (typeof window !== 'undefined' && mapRef.current && !leafletMap.current) {
-        // Dynamically import Leaflet only on the client
+        // Importación dinámica para evitar errores de SSR
         const L = (await import('leaflet')).default;
         
         if (!isMounted) return;
 
-        // Default position: Asunción, Paraguay
+        // Ubicación predeterminada fija: Asunción, Paraguay (Zona TSJE)
         const defaultPos: [number, number] = [-25.3006, -57.6359];
         
-        const map = L.map(mapRef.current).setView(defaultPos, 13);
+        const map = L.map(mapRef.current).setView(defaultPos, 15);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        // Custom icon to avoid webpack path issues
+        // Icono personalizado para evitar problemas de rutas de archivos en Next.js
         const customIcon = L.icon({
           iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
           iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -70,6 +71,7 @@ export default function SolicitudCapacitacionPage() {
           shadowSize: [41, 41]
         });
 
+        // Evento de doble clic para fijar ubicación
         map.on('dblclick', (e: any) => {
           const { lat, lng } = e.latlng;
           const latStr = lat.toFixed(6);
@@ -85,18 +87,8 @@ export default function SolicitudCapacitacionPage() {
           }
         });
 
-        // Disable default double click zoom to allow our custom interaction
+        // Desactivar zoom por doble clic para permitir nuestra interacción
         map.doubleClickZoom.disable();
-
-        // Try to get user location
-        if ("geolocation" in navigator) {
-          navigator.geolocation.getCurrentPosition((position) => {
-            if (isMounted) {
-              const userPos: [number, number] = [position.coords.latitude, position.coords.longitude];
-              map.setView(userPos, 16);
-            }
-          });
-        }
 
         leafletMap.current = map;
       }
@@ -120,7 +112,7 @@ export default function SolicitudCapacitacionPage() {
 
   const generatePdf = () => {
     if (!formData.solicitante || !formData.cedula || !formData.nombre_apellido) {
-      toast({ variant: "destructive", title: "Faltan datos", description: "Por favor completa el nombre y la cédula." });
+      toast({ variant: "destructive", title: "Faltan datos", description: "Por favor completa los datos básicos." });
       return;
     }
 
@@ -184,7 +176,7 @@ export default function SolicitudCapacitacionPage() {
       
       toast({ title: "Solicitud Guardada", description: "La capacitación ha sido agendada con éxito." });
       
-      // Reset form
+      // Resetear formulario
       setFormData({
         solicitante: '',
         cedula: '',
@@ -218,7 +210,7 @@ export default function SolicitudCapacitacionPage() {
         <Card className="mx-auto max-w-3xl">
           <CardHeader>
             <CardTitle>Formulario de Solicitud</CardTitle>
-            <CardDescription>Completa los datos del solicitante. Usa el mapa para fijar la ubicación exacta.</CardDescription>
+            <CardDescription>Completa los datos. Usa el mapa para fijar la ubicación (Doble Clic).</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -250,12 +242,12 @@ export default function SolicitudCapacitacionPage() {
               <Input id="lugar" name="lugar" value={formData.lugar} onChange={handleInputChange} placeholder="Dirección o local" />
             </div>
 
-            {/* Interactive Map Section */}
+            {/* Sección de Mapa Interactivo */}
             <div className="space-y-4 border rounded-xl p-4 bg-muted/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-primary font-bold">
                   <MapPin className="h-5 w-5" />
-                  <span className="uppercase text-sm tracking-wide">Ubicación en Mapa</span>
+                  <span className="uppercase text-sm tracking-wide">Ubicación en Mapa (Asunción)</span>
                 </div>
                 <Badge variant="outline" className="gap-1 px-3 py-1 bg-background">
                   <MousePointer2 className="h-3 w-3" />
