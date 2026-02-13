@@ -81,6 +81,18 @@ service cloud.firestore {
       );
     }
 
+    match /solicitudes-capacitacion/{solicitudId} {
+      allow read: if isSignedIn() && (
+        isAdmin() || 
+        (isRole('funcionario') && isAssignedTo(resource.data.departamento, resource.data.distrito))
+      );
+      allow create: if isSignedIn() && (
+        isAdmin() || 
+        (isRole('funcionario') && isAssignedTo(request.resource.data.departamento, request.resource.data.distrito))
+      );
+      allow update, delete: if isAdmin();
+    }
+
     /** User Profiles **/
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();

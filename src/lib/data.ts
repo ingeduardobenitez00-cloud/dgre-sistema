@@ -1,5 +1,4 @@
 
-
 export interface ImageData {
   id: string;
   src: string;
@@ -66,6 +65,22 @@ export type LocalVotacion = {
   foto8?: string;
   foto9?: string;
   foto10?: string;
+}
+
+export type SolicitudCapacitacion = {
+  id: string;
+  solicitante: string;
+  cedula: string;
+  nombre_apellido: string;
+  fecha: string;
+  hora: string;
+  lugar: string;
+  gps: string;
+  foto_firma?: string;
+  departamento: string;
+  distrito: string;
+  usuario_id: string;
+  fecha_creacion: string;
 }
 
 export const initialDepartments: Department[] = [];

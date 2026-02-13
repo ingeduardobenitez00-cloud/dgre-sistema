@@ -1,4 +1,5 @@
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote } from 'lucide-react';
+
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -18,6 +19,18 @@ export const dashboardMenuItems = [
     label: 'Cargar Ficha',
     icon: UploadCloud,
     description: 'Accede a tu distrito asignado para cargar datos.',
+  },
+  {
+    href: '/solicitud-capacitacion',
+    label: 'Solicitud Capacitación',
+    icon: ClipboardCheck,
+    description: 'Crea una nueva solicitud de capacitación con firma.',
+  },
+  {
+    href: '/agenda-capacitacion',
+    label: 'Agenda Capacitación',
+    icon: CalendarDays,
+    description: 'Visualiza el calendario de capacitaciones agendadas.',
   },
   {
     href: '/resumen',

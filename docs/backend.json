@@ -234,36 +234,6 @@
         "gps": {
           "type": "string",
           "description": "GPS coordinates of the polling station."
-        },
-        "foto_frente": {
-          "type": "string"
-        },
-        "foto2": {
-          "type": "string"
-        },
-        "foto3": {
-          "type": "string"
-        },
-        "foto4": {
-          "type": "string"
-        },
-        "foto5": {
-          "type": "string"
-        },
-        "foto6": {
-          "type": "string"
-        },
-        "foto7": {
-          "type": "string"
-        },
-        "foto8": {
-          "type": "string"
-        },
-        "foto9": {
-          "type": "string"
-        },
-        "foto10": {
-          "type": "string"
         }
       },
       "required": [
@@ -271,6 +241,26 @@
         "distrito",
         "local"
       ]
+    },
+    "SolicitudCapacitacion": {
+      "title": "Solicitud de Capacitación",
+      "type": "object",
+      "description": "Formulario de solicitud de capacitación.",
+      "properties": {
+        "solicitante": { "type": "string" },
+        "cedula": { "type": "string" },
+        "nombre_apellido": { "type": "string" },
+        "fecha": { "type": "string", "format": "date" },
+        "hora": { "type": "string" },
+        "lugar": { "type": "string" },
+        "gps": { "type": "string" },
+        "foto_firma": { "type": "string", "description": "Data URI de la solicitud firmada." },
+        "departamento": { "type": "string" },
+        "distrito": { "type": "string" },
+        "usuario_id": { "type": "string" },
+        "fecha_creacion": { "type": "string", "format": "date-time" }
+      },
+      "required": ["solicitante", "cedula", "nombre_apellido", "fecha", "hora", "departamento", "distrito"]
     }
   },
   "auth": {
@@ -320,6 +310,12 @@
         "$ref": "#/entities/LocalVotacion"
       },
       "description": "Stores polling station information."
+    },
+    "/solicitudes-capacitacion/{solicitudId}": {
+      "schema": {
+        "$ref": "#/entities/SolicitudCapacitacion"
+      },
+      "description": "Stores training requests."
     }
   }
 }
