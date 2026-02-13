@@ -139,6 +139,9 @@ export default function SolicitudCapacitacionPage() {
     doc.text(`N° de Cédula: ${formData.cedula}`, margin, y); y += 10;
     doc.text(`Nombre y Apellido: ${formData.nombre_apellido}`, margin, y); y += 15;
     
+    doc.text(`Departamento: ${user?.profile?.departamento || ''}`, margin, y); y += 10;
+    doc.text(`Distrito: ${user?.profile?.distrito || ''}`, margin, y); y += 10;
+    
     doc.text(`Fecha Solicitada: ${formData.fecha}`, margin, y); y += 10;
     doc.text(`Hora: ${formData.hora}`, margin, y); y += 10;
     doc.text(`Lugar: ${formData.lugar}`, margin, y); y += 10;
@@ -220,18 +223,21 @@ export default function SolicitudCapacitacionPage() {
           <CardHeader>
             <CardTitle>Formulario de Solicitud</CardTitle>
             <CardDescription>Completa los datos. Usa el mapa para fijar la ubicación (Doble Clic).</CardDescription>
-            {user?.profile?.departamento && user?.profile?.distrito && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary px-3 py-1">
-                  <span className="font-bold mr-1">DPTO:</span> {user.profile.departamento}
-                </Badge>
-                <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary px-3 py-1">
-                  <span className="font-bold mr-1">DIST:</span> {user.profile.distrito}
-                </Badge>
-              </div>
-            )}
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="departamento-view">Departamento</Label>
+                <Input id="departamento-view" value={user?.profile?.departamento || 'Sin asignar'} disabled className="bg-muted font-semibold" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="distrito-view">Distrito</Label>
+                <Input id="distrito-view" value={user?.profile?.distrito || 'Sin asignar'} disabled className="bg-muted font-semibold" />
+              </div>
+            </div>
+
+            <Separator />
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="solicitante">Solicitante (Entidad/Referente)</Label>
