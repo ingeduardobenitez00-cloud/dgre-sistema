@@ -1,19 +1,24 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MapPin, FileText, Camera, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Loader2, MapPin, FileText, Camera, CheckCircle2, RefreshCw, MousePointer2 } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import { type SolicitudCapacitacion } from '@/lib/data';
+import { Separator } from '@/components/ui/separator';
+import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
+
+// Leaflet imports (Dynamic)
+import L from 'leaflet';
 
 export default function SolicitudCapacitacionPage() {
   const { user, isUserLoading } = useUser();
@@ -30,36 +35,77 @@ export default function SolicitudCapacitacionPage() {
     gps: '',
   });
 
-  const [isCapturingGps, setIsCapturingGps] = useState(false);
+  const [coords, setCoords] = useState<{ lat: string; lng: string }>({ lat: '', lng: '' });
   const [pdfGenerated, setPdfGenerated] = useState(false);
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const mapRef = useRef<HTMLDivElement>(null);
+  const leafletMap = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && mapRef.current && !leafletMap.current) {
+      // Default position: Asunción, Paraguay
+      const defaultPos: [number, number] = [-25.3006, -57.6359];
+      
+      const map = L.map(mapRef.current).setView(defaultPos, 13);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      // Custom icon to avoid webpack path issues
+      const customIcon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      });
+
+      map.on('dblclick', (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        const latStr = lat.toFixed(6);
+        const lngStr = lng.toFixed(6);
+        
+        setCoords({ lat: latStr, lng: lngStr });
+        setFormData(prev => ({ ...prev, gps: `${latStr}, ${lngStr}` }));
+
+        if (markerRef.current) {
+          markerRef.current.setLatLng(e.latlng);
+        } else {
+          markerRef.current = L.marker(e.latlng, { icon: customIcon }).addTo(map);
+        }
+      });
+
+      // Disable default double click zoom to allow our custom interaction
+      map.doubleClickZoom.disable();
+
+      // Try to get user location
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition((position) => {
+          const userPos: [number, number] = [position.coords.latitude, position.coords.longitude];
+          map.setView(userPos, 16);
+        });
+      }
+
+      leafletMap.current = map;
+    }
+
+    return () => {
+      if (leafletMap.current) {
+        leafletMap.current.remove();
+        leafletMap.current = null;
+      }
+    };
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleGetGps = () => {
-    setIsCapturingGps(true);
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coords = `${position.coords.latitude}, ${position.coords.longitude}`;
-          setFormData(prev => ({ ...prev, gps: coords }));
-          setIsCapturingGps(false);
-          toast({ title: "Ubicación obtenida", description: coords });
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          setIsCapturingGps(false);
-          toast({ variant: "destructive", title: "Error GPS", description: "No se pudo obtener la ubicación." });
-        }
-      );
-    } else {
-      setIsCapturingGps(false);
-      toast({ variant: "destructive", title: "GPS no disponible", description: "Tu navegador no soporta geolocalización." });
-    }
   };
 
   const generatePdf = () => {
@@ -138,8 +184,13 @@ export default function SolicitudCapacitacionPage() {
         lugar: '',
         gps: '',
       });
+      setCoords({ lat: '', lng: '' });
       setPhotoDataUri(null);
       setPdfGenerated(false);
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
     } catch (error) {
       console.error("Error saving request:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo guardar la solicitud." });
@@ -154,12 +205,12 @@ export default function SolicitudCapacitacionPage() {
     <div className="flex min-h-screen flex-col">
       <Header title="Nueva Solicitud de Capacitación" />
       <main className="flex-1 p-4 md:p-8">
-        <Card className="mx-auto max-w-2xl">
+        <Card className="mx-auto max-w-3xl">
           <CardHeader>
             <CardTitle>Formulario de Solicitud</CardTitle>
-            <CardDescription>Completa los datos según dicta el solicitante. Luego genera el PDF para la firma física.</CardDescription>
+            <CardDescription>Completa los datos del solicitante. Usa el mapa para fijar la ubicación exacta.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="solicitante">Solicitante (Entidad/Referente)</Label>
@@ -188,62 +239,89 @@ export default function SolicitudCapacitacionPage() {
               <Label htmlFor="lugar">Lugar de Realización</Label>
               <Input id="lugar" name="lugar" value={formData.lugar} onChange={handleInputChange} placeholder="Dirección o local" />
             </div>
-            <div className="space-y-2">
-              <Label>Georeferenciación (GPS)</Label>
-              <div className="flex gap-2">
-                <Input name="gps" value={formData.gps} readOnly placeholder="Coordenadas" className="bg-muted" />
-                <Button type="button" onClick={handleGetGps} disabled={isCapturingGps} variant="outline">
-                  {isCapturingGps ? <Loader2 className="animate-spin h-4 w-4" /> : <MapPin className="h-4 w-4" />}
-                </Button>
+
+            {/* Interactive Map Section */}
+            <div className="space-y-4 border rounded-xl p-4 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-primary font-bold">
+                  <MapPin className="h-5 w-5" />
+                  <span className="uppercase text-sm tracking-wide">Ubicación en Mapa</span>
+                </div>
+                <Badge variant="outline" className="gap-1 px-3 py-1 bg-background">
+                  <MousePointer2 className="h-3 w-3" />
+                  <span className="text-[10px] font-bold uppercase">Doble clic para fijar</span>
+                </Badge>
+              </div>
+              
+              <div className="relative aspect-video w-full rounded-xl overflow-hidden border-2 shadow-sm bg-background">
+                <div ref={mapRef} className="h-full w-full z-0" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Input 
+                    readOnly 
+                    value={coords.lat} 
+                    placeholder="Latitud" 
+                    className="bg-background border-dashed text-center text-sm font-mono" 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Input 
+                    readOnly 
+                    value={coords.lng} 
+                    placeholder="Longitud" 
+                    className="bg-background border-dashed text-center text-sm font-mono" 
+                  />
+                </div>
               </div>
             </div>
 
             <Separator className="my-6" />
 
-            <div className="space-y-6">
-              <div className="flex flex-col items-center gap-4">
-                <Button onClick={generatePdf} className="w-full sm:w-auto" variant="secondary">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Generar Solicitud en PDF
-                </Button>
-                {pdfGenerated && (
-                  <p className="text-sm text-green-600 font-medium flex items-center">
+            <div className="space-y-6 text-center">
+              <Button onClick={generatePdf} className="w-full sm:w-auto shadow-md" variant="secondary">
+                <FileText className="mr-2 h-4 w-4" />
+                Generar Solicitud en PDF
+              </Button>
+              
+              {pdfGenerated && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <p className="text-sm text-green-600 font-medium flex items-center justify-center mb-6">
                     <CheckCircle2 className="mr-1 h-4 w-4" /> PDF generado. Favor imprimir y firmar.
                   </p>
-                )}
-              </div>
 
-              {pdfGenerated && (
-                <div className="rounded-lg border-2 border-dashed p-6 text-center">
-                  <Label className="block mb-4 text-lg font-semibold">Foto de la Solicitud Firmada</Label>
-                  {photoDataUri ? (
-                    <div className="relative mx-auto aspect-[3/4] max-w-[200px] overflow-hidden rounded-md border">
-                      <Image src={photoDataUri} alt="Firma" fill className="object-cover" />
-                      <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8" onClick={() => setPhotoDataUri(null)}>
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <Camera className="h-10 w-10" />
+                  <div className="rounded-xl border-2 border-dashed p-8 bg-muted/20 relative">
+                    <Label className="block mb-6 text-lg font-bold">Foto de la Solicitud Firmada</Label>
+                    {photoDataUri ? (
+                      <div className="relative mx-auto aspect-[3/4] max-w-[240px] overflow-hidden rounded-xl border-4 border-background shadow-xl">
+                        <Image src={photoDataUri} alt="Firma" fill className="object-cover" />
+                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-9 w-9 rounded-full shadow-lg" onClick={() => setPhotoDataUri(null)}>
+                          <RefreshCw className="h-5 w-5" />
+                        </Button>
                       </div>
-                      <label htmlFor="photo-upload" className="cursor-pointer">
-                        <div className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                          Quitar Foto / Subir Imagen
+                    ) : (
+                      <div className="flex flex-col items-center gap-6">
+                        <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 text-primary shadow-inner">
+                          <Camera className="h-12 w-12" />
                         </div>
-                        <Input id="photo-upload" type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
-                      </label>
-                    </div>
-                  )}
+                        <label htmlFor="photo-upload" className="cursor-pointer group">
+                          <div className="inline-flex h-12 items-center justify-center rounded-full bg-primary px-8 py-2 text-sm font-bold text-primary-foreground shadow-lg transition-all group-hover:scale-105 group-hover:bg-primary/90">
+                            QUITAR FOTO / SUBIR IMAGEN
+                          </div>
+                          <Input id="photo-upload" type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
+                        </label>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           </CardContent>
-          <CardFooter>
-            <Button onClick={handleSubmit} disabled={isSubmitting || !photoDataUri} className="w-full" size="lg">
-              {isSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              Finalizar y Agendar Solicitud
+          <CardFooter className="pt-6">
+            <Button onClick={handleSubmit} disabled={isSubmitting || !photoDataUri} className="w-full shadow-lg h-14 text-lg font-bold" size="lg">
+              {isSubmitting ? <Loader2 className="animate-spin mr-2 h-6 w-6" /> : <CheckCircle2 className="mr-2 h-6 w-6" />}
+              FINALIZAR Y AGENDAR SOLICITUD
             </Button>
           </CardFooter>
         </Card>
@@ -251,6 +329,3 @@ export default function SolicitudCapacitacionPage() {
     </div>
   );
 }
-
-import { Separator } from '@/components/ui/separator';
-import Image from 'next/image';
