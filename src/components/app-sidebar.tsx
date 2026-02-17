@@ -97,33 +97,38 @@ export default function AppSidebar() {
   };
 
   return (
-    <>
-      <SidebarHeader>
-        <div className="flex h-12 items-center gap-2 px-2">
-            <div className="shrink-0">
-              <Image src="/logo.png" alt="Logo" width={24} height={24} className="rounded-sm"/>
+    <div className="flex h-full flex-col bg-sidebar">
+      <SidebarHeader className="py-4">
+        <div className="flex items-center gap-3 px-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 shadow-sm">
+              <Image src="/logo.png" alt="Logo" width={28} height={28} className="object-contain"/>
             </div>
-            <span className="text-[10px] font-black text-sidebar-foreground uppercase leading-tight tracking-tight">
-                JUSTICIA ELECTORAL
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xs font-black text-sidebar-foreground uppercase leading-tight tracking-tighter">
+                  JUSTICIA
+              </span>
+              <span className="text-xs font-black text-primary uppercase leading-tight tracking-tighter">
+                  ELECTORAL
+              </span>
+            </div>
         </div>
-        <SidebarSeparator />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarSeparator className="opacity-50" />
+      <SidebarContent className="scrollbar-sidebar overflow-y-auto">
         {menuGroups.map((group) => {
           const accessibleItems = group.items.filter(item => isAccessible(item.href));
           if (accessibleItems.length === 0) return null;
 
           return (
             <Collapsible key={group.label} className="group/collapsible" defaultOpen={true}>
-              <SidebarGroup>
+              <SidebarGroup className="py-1">
                 <SidebarGroupLabel asChild>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent hover:text-sidebar-accent-foreground px-2 py-1 rounded-md transition-colors">
-                    <span className="text-[9px] font-bold uppercase tracking-wider opacity-70">{group.label}</span>
-                    <ChevronDown className="ml-auto h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground px-3 py-2 rounded-md transition-all duration-200">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/60">{group.label}</span>
+                    <ChevronDown className="h-3.5 w-3.5 opacity-50 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                   </CollapsibleTrigger>
                 </SidebarGroupLabel>
-                <CollapsibleContent>
+                <CollapsibleContent className="space-y-1 px-1">
                   <SidebarGroupContent>
                     <SidebarMenu>
                       {accessibleItems.map((item) => (
@@ -132,11 +137,11 @@ export default function AppSidebar() {
                             asChild
                             isActive={pathname === item.href}
                             tooltip={item.label}
-                            className="h-8"
+                            className="h-10 px-3 transition-colors data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
                           >
-                            <Link href={item.href}>
-                              <item.icon className="h-4 w-4" />
-                              <span className="text-xs font-medium">{item.label}</span>
+                            <Link href={item.href} className="flex items-center gap-3">
+                              <item.icon className="h-4.5 w-4.5" />
+                              <span className="text-sm font-medium">{item.label}</span>
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -149,11 +154,12 @@ export default function AppSidebar() {
           );
         })}
       </SidebarContent>
-      <SidebarFooter>
-        <div className="px-4 py-2 text-[9px] text-muted-foreground font-mono opacity-50">
-            v1.0.0
+      <SidebarFooter className="mt-auto border-t border-sidebar-border/50 p-4">
+        <div className="flex items-center justify-between opacity-40">
+            <span className="text-[10px] font-mono tracking-tighter uppercase font-bold">Sistema de Gestión</span>
+            <span className="text-[10px] font-mono">v1.0.0</span>
         </div>
       </SidebarFooter>
-    </>
+    </div>
   );
 }

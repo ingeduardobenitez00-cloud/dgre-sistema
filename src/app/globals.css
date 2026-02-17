@@ -33,14 +33,14 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-background: 224 15% 10%;
+    --sidebar-foreground: 224 5% 90%;
+    --sidebar-primary: 231 48% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 224 15% 15%;
+    --sidebar-accent-foreground: 224 5% 95%;
+    --sidebar-border: 224 15% 15%;
+    --sidebar-ring: 231 48% 48%;
   }
   .dark {
     --background: 220 9% 10%;
@@ -88,6 +88,24 @@ body {
   textarea:disabled, input:disabled {
     @apply !opacity-100 !cursor-default;
   }
+}
+
+/* Custom Scrollbar for Sidebar */
+.scrollbar-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.scrollbar-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Custom Marker Styling */
