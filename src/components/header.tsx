@@ -29,13 +29,27 @@ export default function Header({ title }: { title?: string }) {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background shadow-sm">
-      <div className="container flex h-14 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger className="flex" />
-          <div className="h-6 w-6 relative md:hidden">
-             <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+      <div className="container flex h-16 items-center justify-between px-4">
+        <div className="flex items-center gap-4">
+          <SidebarTrigger className="flex h-10 w-10 rounded-full border border-muted-foreground/20 hover:bg-muted transition-all text-muted-foreground" />
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 relative">
+               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-foreground uppercase leading-tight tracking-tighter">
+                  JUSTICIA
+              </span>
+              <span className="text-[10px] font-black text-primary uppercase leading-tight tracking-tighter">
+                  ELECTORAL
+              </span>
+            </div>
           </div>
-          {title && <h1 className="text-sm md:text-lg font-bold truncate hidden sm:block">{title}</h1>}
+          {title && (
+            <div className="hidden lg:flex items-center ml-4 pl-4 border-l h-6">
+              <h1 className="text-sm font-bold truncate text-muted-foreground">{title}</h1>
+            </div>
+          )}
         </div>
 
         {user && (
