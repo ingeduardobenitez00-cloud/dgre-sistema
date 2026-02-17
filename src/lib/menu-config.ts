@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -43,6 +43,12 @@ export const dashboardMenuItems = [
     label: 'Informe del Divulgador',
     icon: UserCheck,
     description: 'Control individual de marcaciones por ciudadano (Anexo III).',
+  },
+  {
+    href: '/estadisticas-capacitacion',
+    label: 'Estadísticas CIDEE',
+    icon: PieChart,
+    description: 'Análisis de resultados de las encuestas de satisfacción.',
   },
   {
     href: '/resumen',

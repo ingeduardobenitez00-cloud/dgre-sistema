@@ -63,7 +63,8 @@ const ALL_MODULES = [
   'solicitud-capacitacion',
   'agenda-capacitacion',
   'encuesta-satisfaccion',
-  'informe-divulgador'
+  'informe-divulgador',
+  'estadisticas-capacitacion'
 ];
 
 const MODULE_LABELS: { [key: string]: string } = {
@@ -81,7 +82,8 @@ const MODULE_LABELS: { [key: string]: string } = {
   'solicitud-capacitacion': 'Solicitud Capacitación',
   'agenda-capacitacion': 'Agenda Capacitación',
   'encuesta-satisfaccion': 'Encuesta Satisfacción',
-  'informe-divulgador': 'Informe del Divulgador'
+  'informe-divulgador': 'Informe del Divulgador',
+  'estadisticas-capacitacion': 'Estadísticas CIDEE'
 };
 
 const MODULE_GROUPS = [
@@ -91,7 +93,7 @@ const MODULE_GROUPS = [
   },
   {
     label: "CIDEE - CAPACITACIONES",
-    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'encuesta-satisfaccion', 'informe-divulgador']
+    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'encuesta-satisfaccion', 'informe-divulgador', 'estadisticas-capacitacion']
   },
   {
     label: "Análisis y Reportes",
@@ -304,7 +306,7 @@ export default function UsersPage() {
             path: `users/${userId}`,
         });
         errorEmitter.emit('permission-error', contextualError);
-        toast({ title: 'Error al eliminar', variant: 'destructive', description: 'No se pudo eliminar el usuario.' });
+        toast({ title: 'Error al eliminar', variant: 'destructive', description: 'No se pudo eliminar the usuario.' });
     }
   };
 

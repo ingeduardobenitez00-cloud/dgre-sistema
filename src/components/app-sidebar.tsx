@@ -31,7 +31,8 @@ import {
   FileUp,
   ChevronDown,
   MessageSquareHeart,
-  UserCheck
+  UserCheck,
+  PieChart
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -62,6 +63,7 @@ export default function AppSidebar() {
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
         { href: "/encuesta-satisfaccion", label: "Encuesta Satisfacción", icon: MessageSquareHeart },
         { href: "/informe-divulgador", label: "Informe del Divulgador", icon: UserCheck },
+        { href: "/estadisticas-capacitacion", label: "Estadísticas", icon: PieChart },
       ]
     },
     {
