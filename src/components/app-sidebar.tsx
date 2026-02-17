@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   SidebarHeader,
   SidebarContent,
@@ -20,10 +21,8 @@ import {
   ImageIcon, 
   Users, 
   FileText, 
-  LogOut, 
   BarChart3, 
   LayoutDashboard, 
-  User, 
   FileArchive, 
   UploadCloud,
   ClipboardCheck,
@@ -32,28 +31,12 @@ import {
   FileUp,
   ChevronDown
 } from "lucide-react";
-import { useFirebase, useUser } from "@/firebase";
-import { useToast } from "@/hooks/use-toast";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { auth } = useFirebase();
   const { user } = useUser();
-  const router = useRouter();
-  const { toast } = useToast();
-
-  const handleLogout = async () => {
-    if (!auth) return;
-    try {
-      await auth.signOut();
-      toast({ title: "Sesión cerrada" });
-      router.push('/login');
-    } catch (error) {
-      toast({ variant: 'destructive', title: "Error al cerrar sesión" });
-    }
-  };
 
   const menuGroups = [
     {
@@ -119,41 +102,12 @@ export default function AppSidebar() {
       <SidebarHeader>
         <div className="flex h-12 items-center gap-2 px-2">
             <div className="shrink-0">
-              <Image src="/logo.png" alt="Logo" width={28} height={28} className="rounded-sm"/>
+              <Image src="/logo.png" alt="Logo" width={24} height={24} className="rounded-sm"/>
             </div>
-            <span className="text-sm font-black text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden uppercase leading-none tracking-tighter">
+            <span className="text-[10px] font-black text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden uppercase leading-tight tracking-tight">
                 JUSTICIA ELECTORAL
             </span>
         </div>
-        
-        <SidebarSeparator />
-        
-        {user && (
-            <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
-                <div className="flex items-center gap-3 p-2 rounded-md bg-sidebar-accent/30">
-                   <Avatar className="h-8 w-8 border">
-                       <AvatarImage src={user.photoURL ?? undefined} />
-                       <AvatarFallback className="bg-primary text-white">
-                           <User className="h-4 w-4"/>
-                       </AvatarFallback>
-                   </Avatar>
-                   <div className="flex flex-col truncate">
-                       <span className="text-xs font-bold text-sidebar-foreground truncate">{user.profile?.username || 'Usuario'}</span>
-                       <span className="text-[10px] text-sidebar-foreground/60 truncate uppercase font-semibold">{user.profile?.role}</span>
-                   </div>
-                </div>
-            </div>
-        )}
-
-        <SidebarMenu>
-            <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout} tooltip="Cerrar Sesión" className="h-9">
-                    <LogOut className="h-4 w-4" />
-                    <span className="text-xs font-medium">Cerrar Sesión</span>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-        </SidebarMenu>
-        
         <SidebarSeparator />
       </SidebarHeader>
       <SidebarContent>
@@ -162,11 +116,11 @@ export default function AppSidebar() {
           if (accessibleItems.length === 0) return null;
 
           return (
-            <Collapsible key={group.label} className="group/collapsible">
+            <Collapsible key={group.label} className="group/collapsible" defaultOpen={false}>
               <SidebarGroup>
                 <SidebarGroupLabel asChild>
                   <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent hover:text-sidebar-accent-foreground px-2 py-1 rounded-md transition-colors">
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">{group.label}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider opacity-70">{group.label}</span>
                     <ChevronDown className="ml-auto h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                   </CollapsibleTrigger>
                 </SidebarGroupLabel>
@@ -179,7 +133,7 @@ export default function AppSidebar() {
                             asChild
                             isActive={pathname === item.href}
                             tooltip={item.label}
-                            className="h-9"
+                            className="h-8"
                           >
                             <Link href={item.href}>
                               <item.icon className="h-4 w-4" />
@@ -197,7 +151,7 @@ export default function AppSidebar() {
         })}
       </SidebarContent>
       <SidebarFooter>
-        <div className="px-4 py-2 text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">
+        <div className="px-4 py-2 text-[9px] text-muted-foreground group-data-[collapsible=icon]:hidden font-mono opacity-50">
             v1.0.0
         </div>
       </SidebarFooter>
