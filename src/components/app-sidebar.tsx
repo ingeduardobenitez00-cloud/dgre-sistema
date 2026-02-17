@@ -125,6 +125,36 @@ export default function AppSidebar() {
                 JUSTICIA ELECTORAL
             </span>
         </div>
+        
+        <SidebarSeparator />
+        
+        {user && (
+            <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
+                <div className="flex items-center gap-3 p-2 rounded-md bg-sidebar-accent/30">
+                   <Avatar className="h-8 w-8 border">
+                       <AvatarImage src={user.photoURL ?? undefined} />
+                       <AvatarFallback className="bg-primary text-white">
+                           <User className="h-4 w-4"/>
+                       </AvatarFallback>
+                   </Avatar>
+                   <div className="flex flex-col truncate">
+                       <span className="text-xs font-bold text-sidebar-foreground truncate">{user.profile?.username || 'Usuario'}</span>
+                       <span className="text-[10px] text-sidebar-foreground/60 truncate uppercase font-semibold">{user.profile?.role}</span>
+                   </div>
+                </div>
+            </div>
+        )}
+
+        <SidebarMenu>
+            <SidebarMenuItem>
+                <SidebarMenuButton onClick={handleLogout} tooltip="Cerrar Sesión" className="h-9">
+                    <LogOut className="h-4 w-4" />
+                    <span className="text-xs font-medium">Cerrar Sesión</span>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+        </SidebarMenu>
+        
+        <SidebarSeparator />
       </SidebarHeader>
       <SidebarContent>
         {menuGroups.map((group) => {
@@ -167,31 +197,9 @@ export default function AppSidebar() {
         })}
       </SidebarContent>
       <SidebarFooter>
-        {user && (
-            <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
-                <div className="flex items-center gap-3 p-2 rounded-md bg-sidebar-accent/30">
-                   <Avatar className="h-8 w-8 border">
-                       <AvatarImage src={user.photoURL ?? undefined} />
-                       <AvatarFallback className="bg-primary text-white">
-                           <User className="h-4 w-4"/>
-                       </AvatarFallback>
-                   </Avatar>
-                   <div className="flex flex-col truncate">
-                       <span className="text-xs font-bold text-sidebar-foreground truncate">{user.profile?.username || 'Usuario'}</span>
-                       <span className="text-[10px] text-sidebar-foreground/60 truncate uppercase">{user.profile?.role}</span>
-                   </div>
-                </div>
-            </div>
-        )}
-        <SidebarSeparator />
-        <SidebarMenu>
-            <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout} tooltip="Cerrar Sesión" className="h-9">
-                    <LogOut className="h-4 w-4" />
-                    <span className="text-xs font-medium">Cerrar Sesión</span>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="px-4 py-2 text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">
+            v1.0.0
+        </div>
       </SidebarFooter>
     </>
   );
