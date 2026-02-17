@@ -140,8 +140,8 @@ export default function AppSidebar() {
       <SidebarHeader>
         <div className="flex h-10 items-center gap-3">
             <Image src="/logo.png" alt="Logo" width={32} height={32} className="rounded-sm"/>
-            <span className="text-lg font-semibold text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">
-                Informe Edilicio
+            <span className="text-lg font-bold text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden uppercase tracking-tight">
+                JUSTICIA ELECTORAL
             </span>
         </div>
       </SidebarHeader>

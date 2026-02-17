@@ -84,8 +84,8 @@ export default function LoginPage() {
        <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center">
             <Image src="/logo.png" alt="Logo de la aplicación" width={80} height={80} className="mb-4" />
-             <h1 className="text-2xl font-semibold tracking-tight mt-2">
-                Informe Edilicio
+             <h1 className="text-2xl font-bold tracking-tight mt-2 uppercase text-primary">
+                JUSTICIA ELECTORAL
              </h1>
         </div>
         <Card>

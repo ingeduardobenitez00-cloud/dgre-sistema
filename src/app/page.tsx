@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -43,7 +44,7 @@ export default function Home() {
       <main className="flex-1 p-4 sm:p-6 md:p-8">
         <div className="mb-8">
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                Bienvenido al Informe Edilicio
+                Bienvenido a JUSTICIA ELECTORAL
             </h1>
             <p className="mt-2 text-base text-muted-foreground">
                 Selecciona una sección para empezar a trabajar.
