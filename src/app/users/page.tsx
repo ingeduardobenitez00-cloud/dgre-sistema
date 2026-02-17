@@ -18,6 +18,7 @@ import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestor
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,7 +61,9 @@ const ALL_MODULES = [
   'locales-votacion', 
   'cargar-fotos-locales',
   'solicitud-capacitacion',
-  'agenda-capacitacion'
+  'agenda-capacitacion',
+  'encuesta-satisfaccion',
+  'informe-divulgador'
 ];
 
 const MODULE_LABELS: { [key: string]: string } = {
@@ -76,8 +79,37 @@ const MODULE_LABELS: { [key: string]: string } = {
   'locales-votacion': 'Locales de Votación',
   'cargar-fotos-locales': 'Cargar Fotos Locales',
   'solicitud-capacitacion': 'Solicitud Capacitación',
-  'agenda-capacitacion': 'Agenda Capacitación'
+  'agenda-capacitacion': 'Agenda Capacitación',
+  'encuesta-satisfaccion': 'Encuesta Satisfacción',
+  'informe-divulgador': 'Informe del Divulgador'
 };
+
+const MODULE_GROUPS = [
+  {
+    label: "Registros Electorales",
+    modules: ['ficha', 'fotos', 'cargar-ficha']
+  },
+  {
+    label: "CIDEE - CAPACITACIONES",
+    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'encuesta-satisfaccion', 'informe-divulgador']
+  },
+  {
+    label: "Análisis y Reportes",
+    modules: ['resumen', 'informe-general']
+  },
+  {
+    label: "Locales de Votación",
+    modules: ['locales-votacion', 'cargar-fotos-locales']
+  },
+  {
+    label: "Gestión de Datos",
+    modules: ['importar-reportes', 'importar-locales']
+  },
+  {
+    label: "Sistema",
+    modules: ['users', 'settings']
+  },
+];
 
 const ALL_PERMISSIONS = ['add', 'edit', 'delete', 'view_report', 'view_images', 'generar_pdf'];
 const PERMISSION_LABELS: { [key: string]: string } = {
@@ -417,28 +449,39 @@ export default function UsersPage() {
               <Separator />
 
               <div className="space-y-4">
-                <Label>Acceso a Módulos</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {ALL_MODULES.map(module => (
-                        <div key={module} className="flex items-center space-x-2">
-                            <Checkbox id={`access-${module}`} name={`access-${module}`} />
-                            <Label htmlFor={`access-${module}`} className="font-normal capitalize">
-                                {MODULE_LABELS[module] || module}
-                            </Label>
-                        </div>
+                <Label className="text-md font-bold">Acceso a Módulos</Label>
+                <Accordion type="multiple" className="w-full border rounded-md">
+                    {MODULE_GROUPS.map((group, idx) => (
+                        <AccordionItem value={`group-${idx}`} key={group.label} className="border-b last:border-b-0 px-4">
+                            <AccordionTrigger className="hover:no-underline py-3 text-sm font-semibold">
+                                {group.label}
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                    {group.modules.map(module => (
+                                        <div key={module} className="flex items-center space-x-2">
+                                            <Checkbox id={`access-${module}`} name={`access-${module}`} />
+                                            <Label htmlFor={`access-${module}`} className="font-normal text-xs">
+                                                {MODULE_LABELS[module] || module}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
                     ))}
-                </div>
+                </Accordion>
               </div>
 
               <Separator />
 
               <div className="space-y-4">
-                <Label>Permisos</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <Label className="text-md font-bold">Permisos Globales</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border p-4 rounded-md bg-muted/10">
                     {ALL_PERMISSIONS.map(permission => (
                         <div key={permission} className="flex items-center space-x-2">
                             <Checkbox id={`perm-${permission}`} name={`perm-${permission}`} />
-                            <Label htmlFor={`perm-${permission}`} className="font-normal capitalize">
+                            <Label htmlFor={`perm-${permission}`} className="font-normal capitalize text-xs">
                                 {PERMISSION_LABELS[permission] || permission}
                             </Label>
                         </div>
@@ -498,7 +541,7 @@ export default function UsersPage() {
                                 <TableCell>{user.distrito || '-'}</TableCell>
                                 <TableCell>
                                     <div className="flex flex-wrap gap-1 max-w-xs">
-                                        {user.modules.map(module => <Badge key={module} variant="outline" className="capitalize">{MODULE_LABELS[module] || module}</Badge>)}
+                                        {user.modules.map(module => <Badge key={module} variant="outline" className="capitalize text-[9px]">{MODULE_LABELS[module] || module}</Badge>)}
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -564,7 +607,7 @@ export default function UsersPage() {
       
       {editingUser && (
         <Dialog open={isEditModalOpen} onOpenChange={setEditModalOpen}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Editar Usuario: {editingUser.username}</DialogTitle>
                     <DialogDescription>
@@ -627,26 +670,37 @@ export default function UsersPage() {
                         </div>
                         <Separator />
                         <div className="space-y-4">
-                            <Label>Acceso a Módulos</Label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                {ALL_MODULES.map(module => (
-                                    <div key={`edit-mod-${module}`} className="flex items-center space-x-2">
-                                        <Checkbox id={`edit-access-${module}`} name={`access-${module}`} defaultChecked={editingUser.modules.includes(module)} />
-                                        <Label htmlFor={`edit-access-${module}`} className="font-normal capitalize">
-                                            {MODULE_LABELS[module] || module}
-                                        </Label>
-                                    </div>
+                            <Label className="text-md font-bold">Acceso a Módulos</Label>
+                            <Accordion type="multiple" className="w-full border rounded-md">
+                                {MODULE_GROUPS.map((group, idx) => (
+                                    <AccordionItem value={`edit-group-${idx}`} key={`edit-${group.label}`} className="border-b last:border-b-0 px-4">
+                                        <AccordionTrigger className="hover:no-underline py-3 text-sm font-semibold">
+                                            {group.label}
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pb-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                                {group.modules.map(module => (
+                                                    <div key={`edit-${module}`} className="flex items-center space-x-2">
+                                                        <Checkbox id={`edit-access-${module}`} name={`access-${module}`} defaultChecked={editingUser.modules.includes(module)} />
+                                                        <Label htmlFor={`edit-access-${module}`} className="font-normal text-xs">
+                                                            {MODULE_LABELS[module] || module}
+                                                        </Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
                                 ))}
-                            </div>
+                            </Accordion>
                         </div>
                         <Separator />
                         <div className="space-y-4">
-                            <Label>Permisos</Label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <Label className="text-md font-bold">Permisos Globales</Label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border p-4 rounded-md bg-muted/10">
                                 {ALL_PERMISSIONS.map(permission => (
                                     <div key={`edit-perm-${permission}`} className="flex items-center space-x-2">
                                         <Checkbox id={`edit-perm-${permission}`} name={`perm-${permission}`} defaultChecked={editingUser.permissions.includes(permission)} />
-                                        <Label htmlFor={`edit-perm-${permission}`} className="font-normal capitalize">
+                                        <Label htmlFor={`edit-perm-${permission}`} className="font-normal capitalize text-xs">
                                             {PERMISSION_LABELS[permission] || permission}
                                         </Label>
                                     </div>
