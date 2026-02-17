@@ -55,7 +55,7 @@ export default function AppSidebar() {
       ]
     },
     {
-      label: "Capacitación",
+      label: "CIDEE - CAPACITACIONES",
       items: [
         { href: "/solicitud-capacitacion", label: "Nueva Solicitud", icon: ClipboardCheck },
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
