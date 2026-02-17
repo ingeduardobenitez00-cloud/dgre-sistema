@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -12,7 +13,22 @@ import {
   SidebarFooter,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { Settings, ImageIcon, Users, FileText, LogOut, BarChart3, LayoutDashboard, User, FileArchive, UploadCloud } from "lucide-react";
+import { 
+  Settings, 
+  ImageIcon, 
+  Users, 
+  FileText, 
+  LogOut, 
+  BarChart3, 
+  LayoutDashboard, 
+  User, 
+  FileArchive, 
+  UploadCloud,
+  ClipboardCheck,
+  CalendarDays,
+  Vote,
+  FileUp
+} from "lucide-react";
 import { useFirebase, useUser } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -57,6 +73,16 @@ export default function AppSidebar() {
       icon: UploadCloud,
     },
     {
+      href: "/solicitud-capacitacion",
+      label: "Solicitud Capacitación",
+      icon: ClipboardCheck,
+    },
+    {
+      href: "/agenda-capacitacion",
+      label: "Agenda Capacitación",
+      icon: CalendarDays,
+    },
+    {
       href: "/resumen",
       label: "Resumen",
       icon: BarChart3,
@@ -65,6 +91,26 @@ export default function AppSidebar() {
       href: "/informe-general",
       label: "Informe General",
       icon: FileArchive,
+    },
+    {
+      href: "/locales-votacion",
+      label: "Locales de Votación",
+      icon: Vote,
+    },
+    {
+      href: "/importar-reportes",
+      label: "Importar Reportes",
+      icon: FileUp,
+    },
+    {
+      href: "/importar-locales",
+      label: "Importar Locales",
+      icon: FileUp,
+    },
+    {
+      href: "/cargar-fotos-locales",
+      label: "Cargar Fotos Locales",
+      icon: UploadCloud,
     },
     {
       href: "/users",
