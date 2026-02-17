@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -9,16 +10,20 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageSquareHeart, CheckCircle2, FileDown } from 'lucide-react';
-import { useUser, useFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { Loader2, MessageSquareHeart, CheckCircle2, FileDown, CalendarDays, Search } from 'lucide-react';
+import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
 import jsPDF from 'jspdf';
+import { type SolicitudCapacitacion } from '@/lib/data';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function EncuestaSatisfaccionPage() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const solicitudId = searchParams.get('solicitudId');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -32,6 +37,33 @@ export default function EncuestaSatisfaccionPage() {
     seguridad_maquina: 'muy_seguro',
   });
 
+  // Fetch agenda items for the user's district to allow selection
+  const agendaQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.profile?.distrito) return null;
+    return query(
+      collection(firestore, 'solicitudes-capacitacion'),
+      where('departamento', '==', user.profile.departamento),
+      where('distrito', '==', user.profile.distrito)
+    );
+  }, [firestore, user]);
+
+  const { data: agendaItems, isLoading: isLoadingAgenda } = useCollection<SolicitudCapacitacion>(agendaQuery);
+
+  // Auto-populate when solicitudId changes or agenda items load
+  useEffect(() => {
+    if (solicitudId && agendaItems) {
+      const item = agendaItems.find(a => a.id === solicitudId);
+      if (item) {
+        setFormData(prev => ({
+          ...prev,
+          lugar_practica: item.lugar_local,
+          fecha: item.fecha,
+          hora: item.hora_desde,
+        }));
+      }
+    }
+  }, [solicitudId, agendaItems]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -39,6 +71,19 @@ export default function EncuestaSatisfaccionPage() {
 
   const handleValueChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAgendaSelect = (id: string) => {
+    const item = agendaItems?.find(a => a.id === id);
+    if (item) {
+      setFormData(prev => ({
+        ...prev,
+        lugar_practica: item.lugar_local,
+        fecha: item.fecha,
+        hora: item.hora_desde,
+      }));
+      toast({ title: "Datos cargados", description: "Se ha importado la información de la agenda." });
+    }
   };
 
   const handleSubmit = async () => {
@@ -154,6 +199,43 @@ export default function EncuestaSatisfaccionPage() {
     <div className="flex min-h-screen flex-col bg-muted/20">
       <Header title="Encuesta de Satisfacción" />
       <main className="flex-1 p-4 md:p-8">
+        <div className="mx-auto max-w-3xl mb-6">
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="py-4">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                VINCULAR CON ACTIVIDAD DE LA AGENDA
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4 items-end">
+                <div className="flex-1 space-y-2">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Seleccionar sesión programada</Label>
+                  <Select onValueChange={handleAgendaSelect} defaultValue={solicitudId || undefined}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder={isLoadingAgenda ? "Cargando agenda..." : "Seleccionar de la agenda..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {agendaItems && agendaItems.length > 0 ? (
+                        agendaItems.map(item => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.fecha} - {item.lugar_local} ({item.hora_desde} hs)
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No hay actividades agendadas</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button variant="outline" size="icon" onClick={() => window.location.reload()} title="Actualizar Agenda">
+                  <Loader2 className={`h-4 w-4 ${isLoadingAgenda ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card className="mx-auto max-w-3xl shadow-xl border-t-4 border-t-primary">
           <CardHeader className="bg-primary/5">
             <CardTitle className="flex items-center gap-2">
@@ -166,17 +248,20 @@ export default function EncuestaSatisfaccionPage() {
             <div className="grid grid-cols-1 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="lugar_practica">LUGAR DONDE REALIZÓ LA PRÁCTICA</Label>
-                <Input id="lugar_practica" name="lugar_practica" value={formData.lugar_practica} onChange={handleInputChange} placeholder="Nombre del local o ubicación" />
+                <div className="relative">
+                  <Input id="lugar_practica" name="lugar_practica" value={formData.lugar_practica} onChange={handleInputChange} placeholder="Nombre del local o ubicación" className={solicitudId ? "bg-muted font-semibold" : ""} />
+                  {formData.lugar_practica && <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />}
+                </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fecha">FECHA</Label>
-                  <Input id="fecha" name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} />
+                  <Input id="fecha" name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} className={solicitudId ? "bg-muted font-semibold" : ""} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="hora">HORA</Label>
-                  <Input id="hora" name="hora" type="time" value={formData.hora} onChange={handleInputChange} />
+                  <Input id="hora" name="hora" type="time" value={formData.hora} onChange={handleInputChange} className={solicitudId ? "bg-muted font-semibold" : ""} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edad">EDAD (AÑOS)</Label>

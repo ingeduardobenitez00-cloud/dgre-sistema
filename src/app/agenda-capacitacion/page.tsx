@@ -8,10 +8,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { type SolicitudCapacitacion } from '@/lib/data';
-import { Loader2, Calendar, MapPin, User, FileImage, ExternalLink } from 'lucide-react';
+import { Loader2, Calendar, MapPin, User, FileImage, ExternalLink, ClipboardCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default function AgendaCapacitacionPage() {
   const { user, isUserLoading } = useUser();
@@ -90,8 +92,8 @@ export default function AgendaCapacitacionPage() {
                               <Card key={item.id} className="overflow-hidden border-primary/20">
                                 <CardHeader className="bg-primary/5 pb-2">
                                   <div className="flex justify-between items-start">
-                                    <CardTitle className="text-md">{item.nombre_apellido}</CardTitle>
-                                    <Badge>{item.hora}</Badge>
+                                    <CardTitle className="text-md">{item.nombre_completo || item.solicitante_entidad}</CardTitle>
+                                    <Badge>{item.hora_desde}</Badge>
                                   </div>
                                   <CardDescription className="flex items-center gap-1">
                                     <Calendar className="h-3 w-3" /> {new Date(item.fecha).toLocaleDateString('es-PY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -100,11 +102,11 @@ export default function AgendaCapacitacionPage() {
                                 <CardContent className="pt-4 space-y-2 text-sm">
                                   <div className="flex items-center gap-2">
                                     <User className="h-4 w-4 text-muted-foreground" />
-                                    <span className="font-medium">Solicitante:</span> {item.solicitante}
+                                    <span className="font-medium">Entidad:</span> {item.solicitante_entidad}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                                    <span className="font-medium">Lugar:</span> {item.lugar}
+                                    <span className="font-medium">Lugar:</span> {item.lugar_local}
                                   </div>
                                   {item.gps && (
                                     <div className="flex items-center gap-2">
@@ -113,26 +115,32 @@ export default function AgendaCapacitacionPage() {
                                     </div>
                                   )}
                                   
-                                  {item.foto_firma && (
-                                    <div className="mt-4 pt-4 border-t">
+                                  <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t">
+                                    {item.foto_firma && (
                                       <Dialog>
                                         <DialogTrigger asChild>
                                           <Button variant="outline" size="sm" className="w-full">
                                             <FileImage className="mr-2 h-4 w-4" />
-                                            Ver Solicitud Firmada
+                                            Ver Firma
                                           </Button>
                                         </DialogTrigger>
                                         <DialogContent className="max-w-2xl">
                                           <DialogHeader>
-                                            <DialogTitle>Documento de Firma - {item.nombre_apellido}</DialogTitle>
+                                            <DialogTitle>Documento de Firma - {item.nombre_completo}</DialogTitle>
                                           </DialogHeader>
                                           <div className="relative aspect-[3/4] w-full mt-4">
                                             <Image src={item.foto_firma} alt="Firma" fill className="object-contain" />
                                           </div>
                                         </DialogContent>
                                       </Dialog>
-                                    </div>
-                                  )}
+                                    )}
+                                    <Link href={`/encuesta-satisfaccion?solicitudId=${item.id}`} className="w-full">
+                                      <Button variant="default" size="sm" className="w-full">
+                                        <ClipboardCheck className="mr-2 h-4 w-4" />
+                                        Nueva Encuesta
+                                      </Button>
+                                    </Link>
+                                  </div>
                                 </CardContent>
                               </Card>
                             ))}
@@ -150,5 +158,3 @@ export default function AgendaCapacitacionPage() {
     </div>
   );
 }
-
-import { Button } from '@/components/ui/button';
