@@ -108,9 +108,6 @@ export default function AgendaCapacitacionPage() {
           <Card className="p-12 text-center border-dashed">
             <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-lg font-medium text-muted-foreground">No hay capacitaciones agendadas en la base de datos.</p>
-            <Link href="/solicitud-capacitacion" className="mt-4 inline-block">
-              <Button variant="outline">Crear Primera Solicitud</Button>
-            </Link>
           </Card>
         ) : (
           <div className="space-y-6">
