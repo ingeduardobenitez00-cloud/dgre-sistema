@@ -63,7 +63,6 @@ export default function SolicitudCapacitacionPage() {
             iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
             shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
           });
-          // Posición por defecto en Asunción, Paraguay
           const defaultPos: [number, number] = [-25.3006, -57.6359];
           const map = L.map(mapRef.current, { 
             center: defaultPos, 
@@ -86,7 +85,6 @@ export default function SolicitudCapacitacionPage() {
             }
           });
 
-          // Forzar el redibujado para evitar áreas grises
           const inv = setInterval(() => map.invalidateSize(), 500);
           setTimeout(() => clearInterval(inv), 3000);
           
@@ -122,7 +120,6 @@ export default function SolicitudCapacitacionPage() {
       const doc = new jsPDF();
       const margin = 15;
       
-      // Encabezado Institucional
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.text("Justicia Electoral", 105, 15, { align: "center" });
@@ -130,32 +127,27 @@ export default function SolicitudCapacitacionPage() {
       doc.setFont('helvetica', 'normal');
       doc.text("Custodio de la Voluntad Popular", 105, 20, { align: "center" });
       
-      // Cuadro de Título
       doc.setFillColor(230, 230, 220);
       doc.rect(margin, 25, 180, 8, 'F');
       doc.setFont('helvetica', 'bold');
       doc.text("ANEXO V – PROFORMA DE SOLICITUD", 105, 30, { align: "center" });
 
-      // Fecha y Ubicación Superior
       const today = new Date();
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text(`${user?.profile?.distrito || ''}, ${today.getDate()} de ${today.toLocaleString('es-ES', { month: 'long' })} de ${today.getFullYear()}`, 195, 45, { align: "right" });
 
-      // Destinatario CORREGIDO
       doc.text("Señores", margin, 55);
       doc.setFont('helvetica', 'bold');
       doc.text("JEFES DEL REGISTRO ELECTORAL", margin, 60);
       doc.line(margin, 62, 100, 62);
       doc.text("Presente:", margin, 70);
 
-      // Texto de Introducción
       doc.setFont('helvetica', 'normal');
       doc.text(`Tengo el agrado de dirigirme a usted/es, en representación de ${formData.solicitante_entidad.toUpperCase()},`, margin, 80);
       doc.text("en virtud a las próximas Elecciones Internas simultáneas de las Organizaciones Políticas", margin, 85);
       doc.text(`del 07 de junio del 2026, a los efectos de solicitar:`, margin, 90);
 
-      // Checkboxes de Tipo de Solicitud
       const isDiv = formData.tipo_solicitud === 'divulgacion';
       const isCap = formData.tipo_solicitud === 'capacitacion';
       
@@ -165,7 +157,6 @@ export default function SolicitudCapacitacionPage() {
       doc.rect(25, 108, 4, 4); if(isCap) doc.text("X", 26, 111.5);
       doc.text("Capacitación sobre las funciones de los miembros de mesa receptora de votos.", 32, 111.5);
 
-      // Tabla de Datos de Localización y Tiempo
       let tableY = 120;
       doc.setDrawColor(0);
       doc.line(margin, tableY, 195, tableY);
@@ -183,7 +174,6 @@ export default function SolicitudCapacitacionPage() {
 
       tableY = drawRow("FECHA", formData.fecha, tableY);
       
-      // Fila de Horario Combinada
       doc.setFont('helvetica', 'bold');
       doc.text("HORARIO", margin + 2, tableY + 5);
       doc.text(":", margin + 45, tableY + 5);
@@ -197,7 +187,6 @@ export default function SolicitudCapacitacionPage() {
       tableY = drawRow("BARRIO - COMPAÑÍA", formData.barrio_compania, tableY);
       tableY = drawRow("DISTRITO", user?.profile?.distrito || '', tableY);
 
-      // Apartado Datos del Solicitante
       tableY += 10;
       const isApod = formData.rol_solicitante === 'apoderado';
       const isOtro = formData.rol_solicitante === 'otro';
@@ -213,7 +202,6 @@ export default function SolicitudCapacitacionPage() {
       tableY = drawRow("C.I.C. Nº", formData.cedula, tableY);
       tableY = drawRow("NÚMERO DE CONTACTO", formData.telefono, tableY);
 
-      // Cuadro de Observación
       tableY += 2;
       doc.setFillColor(230, 230, 220);
       doc.rect(margin, tableY, 180, 6, 'F');
@@ -226,16 +214,15 @@ export default function SolicitudCapacitacionPage() {
       doc.text("La recepción de solicitudes se realiza hasta 48 horas de antelación a la fecha del evento.", 105, tableY + 5, { align: "center" });
       doc.text("En caso de cancelación de la actividad debe informarse con 24 horas de anticipación.", 105, tableY + 9, { align: "center" });
 
-      tableY += 15;
+      tableY += 12; // Reducido de 15 a 12
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text("Se hace propicia la ocasión para saludarle muy cordialmente.", margin, tableY);
       
-      tableY += 25;
+      tableY += 18; // Reducido de 25 a 18 para subir la firma
       doc.text("Firma del Solicitante: ____________________________________________", 105, tableY, { align: "center" });
 
-      // Cuadro de Uso Interno
-      tableY += 10;
+      tableY += 8; // Espacio antes del recuadro interno
       doc.setLineWidth(0.3);
       doc.rect(margin, tableY, 180, 45);
       doc.setFont('helvetica', 'bold');
@@ -254,7 +241,6 @@ export default function SolicitudCapacitacionPage() {
       doc.text("Total de personas capacitadas:", margin + 5, tableY + 43);
       doc.rect(margin + 45, tableY + 40, 20, 4);
 
-      // Página 2: Georeferenciación
       if (mapRef.current) {
         doc.addPage();
         const canvas = await html2canvas(mapRef.current, { useCORS: true, logging: false, scale: 2 });
@@ -302,7 +288,6 @@ export default function SolicitudCapacitacionPage() {
       await addDoc(collection(firestore, 'solicitudes-capacitacion'), solicitudData);
       toast({ title: "¡Solicitud Guardada!", description: "La capacitación ha sido agendada correctamente en el sistema." });
       
-      // Resetear Formulario
       setFormData({ 
         solicitante_entidad: '', 
         tipo_solicitud: 'divulgacion', 
