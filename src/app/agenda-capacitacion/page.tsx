@@ -3,17 +3,18 @@
 
 import { useState, useMemo } from 'react';
 import Header from '@/components/header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, where } from 'firebase/firestore';
 import { type SolicitudCapacitacion } from '@/lib/data';
-import { Loader2, Calendar, MapPin, User, FileImage, ExternalLink, ClipboardCheck } from 'lucide-react';
+import { Loader2, Calendar, MapPin, User, FileImage, ClipboardCheck, LayoutList, Building2, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Separator } from '@/components/ui/separator';
 
 export default function AgendaCapacitacionPage() {
   const { user, isUserLoading } = useUser();
@@ -31,7 +32,7 @@ export default function AgendaCapacitacionPage() {
       return query(colRef, orderBy('fecha', 'asc'));
     }
     
-    // Los funcionarios deben filtrar su consulta para cumplir con las reglas de seguridad de Firestore
+    // Los funcionarios deben filtrar su consulta por departamento y distrito
     if (user.profile.role === 'funcionario' && user.profile.departamento && user.profile.distrito) {
       return query(
         colRef,
@@ -51,8 +52,8 @@ export default function AgendaCapacitacionPage() {
     const groups: Record<string, Record<string, SolicitudCapacitacion[]>> = {};
     
     solicitudes.forEach(s => {
-      const dept = s.departamento || 'Sin Departamento';
-      const dist = s.distrito || 'Sin Distrito';
+      const dept = s.departamento || 'SIN DEPARTAMENTO';
+      const dist = s.distrito || 'SIN DISTRITO';
       if (!groups[dept]) groups[dept] = {};
       if (!groups[dept][dist]) groups[dept][dist] = [];
       groups[dept][dist].push(s);
@@ -60,6 +61,14 @@ export default function AgendaCapacitacionPage() {
 
     return groups;
   }, [solicitudes]);
+
+  const stats = useMemo(() => {
+    if (!solicitudes) return { total: 0, depts: 0 };
+    return {
+      total: solicitudes.length,
+      depts: Object.keys(groupedData).length
+    };
+  }, [solicitudes, groupedData]);
 
   if (isUserLoading || isLoading) {
     return (
@@ -70,113 +79,152 @@ export default function AgendaCapacitacionPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header title="Agenda de Capacitaciones" />
-      <main className="flex-1 p-4 md:p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">Capacitaciones Agendadas</h1>
-          <p className="text-muted-foreground">Visualización jerárquica por departamento y distrito.</p>
+    <div className="flex min-h-screen flex-col bg-muted/10">
+      <Header title="Agenda Consolidada - CIDEE" />
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+        
+        {/* Cabecera del Reporte */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 bg-white p-6 rounded-lg border shadow-sm">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight uppercase text-primary">Reporte de Agenda de Capacitaciones</h1>
+            <p className="text-muted-foreground flex items-center gap-2 mt-1">
+              <LayoutList className="h-4 w-4" />
+              Consolidado nacional de actividades programadas por el CIDEE.
+            </p>
+          </div>
+          <div className="flex gap-4">
+            <div className="text-center px-4 py-2 bg-primary/5 rounded-md border border-primary/10">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Departamentos</p>
+              <p className="text-2xl font-black text-primary">{stats.depts}</p>
+            </div>
+            <div className="text-center px-4 py-2 bg-primary/5 rounded-md border border-primary/10">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Total Solicitudes</p>
+              <p className="text-2xl font-black text-primary">{stats.total}</p>
+            </div>
+          </div>
         </div>
 
         {Object.keys(groupedData).length === 0 ? (
-          <Card className="p-12 text-center">
+          <Card className="p-12 text-center border-dashed">
             <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">No hay capacitaciones agendadas para mostrar.</p>
+            <p className="text-lg font-medium text-muted-foreground">No hay capacitaciones agendadas en la base de datos.</p>
+            <Link href="/solicitud-capacitacion" className="mt-4 inline-block">
+              <Button variant="outline">Crear Primera Solicitud</Button>
+            </Link>
           </Card>
         ) : (
-          <Accordion type="multiple" className="w-full space-y-4">
-            {Object.entries(groupedData).map(([dept, distritos]) => (
-              <AccordionItem key={dept} value={dept} className="border rounded-lg bg-card px-4">
-                <AccordionTrigger className="hover:no-underline py-4">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                      {dept.substring(0, 2).toUpperCase()}
+          <div className="space-y-6">
+            <Accordion type="multiple" className="w-full space-y-4">
+              {Object.entries(groupedData).map(([dept, distritos]) => (
+                <AccordionItem key={dept} value={dept} className="border bg-white rounded-lg overflow-hidden shadow-sm">
+                  <AccordionTrigger className="hover:no-underline px-6 py-4 bg-muted/30">
+                    <div className="flex items-center gap-4 text-left">
+                      <div className="h-10 w-10 rounded bg-primary text-white flex items-center justify-center font-black">
+                        {dept.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold uppercase tracking-tight">{dept}</h2>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                          {Object.values(distritos).flat().length} ACTIVIDADES PROGRAMADAS
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-lg font-bold">{dept}</span>
-                      <Badge variant="secondary" className="font-mono">
-                        {Object.values(distritos).flat().length} SOLICITUDES
-                      </Badge>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-4">
-                  <Accordion type="multiple" className="w-full space-y-2 mt-2">
-                    {Object.entries(distritos).map(([dist, items]) => (
-                      <AccordionItem key={dist} value={dist} className="border-none pl-4 md:pl-8">
-                        <AccordionTrigger className="py-2 hover:no-underline text-md font-semibold text-primary/80 border-b border-dashed">
-                          {dist} ({items.length})
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  </AccordionTrigger>
+                  <AccordionContent className="p-0">
+                    <div className="divide-y border-t">
+                      {Object.entries(distritos).map(([dist, items]) => (
+                        <div key={dist} className="p-6 bg-white">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Building2 className="h-5 w-5 text-primary" />
+                            <h3 className="text-lg font-black uppercase text-foreground/80">{dist}</h3>
+                            <Badge variant="secondary" className="ml-2 font-mono">
+                              {items.length} {items.length === 1 ? 'SOLICITUD' : 'SOLICITUDES'}
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-4">
                             {items.map((item) => (
-                              <Card key={item.id} className="overflow-hidden border-primary/20 shadow-sm hover:shadow-md transition-shadow">
-                                <CardHeader className="bg-primary/5 pb-2">
-                                  <div className="flex justify-between items-start gap-2">
-                                    <CardTitle className="text-xs font-black uppercase leading-tight">{item.solicitante_entidad}</CardTitle>
-                                    <Badge variant="default" className="text-[10px] shrink-0 font-bold">{item.hora_desde} HS</Badge>
+                              <div key={item.id} className="group relative border rounded-md p-4 hover:border-primary transition-all bg-muted/5">
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+                                  
+                                  {/* Columna Entidad */}
+                                  <div className="lg:col-span-3">
+                                    <p className="text-[10px] font-bold text-primary uppercase">Solicitante</p>
+                                    <p className="font-black text-sm uppercase leading-tight">{item.solicitante_entidad}</p>
+                                    <Badge variant="outline" className="mt-1 text-[9px] uppercase font-bold">
+                                      {item.tipo_solicitud === 'divulgacion' ? 'Divulgación' : 'Capacitación'}
+                                    </Badge>
                                   </div>
-                                  <CardDescription className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground mt-1">
-                                    <Calendar className="h-3 w-3" /> 
-                                    {new Date(item.fecha + 'T12:00:00').toLocaleDateString('es-PY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}
-                                  </CardDescription>
-                                </CardHeader>
-                                <CardContent className="pt-4 space-y-3 text-xs">
-                                  <div className="flex items-start gap-2">
-                                    <MapPin className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                                    <div>
-                                        <p className="font-bold text-foreground leading-tight">{item.lugar_local}</p>
-                                        <p className="text-[10px] text-muted-foreground mt-0.5">{item.direccion_calle}</p>
+
+                                  {/* Columna Lugar y Fecha */}
+                                  <div className="lg:col-span-4 flex flex-col gap-1">
+                                    <div className="flex items-start gap-2">
+                                      <MapPin className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                                      <div>
+                                        <p className="text-xs font-bold uppercase">{item.lugar_local}</p>
+                                        <p className="text-[10px] text-muted-foreground">{item.direccion_calle}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                                      <p className="text-[10px] font-bold uppercase">
+                                        {new Date(item.fecha + 'T12:00:00').toLocaleDateString('es-PY', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                        <span className="mx-1 text-primary">|</span>
+                                        {item.hora_desde} a {item.hora_hasta} HS
+                                      </p>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-2 border-t pt-2">
-                                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                    <span className="font-semibold text-muted-foreground">Responsable:</span> 
-                                    <span className="truncate">{item.nombre_completo}</span>
+
+                                  {/* Columna Responsable */}
+                                  <div className="lg:col-span-3">
+                                    <div className="flex items-center gap-2">
+                                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <div>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase leading-none">Responsable</p>
+                                        <p className="text-xs font-bold truncate">{item.nombre_completo}</p>
+                                        <p className="text-[10px] text-muted-foreground">C.I. {item.cedula}</p>
+                                      </div>
+                                    </div>
                                   </div>
-                                  
-                                  <div className="grid grid-cols-2 gap-2 mt-2 pt-3">
-                                    {item.foto_firma ? (
+
+                                  {/* Columna Acciones */}
+                                  <div className="lg:col-span-2 flex justify-end gap-2">
+                                    {item.foto_firma && (
                                       <Dialog>
                                         <DialogTrigger asChild>
-                                          <Button variant="outline" size="sm" className="w-full text-[9px] h-8 font-bold">
-                                            <FileImage className="mr-1 h-3 w-3" />
-                                            VER FIRMA
+                                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Ver Anexo V">
+                                            <FileImage className="h-4 w-4 text-primary" />
                                           </Button>
                                         </DialogTrigger>
                                         <DialogContent className="max-w-2xl">
                                           <DialogHeader>
-                                            <DialogTitle>Documento de Solicitud - {item.solicitante_entidad}</DialogTitle>
+                                            <DialogTitle className="uppercase font-black">Anexo V - Solicitud Firmada</DialogTitle>
                                           </DialogHeader>
                                           <div className="relative aspect-[3/4] w-full mt-4 bg-muted rounded-lg overflow-hidden border shadow-inner">
                                             <Image src={item.foto_firma} alt="Firma Anexo V" fill className="object-contain" />
                                           </div>
                                         </DialogContent>
                                       </Dialog>
-                                    ) : (
-                                        <Button variant="outline" size="sm" disabled className="w-full text-[9px] h-8 opacity-50">
-                                            SIN ADJUNTO
-                                        </Button>
                                     )}
-                                    <Link href={`/encuesta-satisfaccion?solicitudId=${item.id}`} className="w-full">
-                                      <Button variant="default" size="sm" className="w-full text-[9px] h-8 font-bold">
+                                    <Link href={`/encuesta-satisfaccion?solicitudId=${item.id}`}>
+                                      <Button variant="default" size="sm" className="h-8 text-[10px] font-black uppercase">
                                         <ClipboardCheck className="mr-1 h-3 w-3" />
-                                        ENCUESTA
+                                        Encuesta
                                       </Button>
                                     </Link>
                                   </div>
-                                </CardContent>
-                              </Card>
+                                </div>
+                              </div>
                             ))}
                           </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
         )}
       </main>
     </div>
