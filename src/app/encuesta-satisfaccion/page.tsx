@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageSquareHeart, CheckCircle2, FileDown, CalendarDays, Search } from 'lucide-react';
+import { Loader2, MessageSquareHeart, CheckCircle2, FileDown, CalendarDays } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
@@ -26,6 +26,7 @@ export default function EncuestaSatisfaccionPage() {
   const solicitudId = searchParams.get('solicitudId');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     lugar_practica: '',
     fecha: '',
@@ -37,7 +38,21 @@ export default function EncuestaSatisfaccionPage() {
     seguridad_maquina: 'muy_seguro',
   });
 
-  // Fetch agenda items for the user's district to allow selection
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const response = await fetch('/logo.png');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setLogoBase64(reader.result as string);
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error("Error fetching logo:", error);
+      }
+    };
+    fetchLogo();
+  }, []);
+
   const agendaQuery = useMemoFirebase(() => {
     if (!firestore || !user?.profile?.distrito) return null;
     return query(
@@ -49,7 +64,6 @@ export default function EncuestaSatisfaccionPage() {
 
   const { data: agendaItems, isLoading: isLoadingAgenda } = useCollection<SolicitudCapacitacion>(agendaQuery);
 
-  // Auto-populate when solicitudId changes or agenda items load
   useEffect(() => {
     if (solicitudId && agendaItems) {
       const item = agendaItems.find(a => a.id === solicitudId);
@@ -108,7 +122,6 @@ export default function EncuestaSatisfaccionPage() {
       
       toast({ title: "¡Encuesta Guardada!", description: "La encuesta de satisfacción ha sido registrada." });
       
-      // Reset form
       setFormData({
         lugar_practica: '',
         fecha: '',
@@ -131,13 +144,17 @@ export default function EncuestaSatisfaccionPage() {
     const doc = new jsPDF();
     const margin = 20;
     
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 5, 18, 18);
+    }
+
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.text("ENCUESTA DE SATISFACCIÓN", 105, 20, { align: "center" });
     doc.setFontSize(10);
     doc.text("Uso de la Máquina de Votación", 105, 26, { align: "center" });
 
-    let y = 40;
+    let y = 45;
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     
@@ -299,7 +316,7 @@ export default function EncuestaSatisfaccionPage() {
                     <Label htmlFor="u-1" className="flex-1 cursor-pointer">Muy útil</Label>
                   </div>
                   <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value="util" id="u-2" />
+                    <RadioGroupItem value="u-2" id="u-2" />
                     <Label htmlFor="u-2" className="flex-1 cursor-pointer">Útil</Label>
                   </div>
                   <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">

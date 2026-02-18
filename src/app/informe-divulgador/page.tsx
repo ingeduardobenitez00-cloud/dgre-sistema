@@ -27,6 +27,7 @@ export default function InformeDivulgadorPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [markedCells, setMarcaciones] = useState<number[]>([]);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     lugar_divulgacion: '',
     fecha: '',
@@ -38,7 +39,21 @@ export default function InformeDivulgadorPage() {
     oficina: '',
   });
 
-  // Fetch agenda items for the user's district
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const response = await fetch('/logo.png');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setLogoBase64(reader.result as string);
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error("Error fetching logo:", error);
+      }
+    };
+    fetchLogo();
+  }, []);
+
   const agendaQuery = useMemoFirebase(() => {
     if (!firestore || !user?.profile?.distrito) return null;
     return query(
@@ -118,7 +133,6 @@ export default function InformeDivulgadorPage() {
       
       toast({ title: "¡Informe Guardado!", description: "El informe del divulgador ha sido registrado con éxito." });
       
-      // Reset
       setMarcaciones([]);
       setFormData({
         lugar_divulgacion: '',
@@ -142,6 +156,10 @@ export default function InformeDivulgadorPage() {
     const doc = new jsPDF();
     const margin = 15;
     
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 5, 18, 18);
+    }
+
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text("INFORME DEL DIVULGADOR (ANEXO III)", 105, 15, { align: "center" });
@@ -150,7 +168,7 @@ export default function InformeDivulgadorPage() {
     doc.setFont('helvetica', 'normal');
     doc.text("Control individual del divulgador con cantidad de ciudadanos que practicaron con la MV", 105, 20, { align: "center" });
 
-    let y = 30;
+    let y = 35;
     const drawLine = (label: string, value: string, currentY: number) => {
         doc.setFont('helvetica', 'bold');
         doc.text(`${label}:`, margin, currentY);
@@ -194,7 +212,6 @@ export default function InformeDivulgadorPage() {
     doc.text("MARCA CON UNA \"X\" POR CADA CIUDADANO QUE PRACTICÓ", 105, y + 5.5, { align: "center" });
     y += 8;
 
-    // Grid
     const cols = 13;
     const rows = 8;
     const cellW = 180 / cols;

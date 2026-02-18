@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MapPin, FileText, Camera, CheckCircle2, RefreshCw, MousePointer2, Upload, FileImage } from 'lucide-react';
+import { Loader2, MapPin, FileText, Camera, CheckCircle2, RefreshCw, MousePointer2, Upload } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import jsPDF from 'jspdf';
@@ -42,10 +43,26 @@ export default function SolicitudCapacitacionPage() {
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<any>(null);
   const markerRef = useRef<any>(null);
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const response = await fetch('/logo.png');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setLogoBase64(reader.result as string);
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error("Error fetching logo:", error);
+      }
+    };
+    fetchLogo();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -113,6 +130,11 @@ export default function SolicitudCapacitacionPage() {
       const doc = new jsPDF();
       const margin = 15;
       
+      // Logo institucional arriba a la izquierda
+      if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', margin, 5, 18, 18);
+      }
+
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.text("Justicia Electoral", 105, 12, { align: "center" });
@@ -121,10 +143,10 @@ export default function SolicitudCapacitacionPage() {
       doc.text("Custodio de la Voluntad Popular", 105, 16, { align: "center" });
       
       doc.setFillColor(230, 230, 220);
-      doc.rect(margin, 20, 180, 7, 'F');
+      doc.rect(margin, 22, 180, 7, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.text("ANEXO V – PROFORMA DE SOLICITUD", 105, 24.5, { align: "center" });
+      doc.text("ANEXO V – PROFORMA DE SOLICITUD", 105, 26.5, { align: "center" });
 
       const today = new Date();
       doc.setFontSize(9);
@@ -247,7 +269,6 @@ export default function SolicitudCapacitacionPage() {
       }
 
       doc.save(`Solicitud-AnexoV-${formData.cedula || 'Borrador'}.pdf`);
-      setPdfGenerated(true);
       toast({ title: "Documento Generado", description: "El Anexo V se ha generado correctamente." });
     } catch (error) {
       console.error(error);
@@ -300,7 +321,6 @@ export default function SolicitudCapacitacionPage() {
       });
       setCoords({ lat: '', lng: '' }); 
       setPhotoDataUri(null); 
-      setPdfGenerated(false);
       if (markerRef.current) { 
         markerRef.current.remove(); 
         markerRef.current = null; 
