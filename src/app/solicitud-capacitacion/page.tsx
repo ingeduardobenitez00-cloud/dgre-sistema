@@ -250,7 +250,9 @@ export default function SolicitudCapacitacionPage() {
       
       doc.text("Código de la Máquina de Votación asignada: ___________________________________________", margin + 5, tableY + 24);
       
-      doc.text("Firma y sello del Jefe del Registro Electoral: ________________________", 105, tableY + 32, { align: "center" });
+      // Right-aligned dual chief signature for internal space
+      doc.text("__________________________________", 150, tableY + 32, { align: "center" });
+      doc.text("Firma, aclaración y sello Jefes", 150, tableY + 37, { align: "center" });
       
       doc.setFontSize(7.5);
       doc.text("Total de personas capacitadas:", margin + 5, tableY + 37);
@@ -340,7 +342,7 @@ export default function SolicitudCapacitacionPage() {
       <Header title="Nueva Solicitud de Capacitación" />
       <main className="flex-1 p-4 md:p-8">
         <Card className="mx-auto max-w-4xl shadow-xl border-t-4 border-t-primary">
-          <CardHeader className="bg-primary/5">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-6 w-6 text-primary" />
               Proforma de Solicitud (Anexo V)

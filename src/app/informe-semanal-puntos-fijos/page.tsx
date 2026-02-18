@@ -228,10 +228,17 @@ export default function InformeSemanalAnexoIVPage() {
             margin: { left: margin, right: margin }
         });
 
-        const finalY = (doc as any).lastAutoTable.finalY + 20;
-        doc.line(pageWidth - 80, finalY, pageWidth - margin, finalY);
-        doc.setFontSize(8);
-        doc.text("FIRMA Y SELLO DE LOS JEFES", pageWidth - 45, finalY + 5, { align: "center" });
+        const finalY = (doc as any).lastAutoTable.finalY + 30;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        
+        // Left Signature: Divulgador
+        doc.text("__________________________________", margin + 50, finalY, { align: "center" });
+        doc.text("Firma y aclaración Divulgador", margin + 50, finalY + 5, { align: "center" });
+
+        // Right Signature: Jefes
+        doc.text("__________________________________", pageWidth - margin - 50, finalY, { align: "center" });
+        doc.text("Firma, aclaración y sello Jefes", pageWidth - margin - 50, finalY + 5, { align: "center" });
 
         doc.save(`AnexoIV-${selectedDistrict || 'Semanal'}.pdf`);
     } catch (error) {
