@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -94,7 +93,7 @@ export default function Home() {
         </div>
 
         <div className="space-y-6">
-          <Accordion type="multiple" defaultValue={groupedModules.map(g => g.label)} className="space-y-4">
+          <Accordion type="multiple" className="space-y-4">
             {groupedModules.map((group) => (
               <AccordionItem 
                 key={group.label} 
