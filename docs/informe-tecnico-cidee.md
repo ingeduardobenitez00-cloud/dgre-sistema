@@ -44,17 +44,18 @@ El módulo **CIDEE - CAPACITACIONES** es el núcleo operativo del sistema para l
     *   Nivel de satisfacción y utilidad percibida.
 
 ## 3. Matriz de Roles y Permisos
+*(Para más detalle ver docs/informe-roles-y-modulos.md)*
 
 | Rol | Alcance Territorial | Capacidades |
 | :--- | :--- | :--- |
-| **Administrador / Director** | Nacional | Acceso total, gestión de usuarios, generación de reportes globales. |
-| **Jefe** | Nacional/Asignado | Asignación de personal en agenda, supervisión de reportes regionales. |
-| **Divulgador** | Distrito Asignado | Carga de informes individuales (Anexo III) y visualización de agenda asignada. |
-| **Funcionario** | Distrito Asignado | Carga de solicitudes, encuestas e informes generales. |
+| **Administrador / Director** | Nacional | Acceso total, gestión de usuarios, gestión geográfica y carga masiva. |
+| **Jefe** | Nacional/Asignado | Asignación de personal en agenda, supervisión y firma de Anexo IV. |
+| **Divulgador** | Distrito Asignado | Carga de Anexo III individual y encuestas. Visualización de agenda asignada. |
+| **Funcionario** | Distrito Asignado | Carga de solicitudes y gestión de fotos del Registro Electoral. |
 
 ## 4. Arquitectura de Datos
 *   **Persistencia**: Firebase Firestore (NoSQL) con sincronización en tiempo real.
-*   **Seguridad**: Reglas de Seguridad de Firestore (Security Rules) que restringen la edición por ubicación asignada.
+*   **Seguridad**: Reglas de Seguridad de Firestore (Security Rules) que restringen la edición por ubicación asignada y rol.
 *   **Frontend**: Next.js 14 (App Router) con componentes ShadCN UI para una interfaz profesional y responsiva.
 
 ---
