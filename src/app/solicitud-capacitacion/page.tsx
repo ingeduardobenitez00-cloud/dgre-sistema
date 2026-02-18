@@ -109,11 +109,6 @@ export default function SolicitudCapacitacionPage() {
   };
 
   const generatePdf = async () => {
-    if (!formData.solicitante_entidad || !formData.fecha || !formData.direccion_calle || !formData.nombre_completo || !formData.cedula || !formData.gps) {
-      toast({ variant: "destructive", title: "Faltan datos", description: "Completa el formulario y marca la ubicación en el mapa." });
-      return;
-    }
-
     setIsGeneratingPdf(true);
     try {
       const doc = new jsPDF();
@@ -241,7 +236,7 @@ export default function SolicitudCapacitacionPage() {
       doc.text("Total de personas capacitadas:", margin + 5, tableY + 37);
       doc.rect(margin + 45, tableY + 34.5, 20, 3.5);
 
-      if (mapRef.current) {
+      if (mapRef.current && formData.gps) {
         doc.addPage();
         const canvas = await html2canvas(mapRef.current, { useCORS: true, logging: false, scale: 2 });
         const mapImgData = canvas.toDataURL('image/png');
@@ -253,9 +248,9 @@ export default function SolicitudCapacitacionPage() {
         doc.text(`Ubicación GPS: ${formData.gps}`, margin, 140);
       }
 
-      doc.save(`Solicitud-AnexoV-${formData.cedula}.pdf`);
+      doc.save(`Solicitud-AnexoV-${formData.cedula || 'Borrador'}.pdf`);
       setPdfGenerated(true);
-      toast({ title: "Documento Generado", description: "El Anexo V está listo para imprimir y ser firmado." });
+      toast({ title: "Documento Generado", description: "El Anexo V se ha generado correctamente." });
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo generar el documento oficial." });
@@ -394,13 +389,9 @@ export default function SolicitudCapacitacionPage() {
                   <Label htmlFor="direccion_calle">Dirección (Calle y Nro)</Label>
                   <Input id="direccion_calle" name="direccion_calle" value={formData.direccion_calle} onChange={handleInputChange} placeholder="Calle principal y numeración" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="barrio_compania">BARRIO - COMPAÑÍA</Label>
                   <Input id="barrio_compania" name="barrio_compania" value={formData.barrio_compania} onChange={handleInputChange} />
-                </div>
-                <div className="space-y-2">
-                  <Label>DISTRITO</Label>
-                  <Input value={user?.profile?.distrito || ''} disabled className="bg-muted" />
                 </div>
               </div>
 
