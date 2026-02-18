@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -62,6 +63,7 @@ const ALL_MODULES = [
   'agenda-capacitacion',
   'encuesta-satisfaccion',
   'informe-divulgador',
+  'informe-semanal-puntos-fijos',
   'estadisticas-capacitacion'
 ];
 
@@ -81,6 +83,7 @@ const MODULE_LABELS: { [key: string]: string } = {
   'agenda-capacitacion': 'Agenda Capacitación',
   'encuesta-satisfaccion': 'Encuesta Satisfacción',
   'informe-divulgador': 'Informe del Divulgador',
+  'informe-semanal-puntos-fijos': 'Informe Semanal (Anexo IV)',
   'estadisticas-capacitacion': 'Estadísticas CIDEE'
 };
 
@@ -91,7 +94,7 @@ const MODULE_GROUPS = [
   },
   {
     label: "CIDEE - CAPACITACIONES",
-    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'encuesta-satisfaccion', 'informe-divulgador', 'estadisticas-capacitacion']
+    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion']
   },
   {
     label: "Análisis y Reportes",

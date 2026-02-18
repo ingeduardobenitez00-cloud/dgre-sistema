@@ -119,6 +119,18 @@ service cloud.firestore {
       allow update, delete: if isAdministrative();
     }
 
+    match /informes-semanales-anexo-iv/{informeId} {
+      allow read: if isSignedIn() && (
+        isAdministrative() || 
+        (isRole('funcionario') && isAssignedTo(resource.data.departamento, resource.data.distrito))
+      );
+      allow create: if isSignedIn() && (
+        isAdministrative() || 
+        (isRole('funcionario') && isAssignedTo(request.resource.data.departamento, request.resource.data.distrito))
+      );
+      allow update, delete: if isAdministrative();
+    }
+
     /** User Profiles **/
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();

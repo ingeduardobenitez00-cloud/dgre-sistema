@@ -123,4 +123,26 @@ export type InformeDivulgador = {
   fecha_creacion: string;
 }
 
+export type InformeSemanalFila = {
+  lugar: string;
+  fecha: string;
+  hora_desde: string;
+  hora_hasta: string;
+  nombre_divulgador: string;
+  cedula: string;
+  vinculo: string;
+  cantidad_personas: number;
+}
+
+export type InformeSemanalAnexoIV = {
+  id: string;
+  semana_desde: string;
+  semana_hasta: string;
+  departamento: string;
+  distrito: string;
+  filas: InformeSemanalFila[];
+  usuario_id: string;
+  fecha_creacion: string;
+}
+
 export const initialDepartments: Department[] = [];

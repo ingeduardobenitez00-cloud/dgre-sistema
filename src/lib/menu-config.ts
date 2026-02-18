@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -43,6 +43,12 @@ export const dashboardMenuItems = [
     label: 'Informe del Divulgador',
     icon: UserCheck,
     description: 'Control individual de marcaciones por ciudadano (Anexo III).',
+  },
+  {
+    href: '/informe-semanal-puntos-fijos',
+    label: 'Informe Semanal (Anexo IV)',
+    icon: TableProperties,
+    description: 'Resumen semanal de puntos fijos de divulgación.',
   },
   {
     href: '/estadisticas-capacitacion',

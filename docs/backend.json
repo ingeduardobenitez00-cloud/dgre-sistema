@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Dato": {
@@ -439,6 +440,41 @@
         "departamento",
         "distrito"
       ]
+    },
+    "InformeSemanalPuntosFijos": {
+      "title": "Informe Semanal Puntos Fijos (Anexo IV)",
+      "type": "object",
+      "description": "Resumen semanal de actividades en puntos fijos de divulgación.",
+      "properties": {
+        "semana_desde": { "type": "string", "format": "date" },
+        "semana_hasta": { "type": "string", "format": "date" },
+        "departamento": { "type": "string" },
+        "distrito": { "type": "string" },
+        "filas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lugar": { "type": "string" },
+              "fecha": { "type": "string", "format": "date" },
+              "hora_desde": { "type": "string" },
+              "hora_hasta": { "type": "string" },
+              "nombre_divulgador": { "type": "string" },
+              "cedula": { "type": "string" },
+              "vinculo": { "type": "string" },
+              "cantidad_personas": { "type": "number" }
+            }
+          }
+        },
+        "usuario_id": { "type": "string" },
+        "fecha_creacion": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "semana_desde",
+        "semana_hasta",
+        "departamento",
+        "distrito"
+      ]
     }
   },
   "auth": {
@@ -506,6 +542,12 @@
         "$ref": "#/entities/InformeDivulgador"
       },
       "description": "Stores individual divulgador reports (Anexo III)."
+    },
+    "/informes-semanales-anexo-iv/{informeId}": {
+      "schema": {
+        "$ref": "#/entities/InformeSemanalPuntosFijos"
+      },
+      "description": "Stores weekly reports for fixed disclosure points (Anexo IV)."
     }
   }
 }
