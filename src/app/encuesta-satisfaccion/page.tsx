@@ -17,6 +17,8 @@ import { Separator } from '@/components/ui/separator';
 import jsPDF from 'jspdf';
 import { type SolicitudCapacitacion } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function EncuestaSatisfaccionPage() {
   const { user, isUserLoading } = useUser();
@@ -37,6 +39,18 @@ export default function EncuestaSatisfaccionPage() {
     facilidad_maquina: 'muy_facil',
     seguridad_maquina: 'muy_seguro',
   });
+
+  // Set initial dates on client only to avoid hydration mismatch
+  useEffect(() => {
+    if (!solicitudId) {
+      const now = new Date();
+      setFormData(prev => ({
+        ...prev,
+        fecha: now.toISOString().split('T')[0],
+        hora: now.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false })
+      }));
+    }
+  }, [solicitudId]);
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -109,32 +123,26 @@ export default function EncuestaSatisfaccionPage() {
     }
 
     setIsSubmitting(true);
+    const encuestaData = {
+      ...formData,
+      departamento: user.profile?.departamento || '',
+      distrito: user.profile?.distrito || '',
+      usuario_id: user.uid,
+      fecha_creacion: new Date().toISOString(),
+      server_timestamp: serverTimestamp(),
+    };
+
     try {
-      const encuestaData = {
-        ...formData,
-        departamento: user.profile?.departamento || '',
-        distrito: user.profile?.distrito || '',
-        usuario_id: user.uid,
-        fecha_creacion: new Date().toISOString(),
-        server_timestamp: serverTimestamp(),
-      };
       await addDoc(collection(firestore, 'encuestas-satisfaccion'), encuestaData);
-      
-      toast({ title: "¡Encuesta Guardada!", description: "La encuesta de satisfacción ha sido registrada." });
-      
-      setFormData({
-        lugar_practica: '',
-        fecha: '',
-        hora: '',
-        edad: '',
-        genero: 'hombre',
-        utilidad_maquina: 'muy_util',
-        facilidad_maquina: 'muy_facil',
-        seguridad_maquina: 'muy_seguro',
-      });
+      toast({ title: "¡Encuesta Guardada!", description: "La encuesta ha sido registrada." });
+      setFormData(p => ({ ...p, lugar_practica: '', edad: '' }));
     } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo guardar la encuesta." });
+      const contextualError = new FirestorePermissionError({
+        path: 'encuestas-satisfaccion',
+        operation: 'create',
+        requestResourceData: encuestaData
+      });
+      errorEmitter.emit('permission-error', contextualError);
     } finally {
       setIsSubmitting(false);
     }
@@ -143,10 +151,7 @@ export default function EncuestaSatisfaccionPage() {
   const generatePDF = () => {
     const doc = new jsPDF();
     const margin = 20;
-    
-    if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', margin, 5, 18, 18);
-    }
+    if (logoBase64) doc.addImage(logoBase64, 'PNG', margin, 5, 18, 18);
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -157,8 +162,7 @@ export default function EncuestaSatisfaccionPage() {
     let y = 45;
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    
-    doc.text(`LUGAR DONDE REALIZÓ LA PRÁCTICA: ${formData.lugar_practica.toUpperCase()}`, margin, y);
+    doc.text(`LUGAR: ${formData.lugar_practica.toUpperCase()}`, margin, y);
     y += 10;
     doc.text(`FECHA: ${formData.fecha}    HORA: ${formData.hora}`, margin, y);
     y += 10;
@@ -186,7 +190,7 @@ export default function EncuestaSatisfaccionPage() {
     y += 15;
 
     doc.setFont('helvetica', 'bold');
-    doc.text("Después de la práctica, ¿qué tan seguro/a se siente para utilizar la máquina de votación?", margin, y);
+    doc.text("¿Qué tan seguro/a se siente?", margin, y);
     y += 7;
     doc.setFont('helvetica', 'normal');
     const seguridadMap = { muy_seguro: 'Muy seguro/a', seguro: 'Seguro/a', poco_seguro: 'Poco seguro/a', nada_seguro: 'Nada seguro/a' };
@@ -200,12 +204,8 @@ export default function EncuestaSatisfaccionPage() {
     doc.text("PARA USO INTERNO DE LA JUSTICIA ELECTORAL", 105, y, { align: "center" });
     y += 10;
     doc.setFont('helvetica', 'normal');
-    doc.text(`Distrito: ${user?.profile?.distrito || '_________________'}`, margin, y);
-    doc.text(`Departamento: ${user?.profile?.departamento || '_________________'}`, 110, y);
-    y += 10;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'italic');
-    doc.text("Enviar a la Dirección del CIDEE hasta el martes posterior a la semana de divulgación.", 105, y, { align: "center" });
+    doc.text(`Distrito: ${user?.profile?.distrito || ''}`, margin, y);
+    doc.text(`Departamento: ${user?.profile?.departamento || ''}`, 110, y);
 
     doc.save(`Encuesta-${formData.lugar_practica || 'Satisfaccion'}.pdf`);
   };
@@ -245,9 +245,6 @@ export default function EncuestaSatisfaccionPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button variant="outline" size="icon" onClick={() => window.location.reload()} title="Actualizar Agenda">
-                  <Loader2 className={`h-4 w-4 ${isLoadingAgenda ? 'animate-spin' : ''}`} />
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -257,16 +254,16 @@ export default function EncuestaSatisfaccionPage() {
           <CardHeader className="bg-primary/5">
             <CardTitle className="flex items-center gap-2">
               <MessageSquareHeart className="h-6 w-6 text-primary" />
-              Encuesta de Satisfacción - CIDEE
+              Encuesta de Satisfacción
             </CardTitle>
-            <CardDescription>Registro de experiencia del ciudadano con la máquina de votación.</CardDescription>
+            <CardDescription>Registro de experiencia del ciudadano.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-8 pt-6">
             <div className="grid grid-cols-1 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="lugar_practica">LUGAR DONDE REALIZÓ LA PRÁCTICA</Label>
                 <div className="relative">
-                  <Input id="lugar_practica" name="lugar_practica" value={formData.lugar_practica} onChange={handleInputChange} placeholder="Nombre del local o ubicación" className={solicitudId ? "bg-muted font-semibold" : ""} />
+                  <Input id="lugar_practica" name="lugar_practica" value={formData.lugar_practica} onChange={handleInputChange} placeholder="Nombre del local" className={solicitudId ? "bg-muted font-semibold" : ""} />
                   {formData.lugar_practica && <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />}
                 </div>
               </div>
@@ -274,11 +271,11 @@ export default function EncuestaSatisfaccionPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fecha">FECHA</Label>
-                  <Input id="fecha" name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} className={solicitudId ? "bg-muted font-semibold" : ""} />
+                  <Input id="fecha" name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="hora">HORA</Label>
-                  <Input id="hora" name="hora" type="time" value={formData.hora} onChange={handleInputChange} className={solicitudId ? "bg-muted font-semibold" : ""} />
+                  <Input id="hora" name="hora" type="time" value={formData.hora} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edad">EDAD (AÑOS)</Label>
@@ -316,7 +313,7 @@ export default function EncuestaSatisfaccionPage() {
                     <Label htmlFor="u-1" className="flex-1 cursor-pointer">Muy útil</Label>
                   </div>
                   <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value="u-2" id="u-2" />
+                    <RadioGroupItem value="util" id="u-2" />
                     <Label htmlFor="u-2" className="flex-1 cursor-pointer">Útil</Label>
                   </div>
                   <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
@@ -351,38 +348,6 @@ export default function EncuestaSatisfaccionPage() {
                   </div>
                 </RadioGroup>
               </div>
-
-              <div className="space-y-4">
-                <Label className="font-bold">Después de la práctica, ¿qué tan seguro/a se siente para utilizar la máquina de votación?</Label>
-                <RadioGroup value={formData.seguridad_maquina} onValueChange={(v) => handleValueChange('seguridad_maquina', v)} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value="muy_seguro" id="s-1" />
-                    <Label htmlFor="s-1" className="flex-1 cursor-pointer">Muy seguro/a</Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value="seguro" id="s-2" />
-                    <Label htmlFor="s-2" className="flex-1 cursor-pointer">Seguro/a</Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value="poco_seguro" id="s-3" />
-                    <Label htmlFor="s-3" className="flex-1 cursor-pointer">Poco seguro/a</Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value="nada_seguro" id="s-4" />
-                    <Label htmlFor="s-4" className="flex-1 cursor-pointer">Nada seguro/a</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="bg-muted/30 p-4 rounded-lg border border-dashed border-primary/20">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">Uso Interno de la Justicia Electoral</p>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                    <p><span className="font-semibold">Departamento:</span> {user?.profile?.departamento || 'No asignado'}</p>
-                    <p><span className="font-semibold">Distrito:</span> {user?.profile?.distrito || 'No asignado'}</p>
-                </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row gap-4 bg-muted/10 border-t p-6">

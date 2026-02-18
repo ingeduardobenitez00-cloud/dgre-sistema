@@ -18,19 +18,18 @@ import {
   Undo2, 
   Camera, 
   Trash2, 
-  ShieldAlert,
   Clock,
-  MapPin,
   Lock
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { Separator } from '@/components/ui/separator';
+import { collection, addDoc, query, where, doc, updateDoc } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import { type SolicitudCapacitacion, type MovimientoMaquina } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function ControlMovimientoMaquinasPage() {
   const { user, isUserLoading } = useUser();
@@ -40,20 +39,39 @@ export default function ControlMovimientoMaquinasPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
   
   // States for forms
   const [salidaFirma, setSalidaFirma] = useState<string | null>(null);
   const [devolucionFirma, setDevolucionFirma] = useState<string | null>(null);
   const [salidaData, setSalidaData] = useState({
     codigo_maquina: '',
-    fecha: new Date().toISOString().split('T')[0],
-    hora: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    fecha: '',
+    hora: '',
   });
   const [devolucionData, setDevolucionData] = useState({
     codigo_maquina: '',
-    fecha: new Date().toISOString().split('T')[0],
-    hora: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    fecha: '',
+    hora: '',
   });
+
+  // Handle Hydration: Set initial dates on client mount
+  useEffect(() => {
+    const now = new Date();
+    setSalidaData(p => ({
+      ...p,
+      fecha: now.toISOString().split('T')[0],
+      hora: now.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false })
+    }));
+    setDevolucionData(p => ({
+      ...p,
+      fecha: now.toISOString().split('T')[0],
+      hora: now.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false })
+    }));
+
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000); // Update every minute
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -70,7 +88,6 @@ export default function ControlMovimientoMaquinasPage() {
     fetchLogo();
   }, []);
 
-  // Fetch Agenda Items for current district
   const agendaQuery = useMemoFirebase(() => {
     if (!firestore || !user?.profile?.distrito) return null;
     return query(
@@ -82,7 +99,6 @@ export default function ControlMovimientoMaquinasPage() {
 
   const { data: agendaItems, isLoading: isLoadingAgenda } = useCollection<SolicitudCapacitacion>(agendaQuery);
 
-  // Fetch existing movement for selected activity
   const movimientosQuery = useMemoFirebase(() => {
     if (!firestore || !selectedSolicitudId) return null;
     return query(
@@ -98,13 +114,17 @@ export default function ControlMovimientoMaquinasPage() {
     return agendaItems?.find(item => item.id === selectedSolicitudId);
   }, [agendaItems, selectedSolicitudId]);
 
-  // Logic to enable Return form: after event end time
   const isDevolucionEnabled = useMemo(() => {
     if (!selectedSolicitud) return false;
-    const eventEnd = new Date(`${selectedSolicitud.fecha}T${selectedSolicitud.hora_hasta}`);
-    const now = new Date();
-    return now >= eventEnd;
-  }, [selectedSolicitud]);
+    try {
+      const [year, month, day] = selectedSolicitud.fecha.split('-').map(Number);
+      const [hour, minute] = selectedSolicitud.hora_hasta.split(':').map(Number);
+      const eventEnd = new Date(year, month - 1, day, hour, minute);
+      return currentTime >= eventEnd;
+    } catch (e) {
+      return false;
+    }
+  }, [selectedSolicitud, currentTime]);
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>, type: 'salida' | 'devolucion') => {
     const file = e.target.files?.[0];
@@ -126,31 +146,35 @@ export default function ControlMovimientoMaquinasPage() {
     }
 
     setIsSubmitting(true);
+    const registro = {
+      nombre: selectedSolicitud.divulgador_nombre || user.profile?.username || '',
+      cedula: selectedSolicitud.divulgador_cedula || user.profile?.cedula || '',
+      vinculo: selectedSolicitud.divulgador_vinculo || user.profile?.vinculo || '',
+      fecha: salidaData.fecha,
+      hora: salidaData.hora,
+      codigo_maquina: salidaData.codigo_maquina,
+      lugar: selectedSolicitud.lugar_local,
+      firma: salidaFirma,
+    };
+
+    const docData = {
+      solicitud_id: selectedSolicitudId!,
+      departamento: user.profile?.departamento || '',
+      distrito: user.profile?.distrito || '',
+      salida: registro,
+      fecha_creacion: new Date().toISOString(),
+    };
+
     try {
-      const registro = {
-        nombre: selectedSolicitud.divulgador_nombre || user.profile?.username || '',
-        cedula: selectedSolicitud.divulgador_cedula || user.profile?.cedula || '',
-        vinculo: selectedSolicitud.divulgador_vinculo || user.profile?.vinculo || '',
-        fecha: salidaData.fecha,
-        hora: salidaData.hora,
-        codigo_maquina: salidaData.codigo_maquina,
-        lugar: selectedSolicitud.lugar_local,
-        firma: salidaFirma,
-      };
-
-      const movimientoData = {
-        solicitud_id: selectedSolicitudId!,
-        departamento: user.profile?.departamento || '',
-        distrito: user.profile?.distrito || '',
-        salida: registro,
-        fecha_creacion: new Date().toISOString(),
-      };
-
-      await addDoc(collection(firestore, 'movimientos-maquinas'), movimientoData);
+      await addDoc(collection(firestore, 'movimientos-maquinas'), docData);
       toast({ title: '¡Salida Registrada!', description: 'El retiro de la máquina ha sido guardado.' });
     } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar la salida.' });
+      const contextualError = new FirestorePermissionError({
+        path: 'movimientos-maquinas',
+        operation: 'create',
+        requestResourceData: docData
+      });
+      errorEmitter.emit('permission-error', contextualError);
     } finally {
       setIsSubmitting(false);
     }
@@ -164,25 +188,29 @@ export default function ControlMovimientoMaquinasPage() {
     }
 
     setIsSubmitting(true);
-    try {
-      const registro = {
-        nombre: selectedSolicitud.divulgador_nombre || user.profile?.username || '',
-        cedula: selectedSolicitud.divulgador_cedula || user.profile?.cedula || '',
-        vinculo: selectedSolicitud.divulgador_vinculo || user.profile?.vinculo || '',
-        fecha: devolucionData.fecha,
-        hora: devolucionData.hora,
-        codigo_maquina: currentMovimiento.salida?.codigo_maquina || '',
-        lugar: selectedSolicitud.lugar_local,
-        firma: devolucionFirma,
-      };
+    const registro = {
+      nombre: selectedSolicitud.divulgador_nombre || user.profile?.username || '',
+      cedula: selectedSolicitud.divulgador_cedula || user.profile?.cedula || '',
+      vinculo: selectedSolicitud.divulgador_vinculo || user.profile?.vinculo || '',
+      fecha: devolucionData.fecha,
+      hora: devolucionData.hora,
+      codigo_maquina: currentMovimiento.salida?.codigo_maquina || '',
+      lugar: selectedSolicitud.lugar_local,
+      firma: devolucionFirma,
+    };
 
+    try {
       await updateDoc(doc(firestore, 'movimientos-maquinas', currentMovimiento.id), {
         devolucion: registro
       });
       toast({ title: '¡Devolución Registrada!', description: 'El retorno de la máquina ha sido guardado exitosamente.' });
     } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar la devolución.' });
+      const contextualError = new FirestorePermissionError({
+        path: `movimientos-maquinas/${currentMovimiento.id}`,
+        operation: 'update',
+        requestResourceData: { devolucion: registro }
+      });
+      errorEmitter.emit('permission-error', contextualError);
     } finally {
       setIsSubmitting(false);
     }
@@ -207,7 +235,7 @@ export default function ControlMovimientoMaquinasPage() {
       doc.setFont('helvetica', 'bold');
       doc.text(`${label}:`, margin, y);
       doc.setFont('helvetica', 'normal');
-      doc.text(value?.toUpperCase() || '', margin + 60, y);
+      doc.text(String(value || '').toUpperCase(), margin + 60, y);
       doc.line(margin + 60, y + 1, 190, y + 1);
       y += 12;
     };
@@ -244,7 +272,6 @@ export default function ControlMovimientoMaquinasPage() {
       <Header title="Control de Movimiento de Máquinas" />
       <main className="flex-1 p-4 md:p-8">
         
-        {/* Activity Selection */}
         <div className="mx-auto max-w-5xl mb-8">
           <Card className="border-primary/20 shadow-md">
             <CardHeader className="bg-primary/5">
@@ -256,7 +283,7 @@ export default function ControlMovimientoMaquinasPage() {
             <CardContent className="pt-6">
               <Select onValueChange={setSelectedSolicitudId} value={selectedSolicitudId || undefined}>
                 <SelectTrigger className="h-12 border-2">
-                  <SelectValue placeholder={isLoadingAgenda ? "Cargando actividades..." : "Seleccione la capacitación o divulgación programada..."} />
+                  <SelectValue placeholder={isLoadingAgenda ? "Cargando actividades..." : "Seleccione la actividad programada..."} />
                 </SelectTrigger>
                 <SelectContent>
                   {agendaItems?.map(item => (
@@ -272,7 +299,7 @@ export default function ControlMovimientoMaquinasPage() {
                     <Truck className="h-5 w-5 text-primary" />
                     <div>
                       <p className="text-[10px] font-black uppercase text-muted-foreground">Funcionario Asignado</p>
-                      <p className="text-sm font-bold uppercase">{selectedSolicitud.divulgador_nombre || 'No asignado en agenda'}</p>
+                      <p className="text-sm font-bold uppercase">{selectedSolicitud.divulgador_nombre || 'No asignado'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -291,7 +318,6 @@ export default function ControlMovimientoMaquinasPage() {
         {selectedSolicitudId && !isLoadingMovimientos && (
           <div className="mx-auto max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8">
             
-            {/* FORM 01: SALIDA */}
             <Card className={cn(
               "shadow-xl border-t-4 transition-all duration-500",
               currentMovimiento ? "border-t-green-500" : "border-t-primary"
@@ -304,7 +330,7 @@ export default function ControlMovimientoMaquinasPage() {
                   </div>
                   {currentMovimiento && <CheckCircle2 className="h-6 w-6 text-green-600" />}
                 </CardTitle>
-                <CardDescription>Registro de retiro de máquina del Registro Electoral.</CardDescription>
+                <CardDescription>Registro de retiro de máquina.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
                 <div className="space-y-4">
@@ -322,7 +348,7 @@ export default function ControlMovimientoMaquinasPage() {
                   <div className="space-y-1">
                     <Label className="text-[10px] uppercase font-black text-primary">Código Máquina de Votación</Label>
                     <Input 
-                      placeholder="Ingrese el número de serie o código..." 
+                      placeholder="Ingrese el número de serie..." 
                       className="font-black text-lg border-2 uppercase"
                       value={currentMovimiento?.salida?.codigo_maquina || salidaData.codigo_maquina}
                       onChange={(e) => setSalidaData(p => ({...p, codigo_maquina: e.target.value}))}
@@ -332,7 +358,7 @@ export default function ControlMovimientoMaquinasPage() {
 
                   <div className="p-4 bg-muted/20 rounded-lg border space-y-3">
                     <Label className="text-xs font-bold uppercase flex items-center gap-2">
-                      <Lock className="h-3 w-3" /> Firma del Funcionario que retira
+                      <Lock className="h-3 w-3" /> Firma del Funcionario
                     </Label>
                     {currentMovimiento?.salida?.firma || salidaFirma ? (
                       <div className="relative aspect-[3/1] bg-white rounded border overflow-hidden">
@@ -366,7 +392,6 @@ export default function ControlMovimientoMaquinasPage() {
               </CardFooter>
             </Card>
 
-            {/* FORM 02: DEVOLUCIÓN */}
             <Card className={cn(
               "shadow-xl border-t-4 transition-all duration-500",
               currentMovimiento?.devolucion ? "border-t-green-500" : "border-t-orange-500",
@@ -380,7 +405,7 @@ export default function ControlMovimientoMaquinasPage() {
                   </div>
                   {currentMovimiento?.devolucion && <CheckCircle2 className="h-6 w-6 text-green-600" />}
                 </CardTitle>
-                <CardDescription>Registro de retorno del equipo al resguardo oficial.</CardDescription>
+                <CardDescription>Registro de retorno del equipo.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
                 {!isDevolucionEnabled && !currentMovimiento?.devolucion ? (
@@ -388,7 +413,7 @@ export default function ControlMovimientoMaquinasPage() {
                     <Lock className="h-12 w-12 text-muted-foreground opacity-30" />
                     <div className="space-y-1">
                       <p className="text-sm font-black uppercase text-muted-foreground">Bloqueado temporalmente</p>
-                      <p className="text-[10px] text-muted-foreground">La devolución se habilitará al finalizar el evento ({selectedSolicitud.hora_hasta} HS).</p>
+                      <p className="text-[10px] text-muted-foreground">Se habilitará al finalizar el evento ({selectedSolicitud?.hora_hasta} HS).</p>
                     </div>
                   </div>
                 ) : (
@@ -411,7 +436,7 @@ export default function ControlMovimientoMaquinasPage() {
 
                     <div className="p-4 bg-muted/20 rounded-lg border space-y-3">
                       <Label className="text-xs font-bold uppercase flex items-center gap-2">
-                        <Lock className="h-3 w-3" /> Firma del Funcionario que devuelve
+                        <Lock className="h-3 w-3" /> Firma del Funcionario
                       </Label>
                       {currentMovimiento?.devolucion?.firma || devolucionFirma ? (
                         <div className="relative aspect-[3/1] bg-white rounded border overflow-hidden">
@@ -456,7 +481,7 @@ export default function ControlMovimientoMaquinasPage() {
             <ArrowLeftRight className="h-16 w-12 mb-4 opacity-20" />
             <div className="text-center">
               <p className="text-xl font-black uppercase tracking-tight">Control de Movimiento</p>
-              <p className="text-sm">Seleccione una actividad de la agenda para registrar la salida o devolución de máquinas.</p>
+              <p className="text-sm">Seleccione una actividad de la agenda.</p>
             </div>
           </div>
         )}
