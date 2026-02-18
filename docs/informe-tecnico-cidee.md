@@ -1,3 +1,4 @@
+
 # Informe Técnico: Módulo CIDEE - CAPACITACIONES
 
 ## 1. Introducción
@@ -8,9 +9,9 @@ El módulo **CIDEE - CAPACITACIONES** es el núcleo operativo del sistema para l
 ### A. Solicitud de Capacitación (Anexo V)
 *   **Función**: Captura digital de solicitudes de partidos y movimientos políticos.
 *   **Capacidades Técnicas**: 
-    *   Georreferenciación interactiva (Leaflet/OSM).
+    *   Georreferenciación interactiva (Leaflet/OSM) mediante doble clic en mapa.
     *   Captura de firma/documento mediante cámara o galería (Data URI).
-    *   Generación automática de PDF oficial (jsPDF) con logo institucional.
+    *   Generación automática de PDF oficial con logo institucional a la izquierda.
 
 ### B. Agenda de Capacitación (Reporte Dinámico)
 *   **Función**: Supervisión nacional de actividades agendadas organizada por departamentos y distritos.
@@ -33,7 +34,7 @@ El módulo **CIDEE - CAPACITACIONES** es el núcleo operativo del sistema para l
 
 ### E. Informe Semanal Puntos Fijos (Anexo IV)
 *   **Función**: Consolidado semanal administrativo.
-*   **Inteligencia de Datos**: **Carga Automática**. El sistema extrae los datos de todos los Anexos III registrados en el distrito seleccionado y los presenta en formato tabular listo para exportación.
+*   **Inteligencia de Datos**: **Carga Automática**. El sistema extrae los datos de todos los Anexos III registrados en el distrito seleccionado y los presenta en formato tabular listo para exportación. Ya no requiere carga manual de filas.
 *   **Exportación**: Generación de PDF en formato horizontal (Landscape) con validación de firmas.
 
 ### F. Estadísticas CIDEE
@@ -48,7 +49,8 @@ El módulo **CIDEE - CAPACITACIONES** es el núcleo operativo del sistema para l
 | :--- | :--- | :--- |
 | **Administrador / Director** | Nacional | Acceso total, gestión de usuarios, generación de reportes globales. |
 | **Jefe** | Nacional/Asignado | Asignación de personal en agenda, supervisión de reportes regionales. |
-| **Funcionario / Divulgador** | Distrito Asignado | Carga de solicitudes, encuestas e informes individuales. |
+| **Divulgador** | Distrito Asignado | Carga de informes individuales (Anexo III) y visualización de agenda asignada. |
+| **Funcionario** | Distrito Asignado | Carga de solicitudes, encuestas e informes generales. |
 
 ## 4. Arquitectura de Datos
 *   **Persistencia**: Firebase Firestore (NoSQL) con sincronización en tiempo real.

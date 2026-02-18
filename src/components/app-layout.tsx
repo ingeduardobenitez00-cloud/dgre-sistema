@@ -37,7 +37,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
       router.replace('/login');
     } else if (user && pathname === '/login') {
       router.replace('/');
-    } else if (user && pathname === '/' && user.profile?.role !== 'admin' && accessibleMenuItems.length === 1) {
+    } else if (user && pathname === '/' && user.profile?.role && user.profile?.role !== 'admin' && accessibleMenuItems.length === 1) {
       const targetPath = accessibleMenuItems[0]?.href;
       if (targetPath) {
         router.replace(targetPath);
@@ -47,18 +47,22 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
   
   const isRedirecting = useMemo(() => {
     if (!mounted) return true;
+    if (isUserLoading) return true;
     
-    // Optimizacion: Si estamos en login, mostrarlo de inmediato a menos que ya sepamos que hay un usuario
-    if (pathname === '/login') {
-      return !!user; // Solo redirigir (mostrar splash) si ya detectamos usuario para mandarlo al home
+    const isLoginPage = pathname === '/login';
+    
+    if (!user) {
+      // Si no hay usuario y no estamos en login, estamos en proceso de redirección
+      return !isLoginPage; 
     }
     
-    // En cualquier otra pagina, si estamos cargando auth o no hay usuario, mostramos splash hasta decidir
-    if (isUserLoading) return true;
-    if (!user) return true;
+    if (isLoginPage) {
+      // Si hay usuario pero seguimos en login, estamos redirigiendo al home
+      return true;
+    }
     
-    // Auto-redirect para usuarios con un solo modulo
-    if (pathname === '/' && user.profile?.role !== 'admin' && accessibleMenuItems.length === 1) return true;
+    // Auto-redirect para usuarios con un solo modulo en la raiz
+    if (pathname === '/' && user.profile?.role && user.profile?.role !== 'admin' && accessibleMenuItems.length === 1) return true;
     
     return false;
   }, [isUserLoading, user, pathname, accessibleMenuItems, mounted]);
