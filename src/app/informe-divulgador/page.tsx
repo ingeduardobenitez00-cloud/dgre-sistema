@@ -470,11 +470,11 @@ export default function InformeDivulgadorPage() {
               {eventPhotos.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {eventPhotos.map((photo, index) => (
-                    <Card key={index} className="relative group overflow-hidden border-2 border-primary/10">
+                    <Card key={index} className="relative overflow-hidden border-2 border-primary/10 shadow-sm">
                       <CardContent className="p-0 aspect-video relative">
                         <Image src={photo} alt={`Foto ${index + 1}`} fill className="object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Button variant="destructive" size="icon" className="rounded-full" onClick={() => removePhoto(index)}>
+                        <div className="absolute top-2 right-2 z-10">
+                          <Button variant="destructive" size="icon" className="h-8 w-8 rounded-full shadow-lg border-2 border-white" onClick={() => removePhoto(index)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
