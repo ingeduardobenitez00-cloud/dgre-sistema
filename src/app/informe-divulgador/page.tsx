@@ -194,47 +194,55 @@ export default function InformeDivulgadorPage() {
 
     let y = 40;
     
-    // Helper for sections
-    const drawSection = (lines: { label: string, value: string, xOffset: number, width: number }[], height: number) => {
+    // Helper for sections with improved spacing to prevent overlap
+    const drawSection = (lines: { label: string, value: string, xOffset: number, labelWidth: number }[], height: number) => {
       doc.rect(margin, y, pageWidth - (margin * 2), height);
       lines.forEach(line => {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.text(`${line.label}:`, margin + 2 + line.xOffset, y + (height / 2) + 1.5);
         doc.setFont('helvetica', 'normal');
-        doc.text(String(line.value || '').toUpperCase(), margin + 2 + line.xOffset + line.width, y + (height / 2) + 1.5);
+        doc.text(String(line.value || '').toUpperCase(), margin + 2 + line.xOffset + line.labelWidth, y + (height / 2) + 1.5);
       });
       y += height;
     };
 
     // Block 1: Event
     drawSection([
-      { label: "LUGAR DE DIVULGACIÓN", value: formData.lugar_divulgacion, xOffset: 0, width: 45 }
+      { label: "LUGAR DE DIVULGACIÓN", value: formData.lugar_divulgacion, xOffset: 0, labelWidth: 48 }
     ], 10);
     
-    const [year, month, day] = formData.fecha.split('-');
+    // Safety date parsing
+    let formattedDate = "";
+    if (formData.fecha) {
+        const parts = formData.fecha.split('-');
+        if (parts.length === 3) {
+            formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    }
+
     drawSection([
-      { label: "FECHA", value: `${day}/${month}/${year || '2026'}`, xOffset: 0, width: 15 },
-      { label: "HORARIO DE", value: formData.hora_desde, xOffset: 70, width: 25 },
-      { label: "A", value: formData.hora_hasta, xOffset: 120, width: 5 },
-      { label: "HS.", value: "", xOffset: 145, width: 0 }
+      { label: "FECHA", value: formattedDate, xOffset: 0, labelWidth: 15 },
+      { label: "HORARIO DE", value: formData.hora_desde, xOffset: 70, labelWidth: 25 },
+      { label: "A", value: formData.hora_hasta, xOffset: 120, labelWidth: 5 },
+      { label: "HS.", value: "", xOffset: 145, labelWidth: 0 }
     ], 10);
 
     // Block 2: Divulgador
     drawSection([
-      { label: "NOMBRE COMPLETO DIVULGADOR", value: formData.nombre_divulgador, xOffset: 0, width: 55 }
+      { label: "NOMBRE COMPLETO DIVULGADOR", value: formData.nombre_divulgador, xOffset: 0, labelWidth: 62 }
     ], 10);
     drawSection([
-      { label: "C.I.C. N.º", value: formData.cedula_divulgador, xOffset: 0, width: 18 },
-      { label: "VÍNCULO", value: formData.vinculo, xOffset: 70, width: 18 }
+      { label: "C.I.C. N.º", value: formData.cedula_divulgador, xOffset: 0, labelWidth: 18 },
+      { label: "VÍNCULO", value: formData.vinculo, xOffset: 70, labelWidth: 18 }
     ], 10);
 
     // Block 3: Location
     drawSection([
-      { label: "OFICINA", value: formData.oficina, xOffset: 0, width: 18 }
+      { label: "OFICINA", value: formData.oficina, xOffset: 0, labelWidth: 18 }
     ], 10);
     drawSection([
-      { label: "DEPARTAMENTO", value: formData.departamento, xOffset: 0, width: 30 }
+      { label: "DEPARTAMENTO", value: formData.departamento, xOffset: 0, labelWidth: 32 }
     ], 10);
 
     y += 10;
