@@ -275,14 +275,15 @@ export default function SolicitudCapacitacionPage() {
   };
 
   const handleSubmit = async () => {
-    if (!firestore || !user || !photoDataUri) return;
+    if (!firestore || !user) return;
+    
     setIsSubmitting(true);
     try {
       const solicitudData = {
         ...formData,
         departamento: user.profile?.departamento,
         distrito: user.profile?.distrito,
-        foto_firma: photoDataUri,
+        foto_firma: photoDataUri || '',
         usuario_id: user.uid,
         fecha_creacion: new Date().toISOString(),
         server_timestamp: serverTimestamp(),
@@ -469,33 +470,31 @@ export default function SolicitudCapacitacionPage() {
                 {isGeneratingPdf ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> GENERANDO PDF...</> : <><FileText className="mr-2 h-5 w-5" /> GENERAR ANEXO V (PDF)</>}
               </Button>
               
-              {pdfGenerated && (
-                <div className="w-full space-y-6">
-                  <div className="rounded-2xl border-4 border-dashed border-primary/20 p-8 bg-primary/5 flex flex-col items-center text-center">
-                    <Camera className="h-10 w-10 text-primary mb-4" />
-                    <Label className="block mb-2 text-xl font-black text-primary uppercase">Capturar Solicitud Firmada</Label>
-                    {photoDataUri ? (
-                      <div className="relative group w-full max-w-[280px] overflow-hidden rounded-2xl border-4 border-white shadow-2xl">
-                        <Image src={photoDataUri} alt="Firma" width={280} height={370} className="object-cover aspect-[3/4]" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                           <Button variant="destructive" size="sm" className="rounded-full gap-2" onClick={() => setPhotoDataUri(null)}><RefreshCw className="h-4 w-4" /> REPETIR</Button>
-                        </div>
+              <div className="w-full space-y-6">
+                <div className="rounded-2xl border-4 border-dashed border-primary/20 p-8 bg-primary/5 flex flex-col items-center text-center">
+                  <Camera className="h-10 w-10 text-primary mb-4" />
+                  <Label className="block mb-2 text-xl font-black text-primary uppercase">Capturar Solicitud Firmada</Label>
+                  {photoDataUri ? (
+                    <div className="relative group w-full max-w-[280px] overflow-hidden rounded-2xl border-4 border-white shadow-2xl">
+                      <Image src={photoDataUri} alt="Firma" width={280} height={370} className="object-cover aspect-[3/4]" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                         <Button variant="destructive" size="sm" className="rounded-full gap-2" onClick={() => setPhotoDataUri(null)}><RefreshCw className="h-4 w-4" /> REPETIR</Button>
                       </div>
-                    ) : (
-                      <label htmlFor="photo-upload" className="cursor-pointer group relative">
-                        <div className="inline-flex h-16 items-center justify-center rounded-full bg-primary px-10 py-4 text-md font-black text-white shadow-lg transition-all hover:scale-105">
-                          <Camera className="mr-3 h-6 w-6" /> INICIAR CÁMARA
-                        </div>
-                        <Input id="photo-upload" type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
-                      </label>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <label htmlFor="photo-upload" className="cursor-pointer group relative">
+                      <div className="inline-flex h-16 items-center justify-center rounded-full bg-primary px-10 py-4 text-md font-black text-white shadow-lg transition-all hover:scale-105">
+                        <Camera className="mr-3 h-6 w-6" /> INICIAR CÁMARA
+                      </div>
+                      <Input id="photo-upload" type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
+                    </label>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </CardContent>
           <CardFooter className="bg-muted/30 border-t p-6">
-            <Button onClick={handleSubmit} disabled={isSubmitting || !photoDataUri} className="w-full h-16 text-xl font-black uppercase shadow-xl" size="lg">
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full h-16 text-xl font-black uppercase shadow-xl" size="lg">
               {isSubmitting ? <><Loader2 className="animate-spin mr-3 h-7 w-7" /> GUARDANDO...</> : <><CheckCircle2 className="mr-3 h-7 w-7" /> FINALIZAR Y AGENDAR</>}
             </Button>
           </CardFooter>
