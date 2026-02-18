@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MapPin, FileText, Camera, CheckCircle2, RefreshCw, MousePointer2, User } from 'lucide-react';
+import { Loader2, MapPin, FileText, Camera, CheckCircle2, RefreshCw, MousePointer2, Upload, FileImage } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import jsPDF from 'jspdf';
@@ -281,8 +280,8 @@ export default function SolicitudCapacitacionPage() {
     try {
       const solicitudData = {
         ...formData,
-        departamento: user.profile?.departamento,
-        distrito: user.profile?.distrito,
+        departamento: user.profile?.departamento || '',
+        distrito: user.profile?.distrito || '',
         foto_firma: photoDataUri || '',
         usuario_id: user.uid,
         fecha_creacion: new Date().toISOString(),
@@ -472,8 +471,10 @@ export default function SolicitudCapacitacionPage() {
               
               <div className="w-full space-y-6">
                 <div className="rounded-2xl border-4 border-dashed border-primary/20 p-8 bg-primary/5 flex flex-col items-center text-center">
-                  <Camera className="h-10 w-10 text-primary mb-4" />
-                  <Label className="block mb-2 text-xl font-black text-primary uppercase">Capturar Solicitud Firmada</Label>
+                  <Upload className="h-10 w-10 text-primary mb-4" />
+                  <Label className="block mb-2 text-xl font-black text-primary uppercase">Alzar Solicitud Firmada</Label>
+                  <p className="text-xs text-muted-foreground mb-6 uppercase font-bold tracking-tight">Adjunta una foto o captura desde tu dispositivo</p>
+                  
                   {photoDataUri ? (
                     <div className="relative group w-full max-w-[280px] overflow-hidden rounded-2xl border-4 border-white shadow-2xl">
                       <Image src={photoDataUri} alt="Firma" width={280} height={370} className="object-cover aspect-[3/4]" />
@@ -483,10 +484,10 @@ export default function SolicitudCapacitacionPage() {
                     </div>
                   ) : (
                     <label htmlFor="photo-upload" className="cursor-pointer group relative">
-                      <div className="inline-flex h-16 items-center justify-center rounded-full bg-primary px-10 py-4 text-md font-black text-white shadow-lg transition-all hover:scale-105">
-                        <Camera className="mr-3 h-6 w-6" /> INICIAR CÁMARA
+                      <div className="inline-flex h-16 items-center justify-center rounded-full bg-primary px-10 py-4 text-md font-black text-white shadow-lg transition-all hover:scale-105 active:scale-95">
+                        <Upload className="mr-3 h-6 w-6" /> SELECCIONAR IMAGEN
                       </div>
-                      <Input id="photo-upload" type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
+                      <Input id="photo-upload" type="file" accept="image/*" className="hidden" onChange={handlePhotoCapture} />
                     </label>
                   )}
                 </div>
