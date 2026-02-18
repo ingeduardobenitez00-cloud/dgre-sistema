@@ -47,15 +47,18 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
   
   const isRedirecting = useMemo(() => {
     if (!mounted) return true;
-    // We allow rendering the login page quickly without waiting for isUserLoading if possible
-    if (pathname === '/login' && !isUserLoading && !user) return false;
     
+    // Optimizacion: Si estamos en login, mostrarlo de inmediato a menos que ya sepamos que hay un usuario
+    if (pathname === '/login') {
+      return !!user; // Solo redirigir (mostrar splash) si ya detectamos usuario para mandarlo al home
+    }
+    
+    // En cualquier otra pagina, si estamos cargando auth o no hay usuario, mostramos splash hasta decidir
     if (isUserLoading) return true;
-    if (!user && pathname !== '/login') return true;
-    if (user && pathname === '/login') return true;
+    if (!user) return true;
     
-    // Auto-redirect for single module users
-    if (user && pathname === '/' && user.profile?.role !== 'admin' && accessibleMenuItems.length === 1) return true;
+    // Auto-redirect para usuarios con un solo modulo
+    if (pathname === '/' && user.profile?.role !== 'admin' && accessibleMenuItems.length === 1) return true;
     
     return false;
   }, [isUserLoading, user, pathname, accessibleMenuItems, mounted]);
@@ -64,8 +67,13 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground animate-pulse">
+          <div className="relative">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <div className="absolute inset-0 flex items-center justify-center">
+               <div className="h-2 w-2 bg-primary rounded-full animate-ping" />
+            </div>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 animate-pulse">
             Iniciando Sistema
           </p>
         </div>
@@ -74,7 +82,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (pathname === '/login') {
-    return <div key="login-root" className="animate-in fade-in duration-500">{children}</div>;
+    return <div key="login-root" className="animate-in fade-in duration-300">{children}</div>;
   }
 
   return (
@@ -83,7 +91,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
       </Sidebar>
       <SidebarInset>
-        <div key={pathname} className="flex flex-1 flex-col animate-in fade-in slide-in-from-bottom-1 duration-300">
+        <div key={pathname} className="flex flex-1 flex-col animate-in fade-in slide-in-from-bottom-1 duration-200">
           {children}
         </div>
       </SidebarInset>

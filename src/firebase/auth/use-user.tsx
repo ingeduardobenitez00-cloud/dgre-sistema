@@ -52,9 +52,13 @@ export const useUser = (): UserHookResult => {
     };
   }, [authUser, profileData]);
 
+  // Optimization: If auth is done and user is null, we are NOT loading anymore.
+  // We only wait for profile if authUser exists.
+  const loading = isAuthLoading || (!!authUser && isProfileLoading);
+
   return {
     user: enrichedUser,
-    isUserLoading: isAuthLoading || isProfileLoading, // Loading if either auth state or profile is loading
-    userError: authError || profileError, // Return the first error encountered
+    isUserLoading: loading,
+    userError: authError || profileError,
   };
 };
