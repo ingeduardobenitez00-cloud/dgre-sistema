@@ -10,7 +10,6 @@ import Header from '@/components/header';
 import { useUser } from '@/firebase';
 import { dashboardMenuItems } from '@/lib/menu-config';
 
-
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
@@ -26,11 +25,10 @@ export default function Home() {
     });
   }, [user]);
 
-  // The main loading and redirection is handled by AuthLayout
   if (isUserLoading) {
     return (
       <div className="flex min-h-screen w-full flex-col">
-        <Header title="Panel Principal" />
+        <Header title="Cargando Panel..." />
         <main className="flex flex-1 items-center justify-center">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </main>
@@ -55,10 +53,12 @@ export default function Home() {
             <Link href={item.href} key={item.href} className="group">
               <Card className="h-full transition-all duration-200 ease-in-out group-hover:shadow-lg group-hover:border-primary/50 group-hover:-translate-y-1">
                 <CardHeader className="flex flex-row items-center gap-4">
-                  <item.icon className="h-8 w-8 text-primary" />
+                  <div className="p-2 rounded-lg bg-primary/5 group-hover:bg-primary/10 transition-colors">
+                    <item.icon className="h-8 w-8 text-primary" />
+                  </div>
                   <div>
                     <CardTitle>{item.label}</CardTitle>
-                    <CardDescription className="mt-1">
+                    <CardDescription className="mt-1 line-clamp-2">
                       {item.description}
                     </CardDescription>
                   </div>

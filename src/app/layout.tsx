@@ -1,5 +1,5 @@
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import 'leaflet/dist/leaflet.css';
 import './globals.css';
@@ -12,14 +12,30 @@ const inter = Inter({
   subsets: ['latin'], 
   variable: '--font-sans',
   display: 'swap',
+  preload: true,
 });
 
+export const viewport: Viewport = {
+  themeColor: '#2e3b8e',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: 'JUSTICIA ELECTORAL',
-  description: 'Gestión de informes y registros electorales.',
-  icons: {
-    icon: '/favicon.ico',
+  title: {
+    default: 'Justicia Electoral | Sistema de Gestión',
+    template: '%s | Justicia Electoral',
   },
+  description: 'Sistema oficial de gestión de informes, registros electorales y capacitaciones del CIDEE.',
+  keywords: ['justicia electoral', 'cidee', 'paraguay', 'elecciones', 'capacitación'],
+  authors: [{ name: 'Justicia Electoral' }],
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({

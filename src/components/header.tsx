@@ -6,7 +6,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useFirebase, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Menu } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 
@@ -28,13 +28,15 @@ export default function Header({ title }: { title?: string }) {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background shadow-sm">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-4">
-          <SidebarTrigger className="flex h-10 w-10 rounded-full border border-muted-foreground/20 hover:bg-muted transition-all text-muted-foreground" />
+          <SidebarTrigger className="flex h-10 w-10 rounded-full border border-muted-foreground/20 hover:bg-muted transition-all text-muted-foreground">
+            <Menu className="h-5 w-5" />
+          </SidebarTrigger>
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 relative">
-               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+               <Image src="/logo.png" alt="Justicia Electoral Logo" fill className="object-contain" priority />
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] font-black text-foreground uppercase leading-tight tracking-tighter">

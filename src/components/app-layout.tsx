@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -44,12 +45,18 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isUserLoading, user, pathname, router, accessibleMenuItems, mounted]);
   
-  // Show loader during initial auth check or if redirection is imminent
   const isRedirecting = useMemo(() => {
-    if (isUserLoading || !mounted) return true;
+    if (!mounted) return true;
+    // We allow rendering the login page quickly without waiting for isUserLoading if possible
+    if (pathname === '/login' && !isUserLoading && !user) return false;
+    
+    if (isUserLoading) return true;
     if (!user && pathname !== '/login') return true;
     if (user && pathname === '/login') return true;
+    
+    // Auto-redirect for single module users
     if (user && pathname === '/' && user.profile?.role !== 'admin' && accessibleMenuItems.length === 1) return true;
+    
     return false;
   }, [isUserLoading, user, pathname, accessibleMenuItems, mounted]);
 
@@ -58,14 +65,16 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground animate-pulse">Cargando sistema...</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground animate-pulse">
+            Iniciando Sistema
+          </p>
         </div>
       </div>
     );
   }
 
   if (pathname === '/login') {
-    return <div key="login-root">{children}</div>;
+    return <div key="login-root" className="animate-in fade-in duration-500">{children}</div>;
   }
 
   return (
@@ -74,7 +83,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
       </Sidebar>
       <SidebarInset>
-        <div key={pathname} className="flex flex-1 flex-col">
+        <div key={pathname} className="flex flex-1 flex-col animate-in fade-in slide-in-from-bottom-1 duration-300">
           {children}
         </div>
       </SidebarInset>
