@@ -1,6 +1,7 @@
 /**
  * @fileOverview Script de importación masiva para el Padrón Electoral.
  * Procesa archivos Excel de 1 millón de registros cada uno y los sube a Firestore.
+ * Busca los archivos en la carpeta /scripts/
  */
 
 import { initializeApp } from 'firebase/app';
@@ -30,7 +31,7 @@ const email = process.env.ADMIN_EMAIL;
 const password = process.env.ADMIN_PASSWORD;
 
 async function run() {
-  console.log('\n--- MOTOR DE IMPORTACIÓN MASIVA CIDEE ---\n');
+  console.log('\n--- MOTOR DE IMPORTACIÓN MASIVA CIDEE (9M REGISTROS) ---\n');
 
   if (!email || !password) {
     console.error('ERROR CRÍTICO: Credenciales no detectadas.');
@@ -43,12 +44,12 @@ async function run() {
     await signInWithEmailAndPassword(auth, email, password);
     console.log('>> Conexión establecida como administrador.\n');
 
-    // Procesar los 9 archivos secuencialmente
+    // Procesar los 9 archivos secuencialmente buscando en /scripts/
     for (let i = 1; i <= 9; i++) {
       await importFile(i);
     }
 
-    console.log('>> PROCESO GLOBAL FINALIZADO EXITOSAMENTE.');
+    console.log('\n>> PROCESO GLOBAL FINALIZADO EXITOSAMENTE.');
     process.exit(0);
   } catch (err: any) {
     console.error('\n>> ERROR FATAL EN EL PROCESO:', err.message);
@@ -58,10 +59,11 @@ async function run() {
 
 async function importFile(fileNumber: number) {
   const fileName = `cedula${fileNumber}.xlsx`;
-  const filePath = path.join(process.cwd(), fileName);
+  // Buscamos el archivo en la carpeta /scripts/ relativa a la raíz
+  const filePath = path.join(process.cwd(), 'scripts', fileName);
 
   if (!fs.existsSync(filePath)) {
-    console.log(`[SALTADO] El archivo ${fileName} no existe en la raíz.\n`);
+    console.log(`[SALTADO] El archivo ${fileName} no existe en la carpeta /scripts/.\n`);
     return;
   }
 
@@ -73,7 +75,7 @@ async function importFile(fileNumber: number) {
     const worksheet = workbook.Sheets[sheetName];
     const data: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-    console.log(`[INFO] Se detectaron ${data.length.toLocaleString()} registros.`);
+    console.log(`[INFO] Se detectaron ${data.length.toLocaleString()} registros en ${fileName}.`);
     console.log(`[SUBIDA] Iniciando carga a la colección 'padron'...`);
 
     const colRef = collection(db, 'padron');
@@ -105,7 +107,7 @@ async function importFile(fileNumber: number) {
       process.stdout.write(`\r   Progreso ${fileName}: ${processedCount.toLocaleString()} / ${data.length.toLocaleString()} (${Math.round((processedCount/data.length)*100)}%)`);
       
       // Breve pausa para no saturar el ancho de banda y respetar cuotas
-      await new Promise(res => setTimeout(res, 80));
+      await new Promise(res => setTimeout(res, 50));
     }
 
     console.log(`\n[OK] ${fileName} importado correctamente.\n`);
