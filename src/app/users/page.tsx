@@ -8,12 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, EyeOff, UserPlus, Users, Loader2, Edit, Trash2, KeyRound, Search, X, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Users, Loader2, Edit, Trash2, KeyRound, Search, X, ShieldCheck, ShieldAlert, FileDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -124,6 +124,7 @@ const ACTIONS = [
     { id: 'add', label: 'Guardar' },
     { id: 'edit', label: 'Editar' },
     { id: 'delete', label: 'Borrar' },
+    { id: 'pdf', label: 'PDF' },
 ];
 
 const GLOBAL_PERMISSIONS = ['admin_filter', 'assign_staff'];
@@ -135,7 +136,7 @@ const GLOBAL_PERMISSION_LABELS: { [key: string]: string } = {
 export default function UsersPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const { toast } = useToast();
-  const { auth, firestore } = useFirebase();
+  const { firestore } = useFirebase();
   const { user: currentUser, isUserLoading } = useUser();
 
   const usersQuery = useMemoFirebase(() => (firestore && currentUser?.profile?.role === 'admin' ? collection(firestore, 'users') : null), [firestore, currentUser]);
@@ -192,25 +193,25 @@ export default function UsersPage() {
     setPasswordVisible(!passwordVisible);
   };
   
-  const processPermissions = (formData: FormData) => {
+  const processPermissions = (formData: FormData, isEdit: boolean = false) => {
+    const prefix = isEdit ? 'edit-' : '';
     const modules: string[] = [];
     const permissions: string[] = [];
 
     ALL_MODULES.forEach(mod => {
-        if (formData.get(`access-${mod}`)) {
+        if (formData.get(`${prefix}access-${mod}`)) {
             modules.push(mod);
-            // Default view permission if module is enabled
             permissions.push(`${mod}:view`);
         }
-        ACTIONS.forEach(action => {
-            if (formData.get(`perm-${mod}-${action.id}`)) {
+        ACTIONS.filter(a => a.id !== 'view').forEach(action => {
+            if (formData.get(`${prefix}perm-${mod}-${action.id}`)) {
                 permissions.push(`${mod}:${action.id}`);
             }
         });
     });
 
     GLOBAL_PERMISSIONS.forEach(perm => {
-        if (formData.get(`global-perm-${perm}`)) {
+        if (formData.get(`${prefix}global-perm-${perm}`)) {
             permissions.push(perm);
         }
     });
@@ -293,7 +294,7 @@ export default function UsersPage() {
     const cedula = formData.get('cedula') as string;
     const vinculo = formData.get('vinculo') as string;
     
-    const { modules, permissions } = processPermissions(formData);
+    const { modules, permissions } = processPermissions(formData, true);
     
     const updatedFields: any = { 
       role, 
@@ -331,14 +332,14 @@ export default function UsersPage() {
     const user = editingUser;
     
     return (
-        <div className="grid grid-cols-12 gap-2 items-center py-2.5 px-3 border-b border-muted/50 hover:bg-muted/30 transition-colors last:border-0">
-            <div className="col-span-4">
-                <p className="font-bold text-[11px] uppercase tracking-tight truncate">{MODULE_LABELS[mod] || mod}</p>
+        <div className="grid grid-cols-12 gap-2 items-center py-2 px-3 border-b border-muted/50 hover:bg-muted/30 transition-colors last:border-0">
+            <div className="col-span-2">
+                <p className="font-bold text-[10px] uppercase tracking-tighter truncate">{MODULE_LABELS[mod] || mod}</p>
             </div>
             <div className="col-span-2 flex justify-center">
                 <Checkbox 
                     id={`${prefix}access-${mod}`} 
-                    name={`access-${mod}`} 
+                    name={`${prefix}access-${mod}`} 
                     defaultChecked={isEdit ? user?.modules?.includes(mod) : false} 
                 />
             </div>
@@ -346,7 +347,7 @@ export default function UsersPage() {
                 <div key={action.id} className="col-span-2 flex justify-center">
                     <Checkbox 
                         id={`${prefix}perm-${mod}-${action.id}`} 
-                        name={`perm-${mod}-${action.id}`} 
+                        name={`${prefix}perm-${mod}-${action.id}`} 
                         defaultChecked={isEdit ? user?.permissions?.includes(`${mod}:${action.id}`) : false}
                     />
                 </div>
@@ -354,6 +355,17 @@ export default function UsersPage() {
         </div>
     );
   };
+
+  const PermissionHeader = () => (
+    <div className="grid grid-cols-12 gap-2 w-full text-center py-2 px-3 bg-muted/50 border-b border-muted">
+        <div className="col-span-2"></div>
+        {ACTIONS.map(action => (
+            <div key={action.id} className="col-span-2 text-[9px] font-black uppercase text-primary">
+                {action.label}
+            </div>
+        ))}
+    </div>
+  );
 
   if (isUserLoading) {
     return (
@@ -485,16 +497,7 @@ export default function UsersPage() {
               <Separator />
 
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <Label className="text-sm font-black uppercase tracking-tight text-primary">Matriz de Módulos y Permisos</Label>
-                    <div className="hidden md:grid grid-cols-12 gap-2 w-full max-w-[450px] text-center">
-                        <div className="col-span-4"></div>
-                        <div className="col-span-2 text-[9px] font-black uppercase text-muted-foreground">VER</div>
-                        <div className="col-span-2 text-[9px] font-black uppercase text-muted-foreground">GUARDAR</div>
-                        <div className="col-span-2 text-[9px] font-black uppercase text-muted-foreground">EDITAR</div>
-                        <div className="col-span-2 text-[9px] font-black uppercase text-muted-foreground">BORRAR</div>
-                    </div>
-                </div>
+                <Label className="text-sm font-black uppercase tracking-tight text-primary block">Matriz de Módulos y Permisos</Label>
                 
                 <Accordion type="multiple" className="w-full border rounded-xl overflow-hidden bg-white shadow-sm">
                     {MODULE_GROUPS.map((group, idx) => (
@@ -503,6 +506,7 @@ export default function UsersPage() {
                                 {group.label}
                             </AccordionTrigger>
                             <AccordionContent className="p-0">
+                                <PermissionHeader />
                                 <div className="divide-y divide-muted/30">
                                     {group.modules.map(module => (
                                         <PermissionRow key={module} mod={module} />
@@ -734,16 +738,7 @@ export default function UsersPage() {
                             <Separator />
 
                             <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-black uppercase tracking-tight text-primary">Matriz de Módulos y Permisos</Label>
-                                    <div className="hidden md:grid grid-cols-12 gap-2 w-full max-w-[450px] text-center">
-                                        <div className="col-span-4"></div>
-                                        <div className="col-span-2 text-[9px] font-black uppercase text-muted-foreground">VER</div>
-                                        <div className="col-span-2 text-[9px] font-black uppercase text-muted-foreground">GUARDAR</div>
-                                        <div className="col-span-2 text-[9px] font-black uppercase text-muted-foreground">EDITAR</div>
-                                        <div className="col-span-2 text-[9px] font-black uppercase text-muted-foreground">BORRAR</div>
-                                    </div>
-                                </div>
+                                <Label className="text-sm font-black uppercase tracking-tight text-primary block">Matriz de Módulos y Permisos</Label>
                                 <Accordion type="multiple" className="w-full border rounded-xl overflow-hidden shadow-sm">
                                     {MODULE_GROUPS.map((group, idx) => (
                                         <AccordionItem value={`edit-group-${idx}`} key={`edit-${group.label}`} className="border-b last:border-b-0">
@@ -751,6 +746,7 @@ export default function UsersPage() {
                                                 {group.label}
                                             </AccordionTrigger>
                                             <AccordionContent className="p-0">
+                                                <PermissionHeader />
                                                 <div className="divide-y divide-muted/30">
                                                     {group.modules.map(module => (
                                                         <PermissionRow key={module} mod={module} isEdit={true} />
@@ -762,7 +758,7 @@ export default function UsersPage() {
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                             {GLOBAL_PERMISSIONS.map(permission => (
                                                                 <div key={permission} className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-primary/10">
-                                                                    <Checkbox id={`edit-global-perm-${permission}`} name={`global-perm-${permission}`} defaultChecked={editingUser.permissions?.includes(permission)} />
+                                                                    <Checkbox id={`edit-global-perm-${permission}`} name={`edit-global-perm-${permission}`} defaultChecked={editingUser.permissions?.includes(permission)} />
                                                                     <Label htmlFor={`edit-global-perm-${permission}`} className="font-bold text-[10px] uppercase cursor-pointer">
                                                                         {GLOBAL_PERMISSION_LABELS[permission] || permission}
                                                                     </Label>
