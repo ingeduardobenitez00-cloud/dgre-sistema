@@ -584,6 +584,15 @@
         "local": { "type": "string" }
       },
       "required": ["cedula", "nombre"]
+    },
+    "PartidoPolitico": {
+      "title": "Partido Político",
+      "type": "object",
+      "properties": {
+        "nombre": { "type": "string" },
+        "siglas": { "type": "string" }
+      },
+      "required": ["nombre"]
     }
   },
   "auth": {
@@ -675,6 +684,12 @@
         "$ref": "#/entities/Padron"
       },
       "description": "Base de datos nacional de ciudadanos."
+    },
+    "/partidos-politicos/{partidoId}": {
+      "schema": {
+        "$ref": "#/entities/PartidoPolitico"
+      },
+      "description": "Directorio oficial de partidos y movimientos políticos."
     }
   }
 }

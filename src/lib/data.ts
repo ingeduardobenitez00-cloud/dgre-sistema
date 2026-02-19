@@ -189,4 +189,10 @@ export type PadronItem = {
   local: string;
 }
 
+export type PartidoPolitico = {
+  id: string;
+  nombre: string;
+  siglas: string;
+}
+
 export const initialDepartments: Department[] = [];

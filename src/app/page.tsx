@@ -38,8 +38,8 @@ const MODULE_GROUPS = [
   },
   {
     label: "Gestión de Datos",
-    description: "Herramientas de importación masiva de reportes y locales desde archivos externos.",
-    modules: ['importar-reportes', 'importar-locales']
+    description: "Herramientas de importación masiva de reportes, locales y partidos políticos.",
+    modules: ['importar-reportes', 'importar-locales', 'importar-padron', 'importar-partidos']
   },
   {
     label: "Sistema",

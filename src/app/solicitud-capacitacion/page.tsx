@@ -1,18 +1,17 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MapPin, FileText, Camera, CheckCircle2, RefreshCw, MousePointer2, Upload, Trash2 } from 'lucide-react';
-import { useUser, useFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { Loader2, MapPin, FileText, Camera, CheckCircle2, RefreshCw, MousePointer2, Upload, Trash2, Search, X } from 'lucide-react';
+import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +20,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
+import { type PartidoPolitico } from '@/lib/data';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export default function SolicitudCapacitacionPage() {
   const { user, isUserLoading } = useUser();
@@ -47,10 +60,15 @@ export default function SolicitudCapacitacionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [isPartyPopoverOpen, setIsPartyPopoverOpen] = useState(false);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<any>(null);
   const markerRef = useRef<any>(null);
+
+  // Fetch Partidos Políticos
+  const partidosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'partidos-politicos'), orderBy('nombre')) : null, [firestore]);
+  const { data: partidosData } = useCollection<PartidoPolitico>(partidosQuery);
 
   // Set initial dates client-side only
   useEffect(() => {
@@ -225,6 +243,7 @@ export default function SolicitudCapacitacionPage() {
       if (formData.rol_solicitante === 'otro') doc.text("X", margin + 98.5, tableY - 0.5);
       tableY += 4;
 
+      drawRow("ORGANIZACIÓN", `: ${formData.solicitante_entidad}`);
       drawRow("NOMBRE COMPLETO", `: ${formData.nombre_completo}`);
       drawRow("C.I.C. N.º", `: ${formData.cedula}`);
       drawRow("NÚMERO DE CONTACTO", `: ${formData.telefono}`);
@@ -347,13 +366,63 @@ export default function SolicitudCapacitacionPage() {
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Grupo Político Solicitante</Label>
-                  <Input 
-                    name="solicitante_entidad" 
-                    value={formData.solicitante_entidad} 
-                    onChange={handleInputChange} 
-                    placeholder="Ej: Asociación Nacional Republicana, PLRA, etc." 
-                    className="font-bold border-2"
-                  />
+                  <div className="flex gap-2">
+                    <Popover open={isPartyPopoverOpen} onOpenChange={setIsPartyPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={isPartyPopoverOpen}
+                          className="flex-1 justify-between text-left font-bold border-2 h-10 overflow-hidden"
+                        >
+                          {formData.solicitante_entidad || "Seleccionar partido..."}
+                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Buscar partido o movimiento..." />
+                          <CommandList>
+                            <CommandEmpty>
+                              <div className="p-4 text-center">
+                                <p className="text-xs text-muted-foreground mb-2">No se encontró el partido.</p>
+                                <Button size="sm" onClick={() => setIsPartyPopoverOpen(false)} className="text-[10px] font-bold uppercase">Ingresar manualmente</Button>
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup heading="Lista Oficial">
+                              {partidosData?.map((partido) => (
+                                <CommandItem
+                                  key={partido.id}
+                                  value={partido.nombre}
+                                  onSelect={(currentValue) => {
+                                    setFormData(p => ({ ...p, solicitante_entidad: currentValue }));
+                                    setIsPartyPopoverOpen(false);
+                                  }}
+                                  className="text-xs uppercase font-bold"
+                                >
+                                  {partido.nombre} {partido.siglas && `(${partido.siglas})`}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    {formData.solicitante_entidad && (
+                      <Button variant="ghost" size="icon" onClick={() => setFormData(p => ({ ...p, solicitante_entidad: '' }))}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {!partidosData?.length && (
+                    <Input 
+                      name="solicitante_entidad" 
+                      value={formData.solicitante_entidad} 
+                      onChange={handleInputChange} 
+                      placeholder="Ej: Asociación Nacional Republicana, PLRA, etc." 
+                      className="font-bold border-2"
+                    />
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

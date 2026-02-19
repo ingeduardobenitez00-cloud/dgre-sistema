@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, DatabaseBackup } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, DatabaseBackup, Flag } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -91,6 +91,12 @@ export const dashboardMenuItems = [
     label: 'Importar Padrón Electoral',
     icon: DatabaseBackup,
     description: 'Herramienta masiva para cargar archivos de 1M de registros.',
+  },
+  {
+    href: '/importar-partidos',
+    label: 'Importar Partidos Políticos',
+    icon: Flag,
+    description: 'Carga el directorio de partidos y movimientos políticos.',
   },
   {
     href: '/cargar-fotos-locales',
