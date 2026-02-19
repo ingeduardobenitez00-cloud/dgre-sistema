@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -22,14 +23,15 @@ service cloud.firestore {
       return isSignedIn() && data != null && data.role == role;
     }
     
-    function isAdministrative() {
+    function hasPermission(module, action) {
       let data = getUserData();
       if (!isSignedIn() || data == null) return false;
-      let role = data.role;
-      return role == 'admin' || role == 'director' || role == 'jefe';
+      if (data.role == 'admin') return true;
+      let permString = module + ":" + action;
+      return ('permissions' in data && permString in data.permissions) || (action in data.permissions);
     }
-    
-    function hasPermission(permission) {
+
+    function hasGlobalPermission(permission) {
       let data = getUserData();
       return isSignedIn() && data != null && 'permissions' in data && permission in data.permissions;
     }
@@ -70,70 +72,66 @@ service cloud.firestore {
 
     /** Main Data Collections **/
     match /locales-votacion/{localId} {
-      allow read: if isSignedIn();
-      allow write: if isAdministrative();
+      allow read: if isSignedIn() && hasPermission('locales-votacion', 'view');
+      allow create: if hasPermission('locales-votacion', 'add');
+      allow update: if hasPermission('locales-votacion', 'edit');
+      allow delete: if hasPermission('locales-votacion', 'delete');
     }
     
     match /imagenes/{imagenId} {
-      allow read: if isAdministrative() || hasPermission('view_images');
+      allow read: if hasPermission('fotos', 'view') || hasPermission('ficha', 'view');
       allow create: if isSignedIn() && (
-        isAdministrative() ||
-        (isRole('funcionario') && hasPermission('add') && isAssignedTo(request.resource.data.departamento, request.resource.data.distrito))
+        hasPermission('fotos', 'add') || hasPermission('ficha', 'add')
       );
-      allow update, delete: if isSignedIn() && (
-        isAdministrative() ||
-        (isRole('funcionario') && (hasPermission('add') || hasPermission('delete')) && isAssignedTo(resource.data.departamento, resource.data.distrito))
+      allow update: if isSignedIn() && (
+        hasPermission('fotos', 'edit') || hasPermission('ficha', 'edit')
+      );
+      allow delete: if isSignedIn() && (
+        hasPermission('fotos', 'delete') || hasPermission('ficha', 'delete')
       );
     }
 
     match /reports/{reportId} {
-      allow read: if isAdministrative() || hasPermission('view_report');
-      allow create, update: if isSignedIn() && (
-        isAdministrative() ||
-        (isRole('funcionario') && hasPermission('edit') && isAssignedTo(request.resource.data.departamento, request.resource.data.distrito))
-      );
-      allow delete: if isSignedIn() && (
-        isAdministrative() ||
-        (isRole('funcionario') && hasPermission('delete') && isAssignedTo(request.resource.data.departamento, request.resource.data.distrito))
-      );
+      allow read: if hasPermission('ficha', 'view') || hasPermission('resumen', 'view');
+      allow create: if hasPermission('ficha', 'add') || hasPermission('cargar-ficha', 'add');
+      allow update: if hasPermission('ficha', 'edit') || hasPermission('cargar-ficha', 'edit');
+      allow delete: if hasPermission('ficha', 'delete');
     }
 
     match /solicitudes-capacitacion/{solicitudId} {
-      allow get: if isSignedIn() && (
-        isAdministrative() || 
-        (isRole('funcionario') && isAssignedTo(resource.data.departamento, resource.data.distrito)) ||
-        (isRole('divulgador') && isAssignedTo(resource.data.departamento, resource.data.distrito))
-      );
-      allow list: if isSignedIn() && (isAdministrative() || isRole('funcionario') || isRole('divulgador'));
-      allow create: if isSignedIn() && (
-        isAdministrative() || 
-        (isRole('funcionario') && isAssignedTo(request.resource.data.departamento, request.resource.data.distrito))
-      );
-      allow update, delete: if isAdministrative();
+      allow get: if isSignedIn() && hasPermission('solicitud-capacitacion', 'view');
+      allow list: if isSignedIn() && (hasPermission('solicitud-capacitacion', 'view') || hasPermission('agenda-capacitacion', 'view'));
+      allow create: if hasPermission('solicitud-capacitacion', 'add');
+      allow update: if hasPermission('agenda-capacitacion', 'edit') || hasGlobalPermission('assign_staff');
+      allow delete: if hasPermission('agenda-capacitacion', 'delete');
     }
 
     match /encuestas-satisfaccion/{encuestaId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdministrative();
+      allow read: if hasPermission('encuesta-satisfaccion', 'view') || hasPermission('estadisticas-capacitacion', 'view');
+      allow create: if hasPermission('encuesta-satisfaccion', 'add');
+      allow update: if hasPermission('encuesta-satisfaccion', 'edit');
+      allow delete: if hasPermission('encuesta-satisfaccion', 'delete');
     }
 
     match /informes-divulgador/{informeId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdministrative();
+      allow read: if hasPermission('informe-divulgador', 'view') || hasPermission('informe-semanal-puntos-fijos', 'view');
+      allow create: if hasPermission('informe-divulgador', 'add');
+      allow update: if hasPermission('informe-divulgador', 'edit');
+      allow delete: if hasPermission('informe-divulgador', 'delete');
     }
 
     match /informes-semanales-anexo-iv/{informeId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdministrative();
+      allow read: if hasPermission('informe-semanal-puntos-fijos', 'view');
+      allow create: if hasPermission('informe-semanal-puntos-fijos', 'add');
+      allow update: if hasPermission('informe-semanal-puntos-fijos', 'edit');
+      allow delete: if hasPermission('informe-semanal-puntos-fijos', 'delete');
     }
 
     match /movimientos-maquinas/{movimientoId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isAdministrative();
+      allow read: if hasPermission('control-movimiento-maquinas', 'view');
+      allow create: if hasPermission('control-movimiento-maquinas', 'add');
+      allow update: if hasPermission('control-movimiento-maquinas', 'edit');
+      allow delete: if hasPermission('control-movimiento-maquinas', 'delete');
     }
 
     match /padron/{padronId} {
@@ -144,10 +142,10 @@ service cloud.firestore {
     /** User Profiles **/
     match /users/{userId} {
         allow get: if isOwner(userId) || isAdmin();
-        allow list: if isAdmin() || (isAdministrative() && request.query.distrito == getUserData().distrito);
-        allow create: if isOwner(userId) || isAdmin();
-        allow update: if isOwner(userId) || isAdmin();
-        allow delete: if isAdmin();
+        allow list: if isAdmin() || (hasPermission('users', 'view'));
+        allow create: if isAdmin() || (hasPermission('users', 'add'));
+        allow update: if isOwner(userId) || isAdmin() || (hasPermission('users', 'edit'));
+        allow delete: if isAdmin() || (hasPermission('users', 'delete'));
     }
   }
 }

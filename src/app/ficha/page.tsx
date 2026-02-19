@@ -86,12 +86,14 @@ function FichaContent() {
   
   const isAdmin = currentUser?.profile?.role === 'admin';
   const isFuncionario = currentUser?.profile?.role === 'funcionario';
-  const canViewReport = isAdmin || currentUser?.profile?.permissions?.includes('view_report');
-  const canViewImages = isAdmin || currentUser?.profile?.permissions?.includes('view_images');
-  const canEditReport = isAdmin || currentUser?.profile?.permissions?.includes('edit');
-  const canAddImages = isAdmin || currentUser?.profile?.permissions?.includes('add');
-  const canDeleteImages = isAdmin || (currentUser?.profile?.permissions?.includes('add') || currentUser?.profile?.permissions?.includes('delete'));
-  const canGeneratePdf = isAdmin || currentUser?.profile?.permissions?.includes('generar_pdf');
+  
+  // New Granular Permissions
+  const canViewReport = isAdmin || currentUser?.profile?.permissions?.includes('ficha:view');
+  const canViewImages = isAdmin || currentUser?.profile?.permissions?.includes('ficha:view');
+  const canEditReport = isAdmin || currentUser?.profile?.permissions?.includes('ficha:edit') || currentUser?.profile?.permissions?.includes('cargar-ficha:edit');
+  const canAddImages = isAdmin || currentUser?.profile?.permissions?.includes('ficha:add') || currentUser?.profile?.permissions?.includes('cargar-ficha:add');
+  const canDeleteImages = isAdmin || currentUser?.profile?.permissions?.includes('ficha:delete');
+  const canGeneratePdf = isAdmin || currentUser?.profile?.permissions?.includes('generar_pdf') || currentUser?.profile?.permissions?.includes('ficha:view');
 
 
   useEffect(() => {
@@ -398,22 +400,18 @@ function FichaContent() {
     if (!firestore || !currentUser) return;
     try {
       if (currentReport) {
-        // Update existing report
         const reportRef = doc(firestore, 'reports', currentReport.id);
         await setDoc(reportRef, data, { merge: true });
-        toast({ title: "Informe actualizado", description: "Los cambios han sido guardados." });
+        toast({ title: "Informe actualizado" });
       } else {
-        // Create new report
         await addDoc(collection(firestore, 'reports'), data);
-        toast({ title: "Informe creado", description: "El nuevo informe ha sido guardado." });
+        toast({ title: "Informe creado" });
       }
       setEditModalOpen(false);
-      // Manually trigger a re-fetch if needed
       setShouldFetch(false); 
       setTimeout(() => setShouldFetch(true), 50);
     } catch(e) {
-      console.error(e);
-      toast({ title: "Error al guardar", description: "No se pudieron guardar los cambios.", variant: "destructive" });
+      toast({ title: "Error al guardar", variant: "destructive" });
     }
   };
 
@@ -426,7 +424,6 @@ function FichaContent() {
     const imagesCollectionRef = collection(firestore, 'imagenes');
     const totalImages = newImages.length;
     let uploadedCount = 0;
-    const uploadedImages: ImageData[] = [];
 
     for (const newImage of newImages) {
         const fullImageData = {
@@ -435,20 +432,10 @@ function FichaContent() {
             distrito: selectedDistrict,
         };
         try {
-            const docRef = await addDoc(imagesCollectionRef, fullImageData);
-            if (setImagesData) {
-              setImagesData(prev => [...(prev || []), { id: docRef.id, ...fullImageData }]);
-            }
-            uploadedImages.push({ id: docRef.id, ...fullImageData });
+            await addDoc(imagesCollectionRef, fullImageData);
             uploadedCount++;
             setUploadProgress((uploadedCount / totalImages) * 100);
         } catch (error) {
-            const contextualError = new FirestorePermissionError({
-                operation: 'create',
-                path: 'imagenes',
-                requestResourceData: fullImageData
-            });
-            errorEmitter.emit('permission-error', contextualError);
             toast({
                 title: "Error de Subida",
                 description: `No se pudo subir la imagen ${newImage.alt}.`,
@@ -457,14 +444,12 @@ function FichaContent() {
         }
     }
 
-    if (uploadedImages.length > 0) {
-      toast({
-        title: 'Subida Completada',
-        description: `${uploadedCount} de ${totalImages} imágenes subidas con éxito.`,
-      });
-    }
-    
-    setTimeout(() => setUploadProgress(null), 2000);
+    toast({ title: 'Subida Completada', description: `${uploadedCount} de ${totalImages} imágenes subidas.` });
+    setTimeout(() => {
+        setUploadProgress(null);
+        setShouldFetch(false);
+        setTimeout(() => setShouldFetch(true), 50);
+    }, 2000);
   };
   
   const handleDeleteImage = async (imageToDelete: ImageData) => {
@@ -472,26 +457,11 @@ function FichaContent() {
 
     try {
         await deleteDoc(doc(firestore, 'imagenes', imageToDelete.id));
-        if (setImagesData) {
-          setImagesData(prev => (prev || []).filter(img => img.id !== imageToDelete.id));
-        }
-        
-        toast({
-            title: "Imagen eliminada",
-            description: "La imagen ha sido eliminada con éxito.",
-            variant: "destructive",
-        });
+        toast({ title: "Imagen eliminada", variant: "destructive" });
+        setShouldFetch(false);
+        setTimeout(() => setShouldFetch(true), 50);
     } catch (error) {
-        const contextualError = new FirestorePermissionError({
-            operation: 'delete',
-            path: `imagenes/${imageToDelete.id}`,
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        toast({
-            title: "Error al eliminar",
-            description: "No se pudo eliminar la imagen.",
-            variant: "destructive",
-        });
+        toast({ title: "Error al eliminar", variant: "destructive" });
     }
   };
 
@@ -563,7 +533,7 @@ function FichaContent() {
 
         {shouldFetch && !isLoading && (
           <>
-            {(!canViewImages && !canViewReport) ? (
+            {(!canViewReport) ? (
               <Card className="w-full max-w-6xl mx-auto text-center">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-center gap-3">
@@ -572,8 +542,7 @@ function FichaContent() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="py-10">
-                  <p className="text-muted-foreground">No tienes permisos para ver el informe o las imágenes de esta ficha.</p>
-                  <p className="text-sm text-muted-foreground mt-2">Por favor, contacta a un administrador para solicitar acceso.</p>
+                  <p className="text-muted-foreground">No tienes permisos para ver esta información.</p>
                 </CardContent>
               </Card>
             ) : (
@@ -668,16 +637,12 @@ function FichaContent() {
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>¿Estás seguro de que quieres eliminar esta imagen?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Esta acción no se puede deshacer. La imagen se eliminará permanentemente.
-                                            </AlertDialogDescription>
+                                            <AlertDialogTitle>¿Eliminar imagen?</AlertDialogTitle>
+                                            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteImage(image)} className="bg-destructive hover:bg-destructive/90">
-                                                Eliminar
-                                            </AlertDialogAction>
+                                            <AlertDialogAction onClick={() => handleDeleteImage(image)} className="bg-destructive">Eliminar</AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
@@ -706,7 +671,7 @@ function FichaContent() {
                     {currentReport ? 'Editar' : 'Crear'} Informe
                 </DialogTitle>
                 <DialogDescription>
-                    {currentReport ? 'Modifica los detalles del informe para' : 'Crea un nuevo informe para'} {selectedDepartment} - {selectedDistrict}.
+                    {selectedDepartment} - {selectedDistrict}.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4">
@@ -717,7 +682,7 @@ function FichaContent() {
                   departamento={selectedDepartment!}
                   distrito={selectedDistrict!}
                >
-                 <DialogFooter className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2">
+                 <DialogFooter className="mt-6">
                     <DialogClose asChild>
                         <Button type="button" variant="secondary">Cancelar</Button>
                     </DialogClose>
