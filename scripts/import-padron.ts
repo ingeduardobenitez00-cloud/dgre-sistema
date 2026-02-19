@@ -1,17 +1,17 @@
+
 /**
- * @fileOverview Script de importación masiva para el Padrón Electoral.
- * Procesa archivos Excel de 1 millón de registros cada uno y los sube a Firestore.
- * Busca los archivos en la carpeta /scripts/
+ * @fileOverview Script de importación masiva optimizado para el Padrón Electoral.
+ * Procesa archivos de 500k - 1M de registros uno a uno.
  */
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
+import { getFirestore, collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Configuración de Firebase (Extraída de src/firebase/config.ts)
+// Configuración de Firebase
 const firebaseConfig = {
   "projectId": "studio-1827480670-a09b0",
   "appId": "1:177194041005:web:802f6167cd0c9275d19024",
@@ -21,62 +21,70 @@ const firebaseConfig = {
   "messagingSenderId": "177194041005"
 };
 
-// Inicialización de SDKs
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Credenciales desde variables de entorno
 const email = process.env.ADMIN_EMAIL;
 const password = process.env.ADMIN_PASSWORD;
 
 async function run() {
-  console.log('\n--- MOTOR DE IMPORTACIÓN MASIVA CIDEE (9M REGISTROS) ---\n');
+  console.log('\n=================================================');
+  console.log('   MOTOR DE IMPORTACIÓN MASIVA - PADRÓN 2026');
+  console.log('=================================================\n');
 
   if (!email || !password) {
-    console.error('ERROR CRÍTICO: Credenciales no detectadas.');
+    console.error('❌ ERROR: Credenciales no encontradas.');
     console.log('Uso: ADMIN_EMAIL=... ADMIN_PASSWORD=... npm run import:padron\n');
     process.exit(1);
   }
 
   try {
-    console.log('>> Autenticando con Firebase Auth...');
+    console.log('🔐 Autenticando administrador...');
     await signInWithEmailAndPassword(auth, email, password);
-    console.log('>> Conexión establecida como administrador.\n');
+    console.log('✅ Acceso concedido.\n');
 
-    // Procesar los 9 archivos secuencialmente buscando en /scripts/
+    // Procesar archivos del 1 al 9 si existen
+    let filesFound = 0;
     for (let i = 1; i <= 9; i++) {
-      await importFile(i);
+      const success = await importFile(i);
+      if (success) filesFound++;
     }
 
-    console.log('\n>> PROCESO GLOBAL FINALIZADO EXITOSAMENTE.');
+    if (filesFound === 0) {
+      console.log('⚠️ No se encontraron archivos cedulaX.xlsx en la carpeta /scripts/');
+      console.log('Suba el archivo como: scripts/cedula1.xlsx\n');
+    } else {
+      console.log('\n🏁 PROCESO FINALIZADO EXITOSAMENTE.');
+    }
+    
     process.exit(0);
   } catch (err: any) {
-    console.error('\n>> ERROR FATAL EN EL PROCESO:', err.message);
+    console.error('\n❌ ERROR FATAL:', err.message);
     process.exit(1);
   }
 }
 
-async function importFile(fileNumber: number) {
+async function importFile(fileNumber: number): Promise<boolean> {
   const fileName = `cedula${fileNumber}.xlsx`;
-  // Buscamos el archivo en la carpeta /scripts/ relativa a la raíz
   const filePath = path.join(process.cwd(), 'scripts', fileName);
 
   if (!fs.existsSync(filePath)) {
-    console.log(`[SALTADO] El archivo ${fileName} no existe en la carpeta /scripts/.\n`);
-    return;
+    return false;
   }
 
-  console.log(`[LECTURA] Abriendo ${fileName}...`);
+  console.log(`\n📄 PROCESANDO: ${fileName}`);
+  console.log('-------------------------------------------------');
   
   try {
+    const startTime = Date.now();
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const data: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-    console.log(`[INFO] Se detectaron ${data.length.toLocaleString()} registros en ${fileName}.`);
-    console.log(`[SUBIDA] Iniciando carga a la colección 'padron'...`);
+    const total = data.length;
+    console.log(`📊 Registros detectados: ${total.toLocaleString()}`);
 
     const colRef = collection(db, 'padron');
     const BATCH_SIZE = 500;
@@ -96,23 +104,26 @@ async function importFile(fileNumber: number) {
           distrito: String(item.DISTRITO || item.distrito || '').trim(),
           local: String(item.LOCAL || item.local || '').trim(),
           archivo_origen: fileName,
-          fecha_importacion: new Date().toISOString()
+          fecha_carga: new Date().toISOString()
         });
       });
 
       await batch.commit();
       processedCount += chunk.length;
       
-      // Actualizar progreso en la misma línea
-      process.stdout.write(`\r   Progreso ${fileName}: ${processedCount.toLocaleString()} / ${data.length.toLocaleString()} (${Math.round((processedCount/data.length)*100)}%)`);
+      const percent = Math.round((processedCount / total) * 100);
+      process.stdout.write(`\r🚀 Progreso: ${processedCount.toLocaleString()} / ${total.toLocaleString()} (${percent}%)`);
       
-      // Breve pausa para no saturar el ancho de banda y respetar cuotas
-      await new Promise(res => setTimeout(res, 50));
+      // Breve pausa para estabilidad
+      await new Promise(res => setTimeout(res, 100));
     }
 
-    console.log(`\n[OK] ${fileName} importado correctamente.\n`);
+    const duration = Math.round((Date.now() - startTime) / 1000);
+    console.log(`\n\n✅ ${fileName} completado en ${duration}s.`);
+    return true;
   } catch (e: any) {
-    console.error(`\n[ERROR] Falló el procesamiento de ${fileName}:`, e.message);
+    console.error(`\n❌ Error en ${fileName}:`, e.message);
+    return false;
   }
 }
 
