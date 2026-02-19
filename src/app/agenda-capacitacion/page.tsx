@@ -203,8 +203,9 @@ export default function AgendaCapacitacionPage() {
                                   
                                   <div className="lg:col-span-3">
                                     <p className="text-[10px] font-bold text-primary uppercase">Solicitante</p>
-                                    <p className="font-black text-sm uppercase leading-tight">{item.solicitante_entidad}</p>
-                                    <Badge variant="outline" className="mt-1 text-[9px] uppercase font-bold">
+                                    <p className="font-black text-sm uppercase leading-tight">{item.nombre_completo}</p>
+                                    <p className="text-[10px] font-bold uppercase text-muted-foreground mt-1 leading-tight">{item.solicitante_entidad}</p>
+                                    <Badge variant="outline" className="mt-2 text-[9px] uppercase font-bold">
                                       {item.tipo_solicitud === 'divulgacion' ? 'Divulgación' : 'Capacitación'}
                                     </Badge>
                                   </div>
