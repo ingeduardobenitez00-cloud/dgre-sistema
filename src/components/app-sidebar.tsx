@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -33,10 +34,12 @@ import {
   UserCheck,
   PieChart,
   TableProperties,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Flag
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 export default function AppSidebar() {
   const pathname = usePathname();
@@ -93,6 +96,7 @@ export default function AppSidebar() {
       items: [
         { href: "/importar-reportes", label: "Importar Reportes", icon: FileUp },
         { href: "/importar-locales", label: "Importar Locales", icon: FileUp },
+        { href: "/importar-partidos", label: "Importar Partidos", icon: Flag },
       ]
     },
     {
@@ -112,55 +116,65 @@ export default function AppSidebar() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-sidebar">
-      <SidebarHeader className="py-4">
-        <div className="flex items-center gap-3 px-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 shadow-sm">
-              <Image src="/logo.png" alt="Logo" width={28} height={28} className="object-contain"/>
+    <div className="flex h-full flex-col bg-sidebar border-r">
+      <SidebarHeader className="py-6 px-4">
+        <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border border-muted/20">
+              <Image src="/logo.png" alt="Logo" width={30} height={30} className="object-contain" priority />
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-sidebar-foreground uppercase leading-tight tracking-tighter">
+              <span className="text-[11px] font-black text-sidebar-foreground uppercase leading-none tracking-tight">
                   JUSTICIA
               </span>
-              <span className="text-[10px] font-black text-primary uppercase leading-tight tracking-tighter">
+              <span className="text-[11px] font-black text-primary uppercase leading-none tracking-tight mt-0.5">
                   ELECTORAL
               </span>
             </div>
         </div>
       </SidebarHeader>
-      <SidebarSeparator className="opacity-50" />
-      <SidebarContent className="scrollbar-sidebar overflow-y-auto">
+      
+      <SidebarContent className="scrollbar-sidebar overflow-y-auto px-2">
         {menuGroups.map((group) => {
           const accessibleItems = group.items.filter(item => isAccessible(item.href));
           if (accessibleItems.length === 0) return null;
 
           return (
-            <Collapsible key={group.label} className="group/collapsible" defaultOpen={false}>
-              <SidebarGroup className="py-0.5">
+            <Collapsible key={group.label} className="group/collapsible mb-2" defaultOpen={true}>
+              <SidebarGroup className="py-0">
                 <SidebarGroupLabel asChild>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground px-3 py-1.5 rounded-md transition-all duration-200">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-sidebar-foreground/60">{group.label}</span>
-                    <ChevronDown className="h-3 w-3 opacity-50 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent/50 px-3 py-2 rounded-lg transition-all duration-200 group/trigger">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-sidebar-foreground/50 group-hover/trigger:text-sidebar-foreground transition-colors">
+                      {group.label}
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-30 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                   </CollapsibleTrigger>
                 </SidebarGroupLabel>
-                <CollapsibleContent className="space-y-0.5 px-1">
+                <CollapsibleContent className="space-y-1 mt-1">
                   <SidebarGroupContent>
                     <SidebarMenu>
-                      {accessibleItems.map((item) => (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={pathname === item.href}
-                            tooltip={item.label}
-                            className="min-h-9 h-auto px-3 transition-colors data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
-                          >
-                            <Link href={item.href} className="flex items-center gap-3 w-full py-1">
-                              <item.icon className="h-4 w-4 shrink-0" />
-                              <span className="text-xs font-medium leading-snug break-words whitespace-normal">{item.label}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
+                      {accessibleItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                          <SidebarMenuItem key={item.href}>
+                            <SidebarMenuButton
+                              asChild
+                              isActive={isActive}
+                              tooltip={item.label}
+                              className={cn(
+                                "min-h-10 h-auto px-3 rounded-lg transition-all duration-200 border border-transparent",
+                                isActive 
+                                  ? "bg-primary text-primary-foreground shadow-sm font-bold border-primary/10" 
+                                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground/80"
+                              )}
+                            >
+                              <Link href={item.href} className="flex items-center gap-3 w-full py-2">
+                                <item.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary-foreground" : "text-sidebar-foreground/60")} />
+                                <span className="text-xs leading-none whitespace-nowrap">{item.label}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        );
+                      })}
                     </SidebarMenu>
                   </SidebarGroupContent>
                 </CollapsibleContent>
@@ -169,10 +183,14 @@ export default function AppSidebar() {
           );
         })}
       </SidebarContent>
-      <SidebarFooter className="mt-auto border-t border-sidebar-border/50 p-4">
-        <div className="flex items-center justify-between opacity-40">
-            <span className="text-[10px] font-mono tracking-tighter uppercase font-bold">Sistema de Gestión</span>
-            <span className="text-[10px] font-mono">v1.0.0</span>
+
+      <SidebarFooter className="mt-auto border-t border-sidebar-border/50 p-4 bg-muted/5">
+        <div className="flex flex-col gap-1 opacity-40">
+            <span className="text-[9px] font-black tracking-tighter uppercase">Sistema de Gestión Integral</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[8px] font-mono uppercase font-bold text-primary">CIDEE - DGRE</span>
+              <span className="text-[8px] font-mono font-bold">v1.0.0</span>
+            </div>
         </div>
       </SidebarFooter>
     </div>
