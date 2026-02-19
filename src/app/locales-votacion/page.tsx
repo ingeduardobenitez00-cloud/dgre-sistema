@@ -8,7 +8,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { type LocalVotacion, type Dato } from '@/lib/data';
 import Header from '@/components/header';
-import { Loader2, Vote, Search, MapPin, ImageIcon, LayoutGrid, Building2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Vote, Search, MapPin, ImageIcon, LayoutGrid, Building2, CheckCircle2, AlertCircle, ImageOff } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -25,12 +25,25 @@ const fotoKeys: (keyof LocalVotacion)[] = [
   'foto6', 'foto7', 'foto8', 'foto9', 'foto10'
 ];
 
-const getImageUrl = (src: string) => {
-    if (!src) return '';
+/**
+ * Procesa la ruta de la imagen para asegurar que sea válida para el componente Image de Next.js
+ */
+const getImageUrl = (src: any) => {
+    if (!src || typeof src !== 'string') return '';
+    
+    // Si es Base64 o URL completa, retornar tal cual
     if (src.startsWith('data:image') || src.startsWith('http')) {
         return src;
     }
-    return `/${src}`;
+    
+    // Limpiar rutas de Windows (common en imports de Excel)
+    const cleaned = src.replace(/\\/g, '/').replace(/^\/+/, '');
+    
+    // Si después de limpiar no hay nada, retornar vacío
+    if (!cleaned) return '';
+    
+    // Asumir que es una ruta relativa a la raíz
+    return `/${cleaned}`;
 };
 
 export default function LocalesVotacionPage() {
@@ -82,14 +95,17 @@ export default function LocalesVotacionPage() {
     const map = new Map<string, { name: string, districts: Map<string, LocalVotacion[]> }>();
 
     allLocales.forEach(local => {
-      if (!map.has(local.departamento)) {
-        map.set(local.departamento, { name: local.departamento, districts: new Map() });
+      const deptName = local.departamento || 'SIN DEPARTAMENTO';
+      const distName = local.distrito || 'SIN DISTRITO';
+
+      if (!map.has(deptName)) {
+        map.set(deptName, { name: deptName, districts: new Map() });
       }
-      const dept = map.get(local.departamento)!;
-      if (!dept.districts.has(local.distrito)) {
-        dept.districts.set(local.distrito, []);
+      const dept = map.get(deptName)!;
+      if (!dept.districts.has(distName)) {
+        dept.districts.set(distName, []);
       }
-      dept.districts.get(local.distrito)!.push(local);
+      dept.districts.get(distName)!.push(local);
     });
 
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -367,23 +383,39 @@ export default function LocalesVotacionPage() {
                                   </AccordionTrigger>
                                   <AccordionContent className="pt-6">
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                      {localesConFoto.map(local => (
-                                        <Card key={local.id} className="group/card overflow-hidden border-none shadow-md hover:shadow-xl transition-all cursor-pointer" onClick={() => handleViewFicha(local)}>
-                                          <div className="relative aspect-[4/3] bg-muted">
-                                            <Image src={getImageUrl(local.foto_frente || local.foto2 || '')} alt={local.local} fill className="object-cover transition-transform group-hover/card:scale-110" />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity flex items-end p-3">
-                                              <Button size="sm" variant="secondary" className="w-full h-7 text-[9px] font-black uppercase">Ver Detalle</Button>
+                                      {localesConFoto.map(local => {
+                                        const mainImage = getImageUrl(local.foto_frente || local.foto2 || local.foto3 || '');
+                                        return (
+                                          <Card key={local.id} className="group/card overflow-hidden border-none shadow-md hover:shadow-xl transition-all cursor-pointer" onClick={() => handleViewFicha(local)}>
+                                            <div className="relative aspect-[4/3] bg-muted flex items-center justify-center">
+                                              {mainImage ? (
+                                                <Image 
+                                                  src={mainImage} 
+                                                  alt={local.local} 
+                                                  fill 
+                                                  className="object-cover transition-transform group-hover/card:scale-110" 
+                                                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                                                />
+                                              ) : (
+                                                <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                                                  <ImageOff className="h-6 w-6" />
+                                                  <span className="text-[8px] font-bold uppercase">Sin imagen</span>
+                                                </div>
+                                              )}
+                                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity flex items-end p-3">
+                                                <Button size="sm" variant="secondary" className="w-full h-7 text-[9px] font-black uppercase">Ver Detalle</Button>
+                                              </div>
+                                              <Badge className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm text-[8px] border-none">
+                                                {fotoKeys.filter(k => !!local[k]).length} FOTOS
+                                              </Badge>
                                             </div>
-                                            <Badge className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm text-[8px] border-none">
-                                              {fotoKeys.filter(k => !!local[k]).length} FOTOS
-                                            </Badge>
-                                          </div>
-                                          <div className="p-3 bg-white">
-                                            <p className="text-[10px] font-black uppercase truncate text-primary leading-none mb-1">{local.local}</p>
-                                            <p className="text-[8px] font-bold text-muted-foreground uppercase truncate">CÓD: {local.codigo_local || 'S/N'}</p>
-                                          </div>
-                                        </Card>
-                                      ))}
+                                            <div className="p-3 bg-white border-t">
+                                              <p className="text-[10px] font-black uppercase truncate text-primary leading-none mb-1">{local.local}</p>
+                                              <p className="text-[8px] font-bold text-muted-foreground uppercase truncate">CÓD: {local.codigo_local || 'S/N'}</p>
+                                            </div>
+                                          </Card>
+                                        );
+                                      })}
                                     </div>
 
                                     {localesSinFoto.length > 0 && (
@@ -396,7 +428,7 @@ export default function LocalesVotacionPage() {
                                             <Button 
                                               key={local.id} 
                                               variant="ghost" 
-                                              className="h-auto py-1 px-3 bg-white border text-[10px] font-bold uppercase hover:border-primary hover:text-primary"
+                                              className="h-auto py-1.5 px-3 bg-white border text-[9px] font-bold uppercase hover:border-primary hover:text-primary transition-all shadow-sm"
                                               onClick={() => handleViewFicha(local)}
                                             >
                                               {local.local}
@@ -469,17 +501,30 @@ export default function LocalesVotacionPage() {
                     </h4>
                     {fotoKeys.filter(k => !!selectedLocal[k]).length > 0 ? (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {fotoKeys.filter(k => !!selectedLocal[k]).map(key => (
-                              <Card key={key} className="overflow-hidden border-none shadow-md group/img">
-                                  <div className="relative aspect-video">
-                                      <Image src={getImageUrl(selectedLocal[key] as string)} alt={`Foto ${key}`} fill className="object-cover transition-transform group-hover/img:scale-105" />
-                                      <div className="absolute inset-0 bg-black/20 group-hover/img:bg-transparent transition-colors" />
-                                  </div>
-                                  <div className="p-2 bg-white text-center">
-                                    <p className="text-[8px] font-black uppercase text-muted-foreground">{key.replace(/_/g, ' ')}</p>
-                                  </div>
-                              </Card>
-                          ))}
+                          {fotoKeys.filter(k => !!selectedLocal[k]).map(key => {
+                              const imgUrl = getImageUrl(selectedLocal[key]);
+                              return (
+                                <Card key={key} className="overflow-hidden border-none shadow-md group/img">
+                                    <div className="relative aspect-video flex items-center justify-center bg-muted">
+                                        {imgUrl ? (
+                                          <Image 
+                                            src={imgUrl} 
+                                            alt={`Foto ${key}`} 
+                                            fill 
+                                            className="object-cover transition-transform group-hover/img:scale-105" 
+                                            sizes="(max-width: 768px) 100vw, 33vw"
+                                          />
+                                        ) : (
+                                          <ImageOff className="h-8 w-8 text-muted-foreground/30" />
+                                        )}
+                                        <div className="absolute inset-0 bg-black/20 group-hover/img:bg-transparent transition-colors" />
+                                    </div>
+                                    <div className="p-2 bg-white text-center border-t">
+                                      <p className="text-[8px] font-black uppercase text-muted-foreground">{key.replace(/_/g, ' ')}</p>
+                                    </div>
+                                </Card>
+                              );
+                          })}
                       </div>
                     ) : (
                       <div className="text-center py-12 border-2 border-dashed rounded-2xl bg-white/50">
