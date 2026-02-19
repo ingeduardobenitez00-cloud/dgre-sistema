@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, DatabaseBackup } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -85,6 +85,12 @@ export const dashboardMenuItems = [
     label: 'Importar Locales',
     icon: FileUp,
     description: 'Importa locales de votación desde un archivo Excel.',
+  },
+  {
+    href: '/importar-padron',
+    label: 'Importar Padrón Electoral',
+    icon: DatabaseBackup,
+    description: 'Herramienta masiva para cargar archivos de 1M de registros.',
   },
   {
     href: '/cargar-fotos-locales',

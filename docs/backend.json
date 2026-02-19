@@ -570,6 +570,20 @@
           }
         }
       }
+    },
+    "Padron": {
+      "title": "Padrón Electoral",
+      "type": "object",
+      "description": "Registro de ciudadano en el padrón nacional.",
+      "properties": {
+        "cedula": { "type": "string" },
+        "nombre": { "type": "string" },
+        "apellido": { "type": "string" },
+        "departamento": { "type": "string" },
+        "distrito": { "type": "string" },
+        "local": { "type": "string" }
+      },
+      "required": ["cedula", "nombre"]
     }
   },
   "auth": {
@@ -655,6 +669,12 @@
         "$ref": "#/entities/MovimientoMaquina"
       },
       "description": "Stores machine movement logs."
+    },
+    "/padron/{padronId}": {
+      "schema": {
+        "$ref": "#/entities/Padron"
+      },
+      "description": "Base de datos nacional de ciudadanos."
     }
   }
 }

@@ -179,4 +179,14 @@ export type MovimientoMaquina = {
   fecha_creacion: string;
 }
 
+export type PadronItem = {
+  id: string;
+  cedula: string;
+  nombre: string;
+  apellido: string;
+  departamento: string;
+  distrito: string;
+  local: string;
+}
+
 export const initialDepartments: Department[] = [];

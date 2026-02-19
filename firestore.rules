@@ -125,6 +125,11 @@ service cloud.firestore {
       allow delete: if isAdministrative();
     }
 
+    match /padron/{padronId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     /** User Profiles **/
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
