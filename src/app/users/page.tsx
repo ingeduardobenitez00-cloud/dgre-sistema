@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -95,7 +94,11 @@ const MODULE_LABELS: { [key: string]: string } = {
 const MODULE_GROUPS = [
   {
     label: "CIDEE - CAPACITACIONES",
-    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'control-movimiento-maquinas', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion']
+    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion']
+  },
+  {
+    label: "DGRE",
+    modules: ['control-movimiento-maquinas']
   },
   {
     label: "Registros Electorales",
