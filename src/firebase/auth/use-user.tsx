@@ -1,11 +1,9 @@
-
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { type User } from 'firebase/auth';
 
-// Represents the shape of user profile data stored in Firestore
 export interface UserProfile {
   username?: string;
   role?: 'admin' | 'director' | 'jefe' | 'funcionario' | 'divulgador' | 'viewer';
@@ -17,35 +15,34 @@ export interface UserProfile {
   vinculo?: 'PERMANENTE' | 'CONTRATADO' | 'COMISIONADO' | string;
 }
 
-// Combines Firebase Auth user with Firestore profile data
 export type AppUser = User & {
   profile?: UserProfile | null;
 };
 
-// Result for the useUser hook
 export interface UserHookResult {
   user: AppUser | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
 
-/**
- * Hook to get the current authenticated user, enriched with their Firestore profile data.
- * @returns {UserHookResult} Object with the enriched user, loading status, and error.
- */
 export const useUser = (): UserHookResult => {
   const { user: authUser, isUserLoading: isAuthLoading, userError: authError, firestore } = useFirebase();
+  const [profileLoadingComplete, setProfileLoadingComplete] = useState(false);
 
-  // Memoize the document reference to prevent re-fetching on every render
   const userProfileDocRef = useMemoFirebase(() => {
     if (!firestore || !authUser?.uid) return null;
     return doc(firestore, 'users', authUser.uid);
   }, [firestore, authUser?.uid]);
 
-  // Use the useDoc hook to fetch the user's profile data
   const { data: profileData, isLoading: isProfileLoading, error: profileError } = useDoc<UserProfile>(userProfileDocRef);
   
-  // Combine auth user and profile data
+  // Track when profile loading actually finishes to avoid UI flickering
+  useEffect(() => {
+    if (!isProfileLoading) {
+      setProfileLoadingComplete(true);
+    }
+  }, [isProfileLoading]);
+
   const enrichedUser = useMemo(() => {
     if (!authUser) return null;
     return {
@@ -54,9 +51,9 @@ export const useUser = (): UserHookResult => {
     };
   }, [authUser, profileData]);
 
-  // Optimization: If auth is done and user is null, we are NOT loading anymore.
-  // We only wait for profile if authUser exists.
-  const loading = isAuthLoading || (!!authUser && isProfileLoading);
+  // A more aggressive loading check: if auth is null and not loading, we are done.
+  // If auth is present, we only wait for profile if it hasn't finished its first check.
+  const loading = isAuthLoading || (!!authUser && isProfileLoading && !profileLoadingComplete);
 
   return {
     user: enrichedUser,
