@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -21,7 +21,7 @@ import Image from 'next/image';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-export default function InformeDivulgadorPage() {
+function InformeContent() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -331,14 +331,16 @@ export default function InformeDivulgadorPage() {
               <CardTitle className="text-sm font-bold flex items-center gap-2"><CalendarDays className="h-4 w-4" /> VINCULAR AGENDA</CardTitle>
             </CardHeader>
             <CardContent>
-              <Select onValueChange={handleAgendaSelect} defaultValue={agendaId || undefined}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar actividad..." /></SelectTrigger>
-                <SelectContent>
-                  {agendaItems?.map(item => (
-                    <SelectItem key={item.id} value={item.id}>{item.fecha} - {item.lugar_local}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Suspense fallback={<Loader2 className="animate-spin h-4 w-4" />}>
+                <Select onValueChange={handleAgendaSelect} defaultValue={agendaId || undefined}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar actividad..." /></SelectTrigger>
+                  <SelectContent>
+                    {agendaItems?.map(item => (
+                      <SelectItem key={item.id} value={item.id}>{item.fecha} - {item.lugar_local}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Suspense>
             </CardContent>
           </Card>
         </div>
@@ -439,5 +441,13 @@ export default function InformeDivulgadorPage() {
         </Card>
       </main>
     </div>
+  );
+}
+
+export default function InformeDivulgadorPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>}>
+      <InformeContent />
+    </Suspense>
   );
 }

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-export default function EncuestaSatisfaccionPage() {
+function EncuestaContent() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -228,22 +228,24 @@ export default function EncuestaSatisfaccionPage() {
               <div className="flex gap-4 items-end">
                 <div className="flex-1 space-y-2">
                   <Label className="text-[10px] uppercase font-bold text-muted-foreground">Seleccionar sesión programada</Label>
-                  <Select onValueChange={handleAgendaSelect} defaultValue={solicitudId || undefined}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder={isLoadingAgenda ? "Cargando agenda..." : "Seleccionar de la agenda..."} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {agendaItems && agendaItems.length > 0 ? (
-                        agendaItems.map(item => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.fecha} - {item.lugar_local} ({item.hora_desde} hs)
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="none" disabled>No hay actividades agendadas</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <Suspense fallback={<Loader2 className="animate-spin h-4 w-4" />}>
+                    <Select onValueChange={handleAgendaSelect} defaultValue={solicitudId || undefined}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder={isLoadingAgenda ? "Cargando agenda..." : "Seleccionar de la agenda..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agendaItems && agendaItems.length > 0 ? (
+                          agendaItems.map(item => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.fecha} - {item.lugar_local} ({item.hora_desde} hs)
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>No hay actividades agendadas</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </Suspense>
                 </div>
               </div>
             </CardContent>
@@ -335,7 +337,7 @@ export default function EncuestaSatisfaccionPage() {
                     <Label htmlFor="f-1" className="flex-1 cursor-pointer">Muy fácil</Label>
                   </div>
                   <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value="facil" id="f-2" />
+                    <RadioGroupItem value="fasil" id="f-2" />
                     <Label htmlFor="f-2" className="flex-1 cursor-pointer">Fácil</Label>
                   </div>
                   <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 cursor-pointer">
@@ -361,5 +363,13 @@ export default function EncuestaSatisfaccionPage() {
         </Card>
       </main>
     </div>
+  );
+}
+
+export default function EncuestaSatisfaccionPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>}>
+      <EncuestaContent />
+    </Suspense>
   );
 }

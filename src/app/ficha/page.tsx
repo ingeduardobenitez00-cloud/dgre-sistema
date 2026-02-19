@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Header from "@/components/header";
@@ -54,7 +54,7 @@ interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: any) => jsPDF;
 }
 
-export default function FichaPage() {
+function FichaContent() {
   const { firestore } = useFirebase();
   const { user: currentUser } = useUser();
   const searchParams = useSearchParams();
@@ -745,5 +745,10 @@ export default function FichaPage() {
   );
 }
 
-    
-
+export default function FichaPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>}>
+      <FichaContent />
+    </Suspense>
+  );
+}

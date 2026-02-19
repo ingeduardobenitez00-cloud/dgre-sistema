@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -18,7 +19,6 @@ import type { ImageData } from '@/lib/data';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { cleanFileName } from '@/lib/utils';
-import heic2any from 'heic2any';
 import { Label } from '@/components/ui/label';
 
 const photoCategories = [
@@ -117,6 +117,9 @@ export function UploadDialog({ isOpen, onOpenChange, onImagesUploaded }: UploadD
     
     if (heicFiles.length > 0) {
         const convertedFiles: File[] = [];
+        // Dynamic import to avoid SSR issues
+        const heic2any = (await import('heic2any')).default;
+        
         for (const heicFile of heicFiles) {
             try {
                 const conversionResult = await heic2any({ blob: heicFile, toType: "image/jpeg", quality: 0.7 });
