@@ -19,10 +19,11 @@ import {
   Camera, 
   Trash2, 
   Clock,
-  Lock
+  Lock,
+  Search
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, query, where, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, doc, updateDoc, orderBy } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import { type SolicitudCapacitacion, type MovimientoMaquina } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -89,11 +90,24 @@ export default function ControlMovimientoMaquinasPage() {
   }, []);
 
   const agendaQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.profile?.distrito) return null;
+    if (!firestore || !user?.profile) return null;
+    
+    const colRef = collection(firestore, 'solicitudes-capacitacion');
+    const canFilterAll = user.profile.role === 'admin' || user.profile.permissions?.includes('admin_filter');
+
+    if (canFilterAll) {
+      return query(colRef, orderBy('fecha', 'desc'));
+    }
+
+    if (!user.profile.departamento || !user.profile.distrito) {
+        return null;
+    }
+
     return query(
-      collection(firestore, 'solicitudes-capacitacion'),
+      colRef,
       where('departamento', '==', user.profile.departamento),
-      where('distrito', '==', user.profile.distrito)
+      where('distrito', '==', user.profile.distrito),
+      orderBy('fecha', 'desc')
     );
   }, [firestore, user]);
 
@@ -159,8 +173,8 @@ export default function ControlMovimientoMaquinasPage() {
 
     const docData = {
       solicitud_id: selectedSolicitudId!,
-      departamento: user.profile?.departamento || '',
-      distrito: user.profile?.distrito || '',
+      departamento: selectedSolicitud.departamento || user.profile?.departamento || '',
+      distrito: selectedSolicitud.distrito || user.profile?.distrito || '',
       salida: registro,
       fecha_creacion: new Date().toISOString(),
     };
@@ -286,11 +300,15 @@ export default function ControlMovimientoMaquinasPage() {
                   <SelectValue placeholder={isLoadingAgenda ? "Cargando actividades..." : "Seleccione la actividad programada..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {agendaItems?.map(item => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.fecha} | {item.lugar_local} ({item.solicitante_entidad})
-                    </SelectItem>
-                  ))}
+                  {agendaItems && agendaItems.length > 0 ? (
+                    agendaItems.map(item => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.fecha} | {item.lugar_local} ({item.solicitante_entidad})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-data" disabled>No se encontraron actividades disponibles</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               {selectedSolicitud && (
@@ -481,7 +499,7 @@ export default function ControlMovimientoMaquinasPage() {
             <ArrowLeftRight className="h-16 w-12 mb-4 opacity-20" />
             <div className="text-center">
               <p className="text-xl font-black uppercase tracking-tight">Control de Movimiento</p>
-              <p className="text-sm">Seleccione una actividad de la agenda.</p>
+              <p className="text-sm">Seleccione una actividad de la agenda para comenzar.</p>
             </div>
           </div>
         )}
