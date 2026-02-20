@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileText, Search, Building, Camera, Trash2, FileUp, MapPin, X, Navigation } from 'lucide-react';
+import { Loader2, FileText, Search, Building, Camera, Trash2, FileUp, X } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, limit } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
@@ -63,7 +63,7 @@ export default function SolicitudCapacitacionPage() {
     nombre_completo: '',
     cedula: '',
     telefono: '',
-    gps: '',
+    gps: '-25.311549, -57.653496',
   });
 
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
@@ -104,17 +104,17 @@ export default function SolicitudCapacitacionPage() {
           shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
 
-        // Initialize Map centered in user provided coordinates
         const instance = L.map(mapRef.current!, {
           center: [defaultCoords.lat, defaultCoords.lng],
-          zoom: 14,
+          zoom: 15,
           zoomControl: true,
           doubleClickZoom: false,
-          attributionControl: false
+          attributionControl: true
         });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19
+          maxZoom: 19,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(instance);
 
         const provider = new OpenStreetMapProvider();
@@ -124,7 +124,7 @@ export default function SolicitudCapacitacionPage() {
           showMarker: false,
           autoClose: true,
           keepResult: true,
-          searchLabel: 'Buscar local o calle...'
+          searchLabel: 'Ingrese dirección...'
         });
         instance.addControl(searchControl);
 
@@ -144,6 +144,13 @@ export default function SolicitudCapacitacionPage() {
           instance.panTo([lat, lng]);
         };
 
+        // Initialize marker at default
+        markerRef.current = L.marker([defaultCoords.lat, defaultCoords.lng], { draggable: true }).addTo(instance);
+        markerRef.current.on('dragend', (ev: any) => {
+          const pos = ev.target.getLatLng();
+          setPosition(pos.lat, pos.lng);
+        });
+
         instance.on('geosearch/showlocation', (result: any) => {
           setPosition(result.location.y, result.location.x);
         });
@@ -155,10 +162,10 @@ export default function SolicitudCapacitacionPage() {
 
         leafletMap.current = instance;
 
-        // Ensure tiles are correctly rendered
+        // CRITICAL: Ensure map redraws correctly after mounting
         setTimeout(() => {
           instance.invalidateSize();
-        }, 500);
+        }, 300);
 
       } catch (err) {
         console.error("Error loading map:", err);
@@ -268,13 +275,9 @@ export default function SolicitudCapacitacionPage() {
         nombre_completo: '',
         cedula: '',
         telefono: '',
-        gps: '',
+        gps: '-25.311549, -57.653496',
       });
       setPhotoDataUri(null);
-      if (markerRef.current) {
-        markerRef.current.remove();
-        markerRef.current = null;
-      }
     } catch (error) { 
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'solicitudes-capacitacion', operation: 'create', requestResourceData: docData }));
     } finally { 
@@ -435,20 +438,22 @@ export default function SolicitudCapacitacionPage() {
           </div>
 
           <div className="space-y-8">
-              <Card className="shadow-xl border-none overflow-hidden h-fit">
+              <Card className="shadow-xl border border-muted rounded-xl overflow-hidden h-fit">
                   <CardHeader className="bg-white border-b py-6 text-center">
-                    <CardTitle className="text-2xl font-black uppercase tracking-tight text-black">
+                    <CardTitle className="text-xl font-black uppercase tracking-tight text-black">
                       GEORREFERENCIACIÓN
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0 relative h-[450px] bg-muted/20">
+                  <CardContent className="p-0 relative h-[450px] bg-muted/10">
                       <div ref={mapRef} className="h-full w-full z-10"></div>
                   </CardContent>
-                  <CardFooter className="flex flex-col items-start py-4 px-6 bg-white border-t gap-1">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground">COORDINADAS CAPTURADAS</p>
-                      <p className="text-sm font-mono font-black text-primary bg-primary/5 px-3 py-1 rounded border border-primary/10 w-full">
-                        {formData.gps || `${defaultCoords.lat.toFixed(6)}, ${defaultCoords.lng.toFixed(6)}`}
-                      </p>
+                  <CardFooter className="flex flex-col items-start py-6 px-6 bg-white border-t gap-3">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">COORDINADAS CAPTURADAS</p>
+                      <Input 
+                        value={formData.gps} 
+                        readOnly 
+                        className="h-12 bg-muted/30 font-bold text-base text-primary border-muted-foreground/20 rounded-lg text-center" 
+                      />
                   </CardFooter>
               </Card>
 
