@@ -77,8 +77,7 @@ export default function SolicitudCapacitacionPage() {
   const leafletMap = useRef<any>(null);
   const markerRef = useRef<any>(null);
 
-  const partidosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'partidos-politicos'), orderBy('nombre')) : null, [firestore]);
-  const { data: partidosData } = useCollection<PartidoPolitico>(partidosQuery);
+  const defaultCoords = { lat: -25.311549, lng: -57.653496 };
 
   useEffect(() => {
     const now = new Date();
@@ -105,10 +104,10 @@ export default function SolicitudCapacitacionPage() {
           shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
 
-        // Initialize Map centered in Asunción
+        // Initialize Map centered in user provided coordinates
         const instance = L.map(mapRef.current!, {
-          center: [-25.3006, -57.6359],
-          zoom: 13,
+          center: [defaultCoords.lat, defaultCoords.lng],
+          zoom: 14,
           zoomControl: true,
           doubleClickZoom: false,
           attributionControl: false
@@ -233,6 +232,9 @@ export default function SolicitudCapacitacionPage() {
     }
     e.target.value = '';
   };
+
+  const partidosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'partidos-politicos'), orderBy('nombre')) : null, [firestore]);
+  const { data: partidosData } = useCollection<PartidoPolitico>(partidosQuery);
 
   const handleSubmit = async () => {
     if (!firestore || !user) return;
@@ -441,23 +443,13 @@ export default function SolicitudCapacitacionPage() {
                   </CardHeader>
                   <CardContent className="p-0 relative h-[450px] bg-muted/20">
                       <div ref={mapRef} className="h-full w-full z-10"></div>
-                      {!formData.gps && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/5 pointer-events-none z-20 p-6">
-                              <div className="bg-white rounded-2xl p-8 shadow-2xl text-center max-w-xs border border-muted/50 animate-in fade-in zoom-in duration-300">
-                                  <Navigation className="mx-auto h-14 w-14 text-black mb-6" />
-                                  <p className="font-black text-sm text-black uppercase leading-tight tracking-tight">
-                                    DOBLE CLIC EN EL MAPA PARA MARCAR UBICACIÓN
-                                  </p>
-                              </div>
-                          </div>
-                      )}
                   </CardContent>
-                  {formData.gps && (
-                      <CardFooter className="flex flex-col items-start py-4 px-6 bg-white border-t gap-1">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground">COORDINADAS CAPTURADAS</p>
-                          <p className="text-sm font-mono font-black text-primary bg-primary/5 px-3 py-1 rounded border border-primary/10 w-full">{formData.gps}</p>
-                      </CardFooter>
-                  )}
+                  <CardFooter className="flex flex-col items-start py-4 px-6 bg-white border-t gap-1">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground">COORDINADAS CAPTURADAS</p>
+                      <p className="text-sm font-mono font-black text-primary bg-primary/5 px-3 py-1 rounded border border-primary/10 w-full">
+                        {formData.gps || `${defaultCoords.lat.toFixed(6)}, ${defaultCoords.lng.toFixed(6)}`}
+                      </p>
+                  </CardFooter>
               </Card>
 
               <Card className="shadow-lg border-none overflow-hidden">
