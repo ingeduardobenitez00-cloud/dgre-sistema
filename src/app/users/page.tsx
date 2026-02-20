@@ -598,7 +598,7 @@ export default function UsersPage() {
                                     <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize text-[9px] font-black uppercase tracking-widest">{user.role}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <div className="flex justify-end gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                    <div className="flex justify-end gap-1">
                                         <Button variant="outline" size="icon" className="h-8 w-8 hover:bg-primary hover:text-white border-primary/20" onClick={() => handleOpenEditModal(user)}>
                                             <Edit className="h-4 w-4" />
                                         </Button>
