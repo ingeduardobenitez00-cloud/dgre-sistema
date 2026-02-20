@@ -109,9 +109,8 @@ export default function SolicitudCapacitacionPage() {
         const L = await import('leaflet');
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
         
-        // Dynamic CSS import to ensure it's client side
-        require('leaflet/dist/leaflet.css');
-        require('leaflet-geosearch/dist/geosearch.css');
+        // CSS imports handled by the environment, but ensuring common patterns
+        const initialCoords: [number, number] = [-25.311549, -57.653496];
 
         // Fix default icons
         // @ts-ignore
@@ -121,8 +120,6 @@ export default function SolicitudCapacitacionPage() {
           iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
           shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
-
-        const initialCoords: [number, number] = [-25.311549, -57.653496];
 
         mapInstance = L.map(mapContainerRef.current, {
           doubleClickZoom: false,
@@ -144,7 +141,7 @@ export default function SolicitudCapacitacionPage() {
           retainZoomLevel: false,
           animateZoom: true,
           keepResult: true,
-          searchLabel: 'Ingresar dirección...',
+          searchLabel: 'Buscar dirección...',
         });
         mapInstance.addControl(searchControl);
 
@@ -175,6 +172,9 @@ export default function SolicitudCapacitacionPage() {
           }
         });
         resizeObserver.observe(mapContainerRef.current);
+
+        // Initial invalidation to ensure tiles load
+        setTimeout(() => mapInstance.invalidateSize(), 500);
 
         mapRef.current = mapInstance;
       } catch (err) {
