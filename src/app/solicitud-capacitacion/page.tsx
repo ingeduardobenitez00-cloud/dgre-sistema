@@ -110,7 +110,7 @@ export default function SolicitudCapacitacionPage() {
           center: [-25.3006, -57.6359],
           zoom: 13,
           attributionControl: false,
-          doubleClickZoom: false, // Essential to allow dblclick marking
+          doubleClickZoom: false, 
         });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -433,21 +433,22 @@ export default function SolicitudCapacitacionPage() {
           </div>
 
           <div className="space-y-8">
-              <Card className="shadow-lg border-none overflow-hidden">
-                  <CardHeader className="bg-muted/50 border-b">
-                    <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-primary">
-                      <MapPin className="h-4 w-4" /> GEORREFERENCIACIÓN
+              <Card className="shadow-xl border-none overflow-hidden h-fit">
+                  <CardHeader className="bg-white border-b py-6">
+                    <CardTitle className="text-2xl font-black uppercase tracking-tight text-center text-black">
+                      GEORREFERENCIACIÓN
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0">
-                      <div className="relative z-10 h-[300px] w-full bg-muted">
+                  <CardContent className="p-0 relative h-[400px]">
+                      <div className="absolute inset-0 z-10">
                           <div ref={mapRef} className="h-full w-full"></div>
                           {!formData.gps && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-[2px] pointer-events-none z-20">
-                                  <div className="bg-white rounded-2xl p-6 shadow-2xl text-center border-2 border-primary/20 animate-in fade-in zoom-in duration-300">
-                                      <MousePointer2 className="mx-auto h-8 w-8 text-primary mb-3 animate-bounce" />
-                                      <p className="font-black text-sm text-primary uppercase tracking-tight">BUSCA O HAZ DOBLE CLIC</p>
-                                      <p className="font-bold text-xs text-muted-foreground mt-1 uppercase">PARA MARCAR UBICACIÓN</p>
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/5 pointer-events-none z-20">
+                                  <div className="bg-white rounded-xl p-8 shadow-2xl text-center max-w-[85%] border border-muted/50">
+                                      <MousePointer2 className="mx-auto h-12 w-12 text-black mb-4 -rotate-12" />
+                                      <p className="font-black text-sm text-black uppercase leading-tight tracking-tight">
+                                        DOBLE CLIC EN EL MAPA PARA MARCAR UBICACIÓN
+                                      </p>
                                   </div>
                               </div>
                           )}
@@ -473,7 +474,7 @@ export default function SolicitudCapacitacionPage() {
                         <div className="relative aspect-[4/3] rounded-xl overflow-hidden border-4 border-muted">
                           <Image src={photoDataUri} alt="Firma" fill className="object-cover" />
                         </div>
-                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setPhotoDataUri(null)}>
+                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full shadow-lg opacity-0 group-hover/image-card:opacity-100 transition-opacity" onClick={() => setPhotoDataUri(null)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
