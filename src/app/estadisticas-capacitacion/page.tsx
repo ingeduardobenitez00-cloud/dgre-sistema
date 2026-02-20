@@ -27,12 +27,12 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 export default function EstadisticasCapacitacionPage() {
   const { firestore } = useFirebase();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
 
   const encuestasQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'encuestas-satisfaccion');
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: encuestas, isLoading } = useCollection<EncuestaSatisfaccion>(encuestasQuery);
 
@@ -74,7 +74,7 @@ export default function EstadisticasCapacitacionPage() {
     };
   }, [encuestas]);
 
-  if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
+  if (isUserLoading || isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/20">
@@ -98,8 +98,6 @@ export default function EstadisticasCapacitacionPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            
-            {/* Utilidad */}
             <Card className="shadow-md border-t-4 border-t-blue-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -119,7 +117,6 @@ export default function EstadisticasCapacitacionPage() {
               </CardContent>
             </Card>
 
-            {/* Facilidad */}
             <Card className="shadow-md border-t-4 border-t-green-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -139,7 +136,6 @@ export default function EstadisticasCapacitacionPage() {
               </CardContent>
             </Card>
 
-            {/* Seguridad */}
             <Card className="shadow-md border-t-4 border-t-amber-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -159,7 +155,6 @@ export default function EstadisticasCapacitacionPage() {
               </CardContent>
             </Card>
 
-            {/* Género */}
             <Card className="shadow-md border-t-4 border-t-purple-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -181,7 +176,6 @@ export default function EstadisticasCapacitacionPage() {
               </CardContent>
             </Card>
 
-            {/* Edades */}
             <Card className="shadow-md border-t-4 border-t-rose-500 lg:col-span-2">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -200,7 +194,6 @@ export default function EstadisticasCapacitacionPage() {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-
           </div>
         )}
       </main>

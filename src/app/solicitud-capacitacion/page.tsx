@@ -1,14 +1,14 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileText, Search, Building, Camera, Trash2, FileUp, X, MapPin, Navigation } from 'lucide-react';
+import { Loader2, FileText, Search, Building, Camera, Trash2, FileUp, X } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, limit } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
@@ -33,10 +33,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-
-// Import Leaflet CSS
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-geosearch/dist/geosearch.css';
 
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
@@ -75,11 +71,6 @@ export default function SolicitudCapacitacionPage() {
   const [padronFound, setPadronFound] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
-  // Map related refs
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-
   useEffect(() => {
     const now = new Date();
     setFormData(prev => ({ ...prev, fecha: now.toISOString().split('T')[0] }));
@@ -97,108 +88,6 @@ export default function SolicitudCapacitacionPage() {
     };
     fetchLogo();
   }, []);
-
-  // Map Initialization logic with robust Resize handling
-  useEffect(() => {
-    let map: any = null;
-    let resizeObserver: ResizeObserver | null = null;
-
-    const initMap = async () => {
-      if (!mapContainerRef.current || mapInstanceRef.current) return;
-
-      try {
-        const L = (await import('leaflet')).default;
-        const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
-
-        // Fix marker icons using absolute CDN paths
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-          iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-          shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-        });
-
-        const initialCoords: [number, number] = [-25.311549, -57.653496];
-        map = L.map(mapContainerRef.current, {
-          center: initialCoords,
-          zoom: 15,
-          doubleClickZoom: false,
-          scrollWheelZoom: true,
-        });
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        // Add search control
-        const provider = new OpenStreetMapProvider();
-        const searchControl = new (GeoSearchControl as any)({
-          provider: provider,
-          style: 'bar',
-          showMarker: false,
-          retainZoomLevel: false,
-          animateZoom: true,
-          autoClose: true,
-          searchLabel: 'Buscar dirección o lugar...',
-          keepResult: true,
-        });
-        map.addControl(searchControl);
-
-        const updateLocation = (lat: number, lng: number) => {
-          const newLatLng = { lat, lng };
-          if (markerRef.current) {
-            markerRef.current.setLatLng(newLatLng);
-          } else {
-            markerRef.current = L.marker(newLatLng, { draggable: true }).addTo(map);
-            markerRef.current.on('dragend', (e: any) => {
-              const pos = e.target.getLatLng();
-              updateLocation(pos.lat, pos.lng);
-            });
-          }
-          setFormData(prev => ({ ...prev, gps: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }));
-        };
-
-        // Event: Search result
-        map.on('geosearch/showlocation', (result: any) => {
-          const { x, y } = result.location;
-          updateLocation(y, x);
-        });
-
-        // Event: Double click
-        map.on('dblclick', (e: any) => {
-          const { lat, lng } = e.latlng;
-          updateLocation(lat, lng);
-          toast({ title: "Ubicación fijada", description: "Las coordenadas GPS han sido capturadas." });
-        });
-
-        // Robust re-draw logic: Call invalidateSize after a short delay
-        setTimeout(() => {
-          map.invalidateSize();
-        }, 500);
-
-        // Add ResizeObserver to handle container size changes (fixes the gray map issue)
-        resizeObserver = new ResizeObserver(() => {
-          map.invalidateSize();
-        });
-        resizeObserver.observe(mapContainerRef.current);
-
-        mapInstanceRef.current = map;
-
-      } catch (error) {
-        console.error("Error initializing Leaflet map:", error);
-      }
-    };
-
-    initMap();
-
-    return () => {
-      if (resizeObserver) resizeObserver.disconnect();
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [toast]);
 
   const searchCedulaInPadron = useCallback(async (cedula: string) => {
     if (!firestore || !cedula || cedula.length < 4) return;
@@ -257,7 +146,11 @@ export default function SolicitudCapacitacionPage() {
     e.target.value = '';
   };
 
-  const partidosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'partidos-politicos'), orderBy('nombre')) : null, [firestore]);
+  const partidosQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'partidos-politicos'), orderBy('nombre'));
+  }, [firestore, user]);
+  
   const { data: partidosData } = useCollection<PartidoPolitico>(partidosQuery);
 
   const handlePreviewPDF = () => {
@@ -467,18 +360,12 @@ export default function SolicitudCapacitacionPage() {
         gps: '',
       });
       setPhotoDataUri(null);
-      if (markerRef.current) {
-        markerRef.current.remove();
-        markerRef.current = null;
-      }
     } catch (error) { 
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'solicitudes-capacitacion', operation: 'create', requestResourceData: docData }));
     } finally { 
       setIsSubmitting(false); 
     }
   };
-
-  const gpsParts = formData.gps ? formData.gps.split(', ') : ['', ''];
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
 
@@ -595,38 +482,6 @@ export default function SolicitudCapacitacionPage() {
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground">DISTRITO (AUTODETECTADO)</Label>
                     <Input value={user?.profile?.distrito || ''} readOnly className="h-11 bg-muted/50 font-black uppercase border-2 text-primary" />
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* GEOGRAPHICAL LOCATION SECTION */}
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <Label className="text-sm font-black uppercase text-primary tracking-widest block mb-2">UBICACIÓN GEOGRÁFICA</Label>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase mb-4">Doble clic en el mapa para fijar el punto exacto del evento.</p>
-                  </div>
-                  
-                  <div className="relative border-2 rounded-xl overflow-hidden shadow-inner">
-                    <div ref={mapContainerRef} className="h-96 w-full z-0 bg-muted" />
-                    <div className="absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur-sm p-3 rounded-lg border shadow-lg hidden md:block">
-                      <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary">
-                        <Navigation className="h-3 w-3 animate-pulse" />
-                        Guía de Uso
-                      </div>
-                      <p className="text-[9px] text-muted-foreground mt-1 max-w-[150px]">Use el buscador superior o haga <b>DOBLE CLIC</b> en el mapa.</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Latitud</Label>
-                      <Input value={gpsParts[0]} readOnly className="h-11 bg-muted/30 font-mono text-xs border-2" placeholder="Captura automática..." />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Longitud</Label>
-                      <Input value={gpsParts[1]} readOnly className="h-11 bg-muted/30 font-mono text-xs border-2" placeholder="Captura automática..." />
-                    </div>
                   </div>
                 </div>
 
