@@ -34,7 +34,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-// Import Leaflet CSS dynamically or via standard import if supported by the build tool
+// Import Leaflet CSS
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-geosearch/dist/geosearch.css';
 
@@ -98,8 +98,11 @@ export default function SolicitudCapacitacionPage() {
     fetchLogo();
   }, []);
 
-  // Map Initialization logic
+  // Map Initialization logic with robust Resize handling
   useEffect(() => {
+    let map: any = null;
+    let resizeObserver: ResizeObserver | null = null;
+
     const initMap = async () => {
       if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -107,9 +110,8 @@ export default function SolicitudCapacitacionPage() {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        // Fix marker icons
-        // @ts-ignore
-        delete L.Icon.Default.prototype._getIconUrl;
+        // Fix marker icons using absolute CDN paths
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
           iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
@@ -117,21 +119,20 @@ export default function SolicitudCapacitacionPage() {
         });
 
         const initialCoords: [number, number] = [-25.311549, -57.653496];
-        const map = L.map(mapContainerRef.current, {
+        map = L.map(mapContainerRef.current, {
+          center: initialCoords,
+          zoom: 15,
           doubleClickZoom: false,
           scrollWheelZoom: true,
-        }).setView(initialCoords, 15);
+        });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        mapInstanceRef.current = map;
-
         // Add search control
         const provider = new OpenStreetMapProvider();
-        // @ts-ignore
-        const searchControl = new GeoSearchControl({
+        const searchControl = new (GeoSearchControl as any)({
           provider: provider,
           style: 'bar',
           showMarker: false,
@@ -167,13 +168,21 @@ export default function SolicitudCapacitacionPage() {
         map.on('dblclick', (e: any) => {
           const { lat, lng } = e.latlng;
           updateLocation(lat, lng);
-          toast({ title: "Ubicación fijada", description: "Las coordenadas GPS han sido capturadas correctamente." });
+          toast({ title: "Ubicación fijada", description: "Las coordenadas GPS han sido capturadas." });
         });
 
-        // Small delay to ensure container size is ready
+        // Robust re-draw logic: Call invalidateSize after a short delay
         setTimeout(() => {
           map.invalidateSize();
-        }, 200);
+        }, 500);
+
+        // Add ResizeObserver to handle container size changes (fixes the gray map issue)
+        resizeObserver = new ResizeObserver(() => {
+          map.invalidateSize();
+        });
+        resizeObserver.observe(mapContainerRef.current);
+
+        mapInstanceRef.current = map;
 
       } catch (error) {
         console.error("Error initializing Leaflet map:", error);
@@ -183,6 +192,7 @@ export default function SolicitudCapacitacionPage() {
     initMap();
 
     return () => {
+      if (resizeObserver) resizeObserver.disconnect();
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -598,7 +608,7 @@ export default function SolicitudCapacitacionPage() {
                   </div>
                   
                   <div className="relative border-2 rounded-xl overflow-hidden shadow-inner">
-                    <div ref={mapContainerRef} className="h-96 w-full z-0" />
+                    <div ref={mapContainerRef} className="h-96 w-full z-0 bg-muted" />
                     <div className="absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur-sm p-3 rounded-lg border shadow-lg hidden md:block">
                       <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary">
                         <Navigation className="h-3 w-3 animate-pulse" />
