@@ -1,17 +1,13 @@
-
 'use client';
 
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-geosearch/dist/geosearch.css';
-
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileText, Search, Building, Camera, Trash2, FileUp, X, MapPin } from 'lucide-react';
+import { Loader2, FileText, Search, Building, Camera, Trash2, FileUp, X } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, limit } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
@@ -63,7 +59,7 @@ export default function SolicitudCapacitacionPage() {
     nombre_completo: '',
     cedula: '',
     telefono: '',
-    gps: '-25.311549, -57.653496',
+    gps: '',
   });
 
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
@@ -72,114 +68,10 @@ export default function SolicitudCapacitacionPage() {
   const [isSearchingCedula, setIsSearchingCedula] = useState(false);
   const [padronFound, setPadronFound] = useState(false);
 
-  const mapRef = useRef<HTMLDivElement>(null);
-  const leafletMap = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-
-  const defaultCoords = { lat: -25.311549, lng: -57.653496 };
-
   useEffect(() => {
     const now = new Date();
     setFormData(prev => ({ ...prev, fecha: now.toISOString().split('T')[0] }));
   }, []);
-
-  // MAP INITIALIZATION
-  useEffect(() => {
-    if (typeof window === 'undefined' || !mapRef.current || leafletMap.current) {
-      return;
-    }
-
-    const initMap = async () => {
-      try {
-        const L = (await import('leaflet')).default;
-        const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
-
-        // Fix Leaflet Icons
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-        });
-
-        const instance = L.map(mapRef.current!, {
-          center: [defaultCoords.lat, defaultCoords.lng],
-          zoom: 15,
-          zoomControl: true,
-          doubleClickZoom: false,
-          attributionControl: true
-        });
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(instance);
-
-        const provider = new OpenStreetMapProvider();
-        const searchControl = new (GeoSearchControl as any)({
-          provider,
-          style: 'bar',
-          showMarker: false,
-          autoClose: true,
-          keepResult: true,
-          searchLabel: 'Ingresar dirección...'
-        });
-        instance.addControl(searchControl);
-
-        const setPosition = (lat: number, lng: number) => {
-          const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          setFormData(prev => ({ ...prev, gps: coords }));
-          
-          if (markerRef.current) {
-            markerRef.current.setLatLng([lat, lng]);
-          } else {
-            markerRef.current = L.marker([lat, lng], { draggable: true }).addTo(instance);
-            markerRef.current.on('dragend', (ev: any) => {
-              const pos = ev.target.getLatLng();
-              setPosition(pos.lat, pos.lng);
-            });
-          }
-          instance.panTo([lat, lng]);
-        };
-
-        // Initialize marker at default
-        markerRef.current = L.marker([defaultCoords.lat, defaultCoords.lng], { draggable: true }).addTo(instance);
-        markerRef.current.on('dragend', (ev: any) => {
-          const pos = ev.target.getLatLng();
-          setPosition(pos.lat, pos.lng);
-        });
-
-        instance.on('geosearch/showlocation', (result: any) => {
-          setPosition(result.location.y, result.location.x);
-        });
-
-        instance.on('dblclick', (e: any) => {
-          setPosition(e.latlng.lat, e.latlng.lng);
-          toast({ title: "Ubicación fijada", description: "Coordenadas capturadas con éxito." });
-        });
-
-        leafletMap.current = instance;
-
-        // Force invalidateSize to fix gray tiles issue
-        setTimeout(() => {
-          instance.invalidateSize();
-        }, 500);
-
-      } catch (err) {
-        console.error("Error loading map:", err);
-      }
-    };
-
-    initMap();
-
-    return () => {
-      if (leafletMap.current) {
-        leafletMap.current.remove();
-        leafletMap.current = null;
-        markerRef.current = null;
-      }
-    };
-  }, [toast]);
 
   const searchCedulaInPadron = useCallback(async (cedula: string) => {
     if (!firestore || !cedula || cedula.length < 4) return;
@@ -273,7 +165,7 @@ export default function SolicitudCapacitacionPage() {
         nombre_completo: '',
         cedula: '',
         telefono: '',
-        gps: '-25.311549, -57.653496',
+        gps: '',
       });
       setPhotoDataUri(null);
     } catch (error) { 
@@ -436,25 +328,6 @@ export default function SolicitudCapacitacionPage() {
           </div>
 
           <div className="space-y-8">
-              <Card className="shadow-xl border border-muted rounded-xl overflow-hidden h-fit">
-                  <CardHeader className="bg-white border-b py-6 text-center">
-                    <CardTitle className="text-xl font-black uppercase tracking-tight text-black">
-                      GEORREFERENCIACIÓN
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0 relative h-[450px] bg-muted/10">
-                      <div ref={mapRef} className="h-full w-full z-10"></div>
-                  </CardContent>
-                  <CardFooter className="flex flex-col items-center py-6 px-6 bg-white border-t gap-3">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">COORDENADAS CAPTURADAS</p>
-                      <div className="w-full p-4 bg-muted/10 border rounded-xl">
-                        <p className="text-center font-black text-lg text-primary tracking-tight">
-                          {formData.gps}
-                        </p>
-                      </div>
-                  </CardFooter>
-              </Card>
-
               <Card className="shadow-lg border-none overflow-hidden">
                   <CardHeader className="bg-muted/50 border-b">
                     <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-primary">
