@@ -162,10 +162,10 @@ export default function SolicitudCapacitacionPage() {
 
         leafletMap.current = instance;
 
-        // CRITICAL: Ensure map redraws correctly after mounting
+        // CRITICAL: Force invalidateSize to fix gray tiles issue
         setTimeout(() => {
           instance.invalidateSize();
-        }, 300);
+        }, 500);
 
       } catch (err) {
         console.error("Error loading map:", err);
@@ -447,13 +447,13 @@ export default function SolicitudCapacitacionPage() {
                   <CardContent className="p-0 relative h-[450px] bg-muted/10">
                       <div ref={mapRef} className="h-full w-full z-10"></div>
                   </CardContent>
-                  <CardFooter className="flex flex-col items-start py-6 px-6 bg-white border-t gap-3">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">COORDINADAS CAPTURADAS</p>
-                      <Input 
-                        value={formData.gps} 
-                        readOnly 
-                        className="h-12 bg-muted/30 font-bold text-base text-primary border-muted-foreground/20 rounded-lg text-center" 
-                      />
+                  <CardFooter className="flex flex-col items-center py-6 px-6 bg-white border-t gap-3">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">COORDENADAS CAPTURADAS</p>
+                      <div className="w-full p-4 bg-muted/10 border rounded-xl">
+                        <p className="text-center font-black text-lg text-primary tracking-tight">
+                          {formData.gps}
+                        </p>
+                      </div>
                   </CardFooter>
               </Card>
 
