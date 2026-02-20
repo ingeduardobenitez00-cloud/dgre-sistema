@@ -2,10 +2,11 @@
 /**
  * @fileOverview Script de importación masiva optimizado para el Padrón Electoral.
  * Procesa archivos de 500k - 1M de registros uno a uno.
+ * ACTUALIZADO para usar la estructura de columnas del archivo del cliente.
  */
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
@@ -97,12 +98,17 @@ async function importFile(fileNumber: number): Promise<boolean> {
       chunk.forEach((item) => {
         const newDoc = doc(colRef);
         batch.set(newDoc, {
-          cedula: String(item.CEDULA || item.cedula || '').trim(),
-          nombre: String(item.NOMBRE || item.nombre || '').trim(),
+          cedula: String(item.NUMERO_CED || item.numero_ced || '').trim(),
           apellido: String(item.APELLIDO || item.apellido || '').trim(),
-          departamento: String(item.DEPARTAMENTO || item.departamento || '').trim(),
-          distrito: String(item.DISTRITO || item.distrito || '').trim(),
-          local: String(item.LOCAL || item.local || '').trim(),
+          nombre: String(item.NOMBRE || item.nombre || '').trim(),
+          sexo: String(item.SEXO || item.sexo || '').trim(),
+          nacional: String(item.NACIONAL || item.nacional || '').trim(),
+          nom_padre: String(item.NOM_PADRE || item.nom_padre || '').trim(),
+          nom_madre: String(item.NOM_MADRE || item.nom_madre || '').trim(),
+          direccion: String(item.DIRECCION || item.direccion || '').trim(),
+          nom_conj: String(item.NOM_CONJ || item.nom_conj || '').trim(),
+          fecha_naci: String(item.FECHA_NACI || item.fecha_naci || '').trim(),
+          barrio_ciu: String(item.BARRIO_CIU || item.barrio_ciu || '').trim(),
           archivo_origen: fileName,
           fecha_carga: new Date().toISOString()
         });
