@@ -101,24 +101,28 @@ export default function SolicitudCapacitacionPage() {
   // REPARACIÓN DEFINITIVA DEL MAPA
   useEffect(() => {
     let map: any = null;
-    let L: any = null;
     let resizeObserver: ResizeObserver | null = null;
 
     const initMap = async () => {
       if (typeof window === 'undefined' || !mapContainerRef.current || mapInstanceRef.current) return;
 
       try {
-        // Carga dinámica de Leaflet y Plugins
-        L = (await import('leaflet')).default;
+        // Carga dinámica robusta de Leaflet
+        const LeafletModule = await import('leaflet');
+        const L = LeafletModule.default || LeafletModule;
+        
+        // Carga de Plugins
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        // Configuración de Iconos (Solución a iconos invisibles)
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-        });
+        // Configuración de Iconos (Evita iconos invisibles)
+        if (L.Icon.Default) {
+          delete (L.Icon.Default.prototype as any)._getIconUrl;
+          L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+          });
+        }
 
         // Inicialización de instancia
         const initialPos: [number, number] = [-25.311549, -57.653496]; // Asunción
@@ -135,7 +139,7 @@ export default function SolicitudCapacitacionPage() {
         // Capa de mapas OSM
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
-          attribution: '© OpenStreetMap contributors'
+          attribution: '© OpenStreetMap'
         }).addTo(map);
 
         // Control de Búsqueda
@@ -147,7 +151,6 @@ export default function SolicitudCapacitacionPage() {
           autoClose: true,
           searchLabel: 'Buscar dirección...',
           keepResult: true,
-          retainZoomLevel: false,
           animateZoom: true,
         });
         map.addControl(searchControl);
@@ -169,20 +172,21 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // EL TRUCO MÁGICO: Forzar refresco en múltiples etapas para asegurar visibilidad
+        // SECUENCIA DE REFRESCO FORZADO PARA EVITAR CUADROS BLANCOS
         const forceRefresh = () => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
           }
         };
 
-        // Secuencia de refresco garantizada
+        // Disparar múltiples veces para asegurar que el DOM esté listo
         forceRefresh();
         setTimeout(forceRefresh, 100);
         setTimeout(forceRefresh, 500);
-        setTimeout(forceRefresh, 1500);
+        setTimeout(forceRefresh, 1000);
+        setTimeout(forceRefresh, 2000);
 
-        // Observador de cambios de tamaño (maneja apertura de sidebar y carga de DOM)
+        // Observador de cambios de tamaño
         resizeObserver = new ResizeObserver(() => {
           forceRefresh();
         });
@@ -194,7 +198,7 @@ export default function SolicitudCapacitacionPage() {
     };
 
     // Delay estratégico para esperar que el componente esté montado y visible
-    const timer = setTimeout(initMap, 400);
+    const timer = setTimeout(initMap, 800);
 
     return () => {
       clearTimeout(timer);
@@ -609,7 +613,6 @@ export default function SolicitudCapacitacionPage() {
                       Doble clic en el mapa para capturar coordenadas exactas
                     </div>
                     <div className="rounded-xl overflow-hidden border-4 border-muted shadow-inner bg-muted/20 relative">
-                      {/* Contenedor del mapa con height fijo, z-index y posición relativa asegurada */}
                       <div 
                         ref={mapContainerRef} 
                         className="h-[350px] w-full bg-white relative z-10" 
