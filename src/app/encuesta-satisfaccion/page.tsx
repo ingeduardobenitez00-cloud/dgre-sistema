@@ -26,11 +26,13 @@ function EncuestaContent() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const solicitudIdFromUrl = searchParams.get('solicitudId');
-
+  
+  const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   
+  const solicitudIdFromUrl = isMounted ? searchParams.get('solicitudId') : null;
+
   const [formData, setFormData] = useState({
     lugar_practica: '',
     fecha: '',
@@ -43,6 +45,11 @@ function EncuestaContent() {
     departamento: '',
     distrito: '',
   });
+
+  // Safety mount check to prevent hydration errors with useSearchParams
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Fetch specific solicitud if provided in URL (Automated via QR)
   const solicitudRef = useMemoFirebase(() => 
@@ -106,7 +113,6 @@ function EncuestaContent() {
     try {
       await addDoc(collection(firestore, 'encuestas-satisfaccion'), encuestaData);
       toast({ title: "¡Gracias!", description: "Tu feedback ha sido registrado exitosamente." });
-      // Reset sensitive/personal fields but keep location context if came from QR
       setFormData(p => ({ 
         ...p, 
         edad: '', 
@@ -163,6 +169,10 @@ function EncuestaContent() {
     doc.text(`Departamento: ${formData.departamento || '____________________'}`, margin + 85, y);
     doc.save(`Encuesta-${formData.lugar_practica || 'Satisfaccion'}.pdf`);
   };
+
+  if (!isMounted) {
+    return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/20">
