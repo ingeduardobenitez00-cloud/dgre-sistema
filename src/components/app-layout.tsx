@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -56,14 +55,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!mounted) return null;
 
-  // Rutas públicas no muestran el Sidebar
-  const publicRoutes = ['/login', '/encuesta-satisfaccion'];
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-
-  if (isPublicRoute) {
-    return <div className="animate-in fade-in duration-500">{children}</div>;
-  }
-
   if ((isUserLoading || !bootReady)) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -80,16 +71,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const publicRoutes = ['/login', '/encuesta-satisfaccion'];
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+
   return (
     <SidebarProvider defaultOpen={false}>
-      <Sidebar collapsible="offcanvas">
-        <AppSidebar />
-      </Sidebar>
-      <SidebarInset>
-        <div className="flex flex-1 flex-col">
+      {isPublicRoute ? (
+        <div className="flex flex-1 flex-col animate-in fade-in duration-500">
           {children}
         </div>
-      </SidebarInset>
+      ) : (
+        <>
+          <Sidebar collapsible="offcanvas">
+            <AppSidebar />
+          </Sidebar>
+          <SidebarInset>
+            <div className="flex flex-1 flex-col">
+              {children}
+            </div>
+          </SidebarInset>
+        </>
+      )}
     </SidebarProvider>
   );
 }
