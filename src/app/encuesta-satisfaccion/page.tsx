@@ -33,6 +33,7 @@ function EncuestaContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   
+  // Capturamos el ID de la solicitud desde la URL (vía QR)
   const solicitudIdFromUrl = searchParams.get('solicitudId');
 
   const [formData, setFormData] = useState({
@@ -53,14 +54,16 @@ function EncuestaContent() {
     setIsMounted(true);
   }, []);
 
-  // Sync with Firestore document from URL
+  // Referencia al documento de la agenda
   const solicitudRef = useMemoFirebase(() => 
     firestore && solicitudIdFromUrl ? doc(firestore, 'solicitudes-capacitacion', solicitudIdFromUrl) : null,
     [firestore, solicitudIdFromUrl]
   );
+  
+  // Obtenemos los datos de la agenda en tiempo real
   const { data: publicSolicitud, isLoading: isLoadingPublicSol } = useDoc<SolicitudCapacitacion>(solicitudRef);
 
-  // AUTO-POPULATE when data arrives
+  // SINCRONIZACIÓN FORZADA: Inyectamos los datos de la agenda apenas lleguen de Firestore
   useEffect(() => {
     if (publicSolicitud) {
       setFormData(prev => ({
@@ -100,8 +103,8 @@ function EncuestaContent() {
 
   const handleSubmit = async () => {
     if (!firestore) return;
-    if (!formData.lugar_practica || !formData.fecha || !formData.hora || !formData.edad) {
-        toast({ variant: "destructive", title: "Faltan datos", description: "Por favor complete todos los campos obligatorios." });
+    if (!formData.lugar_practica || !formData.fecha || !formData.edad) {
+        toast({ variant: "destructive", title: "Faltan datos", description: "Por favor complete los campos obligatorios (Edad)." });
         return;
     }
 
@@ -167,7 +170,7 @@ function EncuestaContent() {
     doc.setFont('helvetica', 'bold'); doc.text("¿Qué tan seguro/a se siente para utilizar la máquina?", margin, y); y += 7;
     doc.setFont('helvetica', 'normal');
     const seguridadMap = { muy_seguro: 'Muy seguro/a', seguro: 'Seguro/a', poco_seguro: 'Poco seguro/a', nada_seguro: 'Nada seguro/a' };
-    doc.text(`[X] ${securityMap[formData.seguridad_maquina as keyof typeof securityMap]}`, margin + 5, y);
+    doc.text(`[X] ${seguridadMap[formData.seguridad_maquina as keyof typeof seguridadMap]}`, margin + 5, y);
     y = 240; doc.setLineWidth(0.2); doc.rect(margin, y, 170, 30);
     y += 6; doc.setFont('helvetica', 'bold'); doc.text("PARA USO INTERNO DE LA JUSTICIA ELECTORAL", margin + 5, y);
     y += 8; doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
@@ -179,8 +182,6 @@ function EncuestaContent() {
   if (!isMounted) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
-
-  const securityMap = { muy_seguro: 'Muy seguro/a', seguro: 'Seguro/a', poco_seguro: 'Poco seguro/a', nada_seguro: 'Nada seguro/a' };
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/20">
@@ -195,19 +196,15 @@ function EncuestaContent() {
             </div>
             {solicitudIdFromUrl && (
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1.5 px-3 py-1 font-black text-[9px] uppercase">
-                    <CheckCircle2 className="h-3 w-3" /> Conexión Segura
+                    {isLoadingPublicSol ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                    {isLoadingPublicSol ? 'Sincronizando...' : 'Conexión Segura'}
                 </Badge>
             )}
         </header>
       )}
       <main className="flex-1 p-4 md:p-8">
         
-        {solicitudIdFromUrl && (isLoadingPublicSol ? (
-            <div className="mx-auto max-w-3xl mb-6 bg-primary/10 p-6 rounded-2xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center gap-2">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <p className="text-[10px] font-black uppercase text-primary tracking-widest">Sincronizando con la sesión...</p>
-            </div>
-        ) : publicSolicitud && (
+        {solicitudIdFromUrl && publicSolicitud && (
             <div className="mx-auto max-w-3xl mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
                 <div className="bg-primary text-white p-5 rounded-2xl shadow-xl flex items-center gap-5 border-4 border-white">
                     <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
@@ -222,7 +219,7 @@ function EncuestaContent() {
                     </div>
                 </div>
             </div>
-        ))}
+        )}
 
         <Card className="mx-auto max-w-3xl shadow-2xl border-t-8 border-t-primary rounded-3xl overflow-hidden">
           <CardHeader className="bg-muted/30 border-b p-8">
@@ -247,7 +244,7 @@ function EncuestaContent() {
                     value={formData.lugar_practica} 
                     onChange={handleInputChange} 
                     readOnly={!!solicitudIdFromUrl}
-                    placeholder={solicitudIdFromUrl ? "Cargando..." : "Nombre del local o institución"}
+                    placeholder={solicitudIdFromUrl ? "Cargando lugar..." : "Nombre del local o institución"}
                     className={cn(
                         "h-14 font-black text-lg border-2 transition-all", 
                         solicitudIdFromUrl ? "bg-muted/50 border-primary/20 text-primary cursor-not-allowed" : "border-muted group-hover:border-primary/40"

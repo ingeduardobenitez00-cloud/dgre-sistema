@@ -116,6 +116,7 @@ export default function AgendaCapacitacionPage() {
 
   const getEncuestaUrl = (id: string) => {
       if (typeof window === 'undefined') return '';
+      // Garantizamos que el ID sea parte fundamental de la URL pública
       const baseUrl = window.location.origin;
       return `${baseUrl}/encuesta-satisfaccion?solicitudId=${id}`;
   }
