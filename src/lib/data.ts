@@ -78,6 +78,7 @@ export type LocalVotacion = {
 export type SolicitudCapacitacion = {
   id: string;
   solicitante_entidad: string;
+  otra_entidad?: string;
   tipo_solicitud: 'divulgacion' | 'capacitacion';
   fecha: string;
   hora_desde: string;

@@ -50,6 +50,7 @@ export default function SolicitudCapacitacionPage() {
 
   const [formData, setFormData] = useState({
     solicitante_entidad: '',
+    otra_entidad: '',
     tipo_solicitud: 'divulgacion' as 'divulgacion' | 'capacitacion',
     fecha: '',
     hora_desde: '08:00',
@@ -106,7 +107,6 @@ export default function SolicitudCapacitacionPage() {
         L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        // Configuración de iconos de Leaflet (evita que desaparezcan los marcadores)
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -156,12 +156,10 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // Forzar redimensionamiento al inicio
         setTimeout(() => {
           if (map) map.invalidateSize();
         }, 500);
 
-        // Observer para manejar cambios de visibilidad o de tamaño del contenedor
         resizeObserver = new ResizeObserver(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -174,7 +172,6 @@ export default function SolicitudCapacitacionPage() {
       }
     };
 
-    // Inicialización con retraso para asegurar que el DOM está listo
     const timer = setTimeout(initMap, 400);
 
     return () => {
@@ -301,6 +298,9 @@ export default function SolicitudCapacitacionPage() {
       doc.rect(x, y, w, h); doc.setFont('helvetica', 'bold'); doc.text(label, x + 2, y + 5);
       doc.setFont('helvetica', 'normal'); doc.text(`: ${String(value || '').toUpperCase()}`, x + 40, y + 5);
     };
+    
+    const solicitanteIdentidad = formData.otra_entidad || formData.solicitante_entidad || 'ORGANIZACIÓN NO ESPECIFICADA';
+    drawCell(margin, tableY, pageWidth - (margin * 2), 8, "SOLICITANTE", solicitanteIdentidad); tableY += 8;
     drawCell(margin, tableY, pageWidth - (margin * 2), 8, "FECHA", formatDateToDDMMYYYY(formData.fecha)); tableY += 8;
     doc.rect(margin, tableY, pageWidth - (margin * 2), 8);
     doc.setFont('helvetica', 'bold'); doc.text("HORARIO", margin + 2, tableY + 5);
@@ -340,17 +340,20 @@ export default function SolicitudCapacitacionPage() {
     doc.text("__________________________________________", 105, tableY + 38, { align: "center" });
     doc.text("Firma y sello del Jefe del Registro Electoral:", 105, tableY + 43, { align: "center" });
 
-    doc.save(`AnexoV-${formData.solicitante_entidad || 'Solicitud'}.pdf`);
+    const fileName = formData.otra_entidad || formData.solicitante_entidad || 'Solicitud';
+    doc.save(`AnexoV-${fileName}.pdf`);
   };
 
   const handleSubmit = async () => {
     if (!firestore || !user) return;
-    if (!formData.solicitante_entidad || !formData.lugar_local || !formData.nombre_completo || !formData.tipo_solicitud) {
+    const entidadFinal = formData.solicitante_entidad || formData.otra_entidad;
+    if (!entidadFinal || !formData.lugar_local || !formData.nombre_completo || !formData.tipo_solicitud) {
       toast({ variant: "destructive", title: "Faltan datos obligatorios" }); return;
     }
     setIsSubmitting(true);
     const docData = { 
       ...formData, 
+      solicitante_entidad: formData.solicitante_entidad || 'OTRO',
       departamento: user.profile?.departamento || '', 
       distrito: user.profile?.distrito || '', 
       foto_firma: photoDataUri || '', 
@@ -361,7 +364,7 @@ export default function SolicitudCapacitacionPage() {
     try {
       await addDoc(collection(firestore, 'solicitudes-capacitacion'), docData);
       toast({ title: "¡Solicitud Registrada!" });
-      setFormData({ solicitante_entidad: '', tipo_solicitud: 'divulgacion', fecha: new Date().toISOString().split('T')[0], hora_desde: '08:00', hora_hasta: '12:00', lugar_local: '', direccion_calle: '', barrio_compania: '', rol_solicitante: 'apoderado', nombre_completo: '', cedula: '', telefono: '', gps: '' });
+      setFormData({ solicitante_entidad: '', otra_entidad: '', tipo_solicitud: 'divulgacion', fecha: new Date().toISOString().split('T')[0], hora_desde: '08:00', hora_hasta: '12:00', lugar_local: '', direccion_calle: '', barrio_compania: '', rol_solicitante: 'apoderado', nombre_completo: '', cedula: '', telefono: '', gps: '' });
       setPhotoDataUri(null);
     } catch (error) { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'solicitudes-capacitacion', operation: 'create', requestResourceData: docData })); }
     finally { setIsSubmitting(false); }
@@ -419,57 +422,75 @@ export default function SolicitudCapacitacionPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">GRUPO POLÍTICO SOLICITANTE</Label>
-                   <Popover open={isPartyPopoverOpen} onOpenChange={setIsPartyPopoverOpen}>
-                      <PopoverTrigger asChild>
-                      <Button variant="outline" role="combobox" className="w-full justify-between mt-1 h-12 font-bold text-lg border-2">
-                          <span className="truncate flex items-center gap-2">
-                            {selectedParty ? (
-                              <>
-                                {selectedParty.nombre}
-                                {selectedParty.siglas && (
-                                  <Badge variant="secondary" className="bg-primary/5 text-primary border-none font-black text-[10px]">
-                                    {selectedParty.siglas}
-                                  </Badge>
-                                )}
-                              </>
-                            ) : "Seleccionar partido o movimiento..."}
-                          </span>
-                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <Command>
-                          <CommandInput placeholder="Buscar partido o siglas..." />
-                          <CommandList className="max-h-[400px]">
-                            <CommandEmpty>No encontrado.</CommandEmpty>
-                            <CommandGroup>
-                              {partidosData?.map((p) => (
-                                <CommandItem 
-                                  key={p.id} 
-                                  value={`${p.nombre} ${p.siglas}`} 
-                                  onSelect={() => { 
-                                    setFormData(prev => ({...prev, solicitante_entidad: p.nombre})); 
-                                    setIsPartyPopoverOpen(false); 
-                                  }} 
-                                  className="flex items-center justify-between font-bold uppercase text-[10px] py-3 cursor-pointer"
-                                >
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="leading-tight">{p.nombre}</span>
-                                    {p.siglas && (
-                                      <span className="text-[9px] text-primary/60 font-black tracking-widest">
-                                        {p.siglas}
-                                      </span>
-                                    )}
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                  </Popover>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">GRUPO POLÍTICO SOLICITANTE</Label>
+                    <Popover open={isPartyPopoverOpen} onOpenChange={setIsPartyPopoverOpen}>
+                        <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="w-full justify-between mt-1 h-12 font-bold text-lg border-2">
+                            <span className="truncate flex items-center gap-2">
+                              {selectedParty ? (
+                                <>
+                                  {selectedParty.nombre}
+                                  {selectedParty.siglas && (
+                                    <Badge variant="secondary" className="bg-primary/5 text-primary border-none font-black text-[10px]">
+                                      {selectedParty.siglas}
+                                    </Badge>
+                                  )}
+                                </>
+                              ) : "Seleccionar de la lista..."}
+                            </span>
+                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <Command>
+                            <CommandInput placeholder="Buscar partido o siglas..." />
+                            <CommandList className="max-h-[400px]">
+                              <CommandEmpty>No encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {partidosData?.map((p) => (
+                                  <CommandItem 
+                                    key={p.id} 
+                                    value={`${p.nombre} ${p.siglas}`} 
+                                    onSelect={() => { 
+                                      setFormData(prev => ({...prev, solicitante_entidad: p.nombre, otra_entidad: ''})); 
+                                      setIsPartyPopoverOpen(false); 
+                                    }} 
+                                    className="flex items-center justify-between font-bold uppercase text-[10px] py-3 cursor-pointer"
+                                  >
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="leading-tight">{p.nombre}</span>
+                                      {p.siglas && (
+                                        <span className="text-[9px] text-primary/60 font-black tracking-widest">
+                                          {p.siglas}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-primary tracking-widest">OTRA ENTIDAD (UNIVERSIDADES, COOPERATIVAS, ETC.)</Label>
+                    <Input 
+                      name="otra_entidad" 
+                      placeholder="Especifique si no pertenece a un partido..." 
+                      value={formData.otra_entidad} 
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        if (e.target.value) {
+                          setFormData(prev => ({ ...prev, solicitante_entidad: '' }));
+                        }
+                      }} 
+                      className="h-11 font-bold border-2" 
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
