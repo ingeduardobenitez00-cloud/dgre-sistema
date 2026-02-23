@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageSquareHeart, CheckCircle2, FileDown, Globe } from 'lucide-react';
+import { Loader2, MessageSquareHeart, CheckCircle2, FileDown, Globe, MapPin, Calendar, Clock } from 'lucide-react';
 import { useUser, useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
@@ -31,8 +31,8 @@ function EncuestaContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   
-  // Safe access to search params after mount to prevent hydration mismatch
-  const solicitudIdFromUrl = isMounted ? searchParams.get('solicitudId') : null;
+  // Get ID directly to avoid hydration delays in fetch logic
+  const solicitudIdFromUrl = searchParams.get('solicitudId');
 
   const [formData, setFormData] = useState({
     lugar_practica: '',
@@ -58,6 +58,7 @@ function EncuestaContent() {
   );
   const { data: publicSolicitud, isLoading: isLoadingPublicSol } = useDoc<SolicitudCapacitacion>(solicitudRef);
 
+  // Sync Form Data with publicSolicitud
   useEffect(() => {
     if (publicSolicitud) {
       setFormData(prev => ({
@@ -113,6 +114,7 @@ function EncuestaContent() {
     try {
       await addDoc(collection(firestore, 'encuestas-satisfaccion'), encuestaData);
       toast({ title: "¡Gracias!", description: "Tu feedback ha sido registrado exitosamente." });
+      // Clear personal fields but keep location if it was from QR
       setFormData(p => ({ 
         ...p, 
         edad: '', 
@@ -177,156 +179,211 @@ function EncuestaContent() {
   return (
     <div className="flex min-h-screen flex-col bg-muted/20">
       {user ? <Header title="Encuesta de Satisfacción" /> : (
-        <header className="bg-white border-b px-6 py-4 flex items-center gap-4">
-            <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain" />
-            <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase text-primary leading-none">Justicia Electoral</span>
-                <span className="text-sm font-bold uppercase tracking-tight">Portal Ciudadano</span>
+        <header className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-50">
+            <div className="flex items-center gap-4">
+                <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain" />
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase text-primary leading-none">Justicia Electoral</span>
+                    <span className="text-sm font-bold uppercase tracking-tight">Portal Ciudadano</span>
+                </div>
             </div>
+            {solicitudIdFromUrl && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1.5 px-3 py-1 font-black text-[9px] uppercase">
+                    <CheckCircle2 className="h-3 w-3" /> Conexión Segura
+                </Badge>
+            )}
         </header>
       )}
       <main className="flex-1 p-4 md:p-8">
         
         {solicitudIdFromUrl && !isLoadingPublicSol && publicSolicitud && (
-            <div className="mx-auto max-w-3xl mb-6 animate-in fade-in slide-in-from-top-4">
-                <div className="bg-green-600 text-white p-4 rounded-xl shadow-lg flex items-center gap-4">
-                    <Globe className="h-8 w-8 opacity-50 shrink-0" />
-                    <div>
-                        <p className="text-[10px] font-black uppercase opacity-80">Evaluando Sesión en:</p>
-                        <p className="text-lg font-black uppercase leading-tight">{publicSolicitud.lugar_local}</p>
-                        <p className="text-[10px] font-bold opacity-80">{publicSolicitud.distrito} - {publicSolicitud.departamento}</p>
+            <div className="mx-auto max-w-3xl mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="bg-primary text-white p-5 rounded-2xl shadow-xl flex items-center gap-5 border-4 border-white">
+                    <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                        <Globe className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase opacity-70 tracking-widest mb-1">Sesión Identificada en:</p>
+                        <p className="text-xl font-black uppercase leading-tight truncate">{publicSolicitud.lugar_local}</p>
+                        <div className="flex items-center gap-3 mt-1.5 opacity-80">
+                            <span className="text-[10px] font-bold uppercase">{publicSolicitud.distrito} - {publicSolicitud.departamento}</span>
+                        </div>
                     </div>
                 </div>
             </div>
         )}
 
-        <Card className="mx-auto max-w-3xl shadow-xl border-t-4 border-t-primary">
-          <CardHeader className="bg-muted/30 border-b">
-            <CardTitle className="flex items-center gap-2 uppercase font-black text-primary">
-              <MessageSquareHeart className="h-6 w-6" />
-              Encuesta de Satisfacción Ciudadana
+        <Card className="mx-auto max-w-3xl shadow-2xl border-t-8 border-t-primary rounded-3xl overflow-hidden">
+          <CardHeader className="bg-muted/30 border-b p-8">
+            <CardTitle className="flex items-center gap-3 uppercase font-black text-primary text-2xl">
+              <MessageSquareHeart className="h-8 w-8" />
+              Encuesta de Satisfacción
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase">Tu opinión nos ayuda a mejorar el servicio electoral.</CardDescription>
+            <CardDescription className="text-xs font-bold uppercase mt-2">
+                Su opinión es fundamental para fortalecer la democracia paraguaya.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8 pt-8">
+          <CardContent className="space-y-10 p-8">
             
-            <div className="grid grid-cols-1 gap-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-primary tracking-widest">LUGAR DONDE REALIZÓ LA PRÁCTICA</Label>
-                <div className="relative">
+            <div className="grid grid-cols-1 gap-8">
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5" /> LUGAR DE LA PRÁCTICA
+                </Label>
+                <div className="relative group">
                   <Input 
                     name="lugar_practica" 
                     value={formData.lugar_practica} 
                     onChange={handleInputChange} 
                     readOnly={!!solicitudIdFromUrl}
                     placeholder="Nombre del local o institución" 
-                    className={cn("h-11 font-bold border-2", solicitudIdFromUrl && "bg-green-50 border-green-200")} 
+                    className={cn(
+                        "h-14 font-black text-lg border-2 transition-all", 
+                        solicitudIdFromUrl ? "bg-muted/50 border-primary/20 text-primary cursor-not-allowed" : "border-muted group-hover:border-primary/40"
+                    )} 
                   />
-                  {(formData.lugar_practica) && <CheckCircle2 className="absolute right-3 top-3 h-5 w-5 text-green-500" />}
+                  {formData.lugar_practica && <CheckCircle2 className="absolute right-4 top-4 h-6 w-6 text-green-500" />}
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">FECHA</Label>
-                  <Input name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} readOnly={!!solicitudIdFromUrl} className="h-11 font-bold border-2" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5" /> FECHA
+                  </Label>
+                  <Input 
+                    name="fecha" 
+                    type="date" 
+                    value={formData.fecha} 
+                    onChange={handleInputChange} 
+                    readOnly={!!solicitudIdFromUrl} 
+                    className={cn(
+                        "h-12 font-bold border-2",
+                        solicitudIdFromUrl ? "bg-muted/50 border-primary/10 cursor-not-allowed" : ""
+                    )}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">HORA</Label>
-                  <Input name="hora" type="time" value={formData.hora} onChange={handleInputChange} readOnly={!!solicitudIdFromUrl} className="h-11 font-bold border-2" />
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                    <Clock className="h-3.5 w-3.5" /> HORA
+                  </Label>
+                  <Input 
+                    name="hora" 
+                    type="time" 
+                    value={formData.hora} 
+                    onChange={handleInputChange} 
+                    readOnly={!!solicitudIdFromUrl} 
+                    className={cn(
+                        "h-12 font-bold border-2",
+                        solicitudIdFromUrl ? "bg-muted/50 border-primary/10 cursor-not-allowed" : ""
+                    )}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">TU EDAD (AÑOS)</Label>
-                  <Input name="edad" type="number" value={formData.edad} onChange={handleInputChange} placeholder="00" className="h-11 font-black border-2" />
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-primary tracking-widest">TU EDAD (AÑOS)</Label>
+                  <Input name="edad" type="number" value={formData.edad} onChange={handleInputChange} placeholder="00" className="h-12 font-black text-lg border-2 border-primary/20" />
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase text-primary tracking-widest">GÉNERO</Label>
-                <RadioGroup value={formData.genero} onValueChange={(v) => handleValueChange('genero', v as any)} className="flex flex-wrap gap-6 bg-muted/20 p-4 rounded-lg border-2 border-dashed">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="hombre" id="g-h" />
-                    <Label htmlFor="g-h" className="font-bold cursor-pointer">HOMBRE</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="mujer" id="g-m" />
-                    <Label htmlFor="g-m" className="font-bold cursor-pointer">MUJER</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="pueblo_originario" id="g-p" />
-                    <Label htmlFor="g-p" className="font-bold cursor-pointer">PUEBLO ORIGINARIO</Label>
-                  </div>
+              <div className="space-y-4">
+                <Label className="text-[10px] font-black uppercase text-primary tracking-widest">IDENTIDAD DE GÉNERO</Label>
+                <RadioGroup value={formData.genero} onValueChange={(v) => handleValueChange('genero', v as any)} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[
+                    { id: 'hombre', label: 'HOMBRE' },
+                    { id: 'mujer', label: 'MUJER' },
+                    { id: 'pueblo_originario', label: 'PUEBLO ORIGINARIO' }
+                  ].map(item => (
+                    <div key={item.id} className="flex items-center space-x-3 p-4 bg-muted/20 rounded-xl border-2 border-dashed border-muted hover:border-primary/40 transition-colors">
+                        <RadioGroupItem value={item.id} id={`g-${item.id}`} className="h-5 w-5" />
+                        <Label htmlFor={`g-${item.id}`} className="font-bold text-[10px] cursor-pointer uppercase">{item.label}</Label>
+                    </div>
+                  ))}
                 </RadioGroup>
               </div>
             </div>
 
-            <Separator />
+            <Separator className="h-1 bg-muted/30" />
 
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <Label className="font-black text-sm uppercase tracking-tight text-primary block">¿Le parece útil practicar con la máquina de votación?</Label>
-                <RadioGroup value={formData.utilidad_maquina} onValueChange={(v) => handleValueChange('utilidad_maquina', v as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-10">
+              <div className="space-y-5">
+                <Label className="font-black text-base uppercase tracking-tight text-primary block leading-tight">
+                    1. ¿Le parece útil practicar con la máquina de votación antes de las elecciones?
+                </Label>
+                <RadioGroup value={formData.utilidad_maquina} onValueChange={(v) => handleValueChange('utilidad_maquina', v as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {['muy_util', 'util', 'poco_util', 'nada_util'].map(val => (
-                    <div key={val} className="flex items-center space-x-2 border-2 p-4 rounded-xl hover:bg-primary/5 transition-colors cursor-pointer data-[state=checked]:border-primary">
-                        <RadioGroupItem value={val} id={`u-${val}`} />
-                        <Label htmlFor={`u-${val}`} className="flex-1 font-bold cursor-pointer capitalize">{val.replace('_', ' ')}</Label>
+                    <div key={val} className="flex items-center space-x-3 border-2 p-5 rounded-2xl hover:bg-primary/5 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
+                        <RadioGroupItem value={val} id={`u-${val}`} className="h-5 w-5" />
+                        <Label htmlFor={`u-${val}`} className="flex-1 font-black text-xs cursor-pointer uppercase">{val.replace('_', ' ')}</Label>
                     </div>
                   ))}
                 </RadioGroup>
               </div>
 
-              <div className="space-y-4">
-                <Label className="font-black text-sm uppercase tracking-tight text-primary block">¿Le resultó fácil usar la máquina de votación?</Label>
-                <RadioGroup value={formData.facilidad_maquina} onValueChange={(v) => handleValueChange('facilidad_maquina', v as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-5">
+                <Label className="font-black text-base uppercase tracking-tight text-primary block leading-tight">
+                    2. ¿Le resultó fácil utilizar la máquina de votación electrónica?
+                </Label>
+                <RadioGroup value={formData.facilidad_maquina} onValueChange={(v) => handleValueChange('facilidad_maquina', v as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {['muy_facil', 'facil', 'poco_facil', 'nada_facil'].map(val => (
-                    <div key={val} className="flex items-center space-x-2 border-2 p-4 rounded-xl hover:bg-primary/5 transition-colors cursor-pointer">
-                        <RadioGroupItem value={val} id={`f-${val}`} />
-                        <Label htmlFor={`f-${val}`} className="flex-1 font-bold cursor-pointer capitalize">{val.replace('_', ' ')}</Label>
+                    <div key={val} className="flex items-center space-x-3 border-2 p-5 rounded-2xl hover:bg-primary/5 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
+                        <RadioGroupItem value={val} id={`f-${val}`} className="h-5 w-5" />
+                        <Label htmlFor={`f-${val}`} className="flex-1 font-black text-xs cursor-pointer uppercase">{val.replace('_', ' ')}</Label>
                     </div>
                   ))}
                 </RadioGroup>
               </div>
 
-              <div className="space-y-4">
-                <Label className="font-black text-sm uppercase tracking-tight text-primary block">¿Qué tan seguro/a se siente para utilizar la máquina?</Label>
-                <RadioGroup value={formData.seguridad_maquina} onValueChange={(v) => handleValueChange('seguridad_maquina', v as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-5">
+                <Label className="font-black text-base uppercase tracking-tight text-primary block leading-tight">
+                    3. Después de la práctica, ¿qué tan seguro/a se siente para utilizar la máquina?
+                </Label>
+                <RadioGroup value={formData.seguridad_maquina} onValueChange={(v) => handleValueChange('seguridad_maquina', v as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {['muy_seguro', 'seguro', 'poco_seguro', 'nada_seguro'].map(val => (
-                    <div key={val} className="flex items-center space-x-2 border-2 p-4 rounded-xl hover:bg-primary/5 transition-colors cursor-pointer">
-                        <RadioGroupItem value={val} id={`s-${val}`} />
-                        <Label htmlFor={`s-${val}`} className="flex-1 font-bold cursor-pointer capitalize">{val.replace('_', ' ')}</Label>
+                    <div key={val} className="flex items-center space-x-3 border-2 p-5 rounded-2xl hover:bg-primary/5 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
+                        <RadioGroupItem value={val} id={`s-${val}`} className="h-5 w-5" />
+                        <Label htmlFor={`s-${val}`} className="flex-1 font-black text-xs cursor-pointer uppercase">{val.replace('_', ' ')}</Label>
                     </div>
                   ))}
                 </RadioGroup>
               </div>
             </div>
 
-            <div className="mt-10 border-2 border-primary/20 p-6 rounded-lg bg-white shadow-sm">
-                <p className="font-black text-xs uppercase text-primary mb-4 tracking-widest border-b pb-2">DATOS DE UBICACIÓN</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Distrito:</span>
-                        <span className="font-bold">{formData.distrito || '---'}</span>
+            <div className="mt-12 border-4 border-primary/10 p-8 rounded-3xl bg-muted/10 relative">
+                <div className="absolute -top-4 left-8 bg-primary text-white px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
+                    Uso Interno Institucional
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="flex flex-col gap-2">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Distrito Registrado:</span>
+                        <span className="font-black text-lg uppercase text-primary border-b-2 border-primary/20 pb-1">{formData.distrito || '---'}</span>
                     </div>
-                    <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Departamento:</span>
-                        <span className="font-bold">{formData.departamento || '---'}</span>
+                    <div className="flex flex-col gap-2">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Departamento:</span>
+                        <span className="font-black text-lg uppercase text-primary border-b-2 border-primary/20 pb-1">{formData.departamento || '---'}</span>
                     </div>
                 </div>
+                <p className="mt-6 text-[9px] font-bold text-muted-foreground uppercase text-center italic">
+                    Este documento debe ser remitido a la oficina del CIDEE central al finalizar la jornada.
+                </p>
             </div>
 
           </CardContent>
-          <CardFooter className="flex flex-col sm:flex-row gap-4 bg-muted/30 border-t p-6">
+          <CardFooter className="flex flex-col sm:flex-row gap-4 bg-muted/30 border-t p-8">
             {user && (
-                <Button onClick={generatePDF} variant="outline" className="w-full sm:w-auto font-black h-14 px-8 border-primary text-primary">
-                    <FileDown className="mr-2 h-5 w-5" /> PDF INTERNO
+                <Button onClick={generatePDF} variant="outline" className="w-full sm:w-auto font-black h-16 px-8 border-primary text-primary hover:bg-white shadow-sm">
+                    <FileDown className="mr-2 h-5 w-5" /> PDF OFICIAL
                 </Button>
             )}
             <div className="flex-1" />
-            <Button onClick={handleSubmit} disabled={isSubmitting || !formData.edad} className="w-full sm:w-auto px-12 h-14 font-black text-xl uppercase shadow-2xl">
-              {isSubmitting ? <><Loader2 className="animate-spin mr-3 h-6 w-6" /> ENVIANDO...</> : <><CheckCircle2 className="mr-3 h-6 w-6" /> ENVIAR ENCUESTA</>}
+            <Button onClick={handleSubmit} disabled={isSubmitting || !formData.edad} className="w-full sm:w-auto px-16 h-16 font-black text-xl uppercase shadow-2xl hover:scale-[1.02] transition-transform">
+              {isSubmitting ? <><Loader2 className="animate-spin mr-3 h-7 w-7" /> ENVIANDO...</> : <><CheckCircle2 className="mr-3 h-7 w-7" /> ENVIAR ENCUESTA</>}
             </Button>
           </CardFooter>
         </Card>
+        
+        <div className="mt-12 text-center pb-8">
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Justicia Electoral - República del Paraguay</p>
+        </div>
       </main>
     </div>
   );
