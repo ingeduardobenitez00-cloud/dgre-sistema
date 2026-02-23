@@ -169,19 +169,20 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // EL TRUCO MÁGICO: Forzar refresco en múltiples etapas
+        // EL TRUCO MÁGICO: Forzar refresco en múltiples etapas para asegurar visibilidad
         const forceRefresh = () => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
           }
         };
 
+        // Secuencia de refresco garantizada
         forceRefresh();
         setTimeout(forceRefresh, 100);
         setTimeout(forceRefresh, 500);
-        setTimeout(forceRefresh, 1000);
+        setTimeout(forceRefresh, 1500);
 
-        // Observador de cambios de tamaño (maneja apertura de sidebar)
+        // Observador de cambios de tamaño (maneja apertura de sidebar y carga de DOM)
         resizeObserver = new ResizeObserver(() => {
           forceRefresh();
         });
@@ -192,8 +193,8 @@ export default function SolicitudCapacitacionPage() {
       }
     };
 
-    // Delay de seguridad para asegurar que el layout esté listo
-    const timer = setTimeout(initMap, 500);
+    // Delay estratégico para esperar que el componente esté montado y visible
+    const timer = setTimeout(initMap, 400);
 
     return () => {
       clearTimeout(timer);
@@ -608,11 +609,11 @@ export default function SolicitudCapacitacionPage() {
                       Doble clic en el mapa para capturar coordenadas exactas
                     </div>
                     <div className="rounded-xl overflow-hidden border-4 border-muted shadow-inner bg-muted/20 relative">
-                      {/* Contenedor del mapa con height fijo y z-index asegurado */}
+                      {/* Contenedor del mapa con height fijo, z-index y posición relativa asegurada */}
                       <div 
                         ref={mapContainerRef} 
-                        className="h-[350px] w-full bg-muted/30 relative z-10" 
-                        style={{ height: '350px', minHeight: '350px' }} 
+                        className="h-[350px] w-full bg-white relative z-10" 
+                        style={{ height: '350px', minHeight: '350px', zIndex: 10, position: 'relative' }} 
                       />
                     </div>
                     <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex flex-col items-center justify-between gap-4">
