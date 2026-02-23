@@ -405,9 +405,12 @@
           "type": "string",
           "enum": [
             "hombre",
-            "mujer",
-            "pueblo_originario"
+            "mujer"
           ]
+        },
+        "pueblo_originario": {
+          "type": "boolean",
+          "description": "Si el ciudadano pertenece a un pueblo originario."
         },
         "utilidad_maquina": {
           "type": "string",

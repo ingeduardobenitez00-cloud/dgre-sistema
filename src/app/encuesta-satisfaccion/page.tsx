@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageSquareHeart, CheckCircle2, FileDown, Globe, MapPin, Calendar, Clock } from 'lucide-react';
 import { useUser, useFirebase, useMemoFirebase, useDoc } from '@/firebase';
@@ -39,7 +40,8 @@ function EncuestaContent() {
     fecha: '',
     hora: '',
     edad: '',
-    genero: 'hombre' as const,
+    genero: 'hombre' as 'hombre' | 'mujer',
+    pueblo_originario: false,
     utilidad_maquina: 'muy_util' as const,
     facilidad_maquina: 'muy_facil' as const,
     seguridad_maquina: 'muy_seguro' as const,
@@ -51,14 +53,12 @@ function EncuestaContent() {
     setIsMounted(true);
   }, []);
 
-  // Fetch specific solicitud if provided in URL (Automated via QR)
   const solicitudRef = useMemoFirebase(() => 
     firestore && solicitudIdFromUrl ? doc(firestore, 'solicitudes-capacitacion', solicitudIdFromUrl) : null,
     [firestore, solicitudIdFromUrl]
   );
   const { data: publicSolicitud, isLoading: isLoadingPublicSol } = useDoc<SolicitudCapacitacion>(solicitudRef);
 
-  // Sync Form Data with publicSolicitud
   useEffect(() => {
     if (publicSolicitud) {
       setFormData(prev => ({
@@ -118,6 +118,7 @@ function EncuestaContent() {
         ...p, 
         edad: '', 
         genero: 'hombre',
+        pueblo_originario: false,
         utilidad_maquina: 'muy_util' as const,
         facilidad_maquina: 'muy_facil' as const,
         seguridad_maquina: 'muy_seguro' as const,
@@ -149,8 +150,10 @@ function EncuestaContent() {
     doc.text(`LUGAR: ${formData.lugar_practica.toUpperCase()}`, margin, y); y += 10;
     doc.text(`FECHA: ${formatDateToDDMMYYYY(formData.fecha)}    HORA: ${formData.hora} HS.`, margin, y); y += 10;
     doc.text(`EDAD: ${formData.edad} AÑOS`, margin, y); y += 10;
-    const generoLabel = formData.genero === 'hombre' ? 'HOMBRE' : formData.genero === 'mujer' ? 'MUJER' : 'PUEBLO ORIGINARIO';
-    doc.text(`GÉNERO: ${generoLabel}`, margin, y); y += 15;
+    const generoLabel = formData.genero === 'hombre' ? 'HOMBRE' : 'MUJER';
+    doc.text(`GÉNERO: ${generoLabel}`, margin, y); y += 8;
+    doc.text(`¿PERTENECE A PUEBLO ORIGINARIO?: ${formData.pueblo_originario ? 'SÍ' : 'NO'}`, margin, y); y += 15;
+    
     doc.setFont('helvetica', 'bold'); doc.text("¿Le parece útil practicar con la máquina de votación?", margin, y); y += 7;
     doc.setFont('helvetica', 'normal');
     const utilidadMap = { muy_util: 'Muy útil', util: 'Útil', poco_util: 'Poco útil', nada_util: 'Nada útil' };
@@ -284,20 +287,33 @@ function EncuestaContent() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase text-primary tracking-widest">IDENTIDAD DE GÉNERO</Label>
-                <RadioGroup value={formData.genero} onValueChange={(v) => handleValueChange('genero', v as any)} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { id: 'hombre', label: 'HOMBRE' },
-                    { id: 'mujer', label: 'MUJER' },
-                    { id: 'pueblo_originario', label: 'PUEBLO ORIGINARIO' }
-                  ].map(item => (
-                    <div key={item.id} className="flex items-center space-x-3 p-4 bg-muted/20 rounded-xl border-2 border-dashed border-muted hover:border-primary/40 transition-colors">
-                        <RadioGroupItem value={item.id} id={`g-${item.id}`} className="h-5 w-5" />
-                        <Label htmlFor={`g-${item.id}`} className="font-bold text-[10px] cursor-pointer uppercase">{item.label}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-primary tracking-widest">IDENTIDAD DE GÉNERO</Label>
+                  <RadioGroup value={formData.genero} onValueChange={(v) => handleValueChange('genero', v as any)} className="grid grid-cols-2 gap-4">
+                    {[
+                      { id: 'hombre', label: 'HOMBRE' },
+                      { id: 'mujer', label: 'MUJER' }
+                    ].map(item => (
+                      <div key={item.id} className="flex items-center space-x-3 p-4 bg-muted/20 rounded-xl border-2 border-dashed border-muted hover:border-primary/40 transition-colors">
+                          <RadioGroupItem value={item.id} id={`g-${item.id}`} className="h-5 w-5" />
+                          <Label htmlFor={`g-${item.id}`} className="font-bold text-[10px] cursor-pointer uppercase">{item.label}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-primary tracking-widest">PERTENENCIA</Label>
+                  <div className="flex items-center space-x-3 p-4 bg-muted/20 rounded-xl border-2 border-dashed border-muted hover:border-primary/40 transition-colors h-[60px]">
+                      <Checkbox 
+                        id="pueblo-originario" 
+                        checked={formData.pueblo_originario} 
+                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, pueblo_originario: !!checked }))}
+                        className="h-6 w-6"
+                      />
+                      <Label htmlFor="pueblo-originario" className="font-bold text-[10px] cursor-pointer uppercase">¿PERTENECE A PUEBLO ORIGINARIO?</Label>
+                  </div>
+                </div>
               </div>
             </div>
 

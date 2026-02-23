@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { type EncuestaSatisfaccion } from '@/lib/data';
-import { Loader2, PieChart as PieChartIcon, BarChart3, Users, ClipboardCheck } from 'lucide-react';
+import { Loader2, PieChart as PieChartIcon, BarChart3, Users, ClipboardCheck, Landmark } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -44,7 +44,8 @@ export default function EstadisticasCapacitacionPage() {
       utilidad: { muy_util: 0, util: 0, poco_util: 0, nada_util: 0 },
       facilidad: { muy_facil: 0, facil: 0, poco_facil: 0, nada_facil: 0 },
       seguridad: { muy_seguro: 0, seguro: 0, poco_seguro: 0, nada_seguro: 0 },
-      genero: { hombre: 0, mujer: 0, pueblo_originario: 0 },
+      genero: { hombre: 0, mujer: 0 },
+      pueblo_originario: 0,
       edades: { '18-25': 0, '26-40': 0, '41-60': 0, '60+': 0 }
     };
 
@@ -53,6 +54,7 @@ export default function EstadisticasCapacitacionPage() {
       if (e.facilidad_maquina) summary.facilidad[e.facilidad_maquina]++;
       if (e.seguridad_maquina) summary.seguridad[e.seguridad_maquina]++;
       if (e.genero) summary.genero[e.genero]++;
+      if (e.pueblo_originario) summary.pueblo_originario++;
       
       const edad = parseInt(e.edad);
       if (edad <= 25) summary.edades['18-25']++;
@@ -66,10 +68,11 @@ export default function EstadisticasCapacitacionPage() {
 
     return {
       total: summary.total,
+      pueblo_originario: summary.pueblo_originario,
       utilidadData: formatData(summary.utilidad, { muy_util: 'Muy Útil', util: 'Útil', poco_util: 'Poco Útil', nada_util: 'Nada Útil' }),
       facilidadData: formatData(summary.facilidad, { muy_facil: 'Muy Fácil', facil: 'Fácil', poco_facil: 'Poco Fácil', nada_facil: 'Nada Fácil' }),
       seguridadData: formatData(summary.seguridad, { muy_seguro: 'Muy Seguro', seguro: 'Seguro', poco_seguro: 'Poco Seguro', nada_seguro: 'Nada Seguro' }),
-      generoData: formatData(summary.genero, { hombre: 'Hombre', mujer: 'Mujer', pueblo_originario: 'Pueblo Orig.' }),
+      generoData: formatData(summary.genero, { hombre: 'Hombre', mujer: 'Mujer' }),
       edadesData: Object.entries(summary.edades).map(([key, value]) => ({ name: key, value }))
     };
   }, [encuestas]);
@@ -85,10 +88,16 @@ export default function EstadisticasCapacitacionPage() {
             <h1 className="text-3xl font-black tracking-tight uppercase">Analítica CIDEE</h1>
             <p className="text-muted-foreground">Resultados consolidados de las encuestas de satisfacción.</p>
           </div>
-          <Card className="bg-primary text-primary-foreground px-6 py-3">
-            <div className="text-sm font-bold uppercase opacity-80">Encuestas Totales</div>
-            <div className="text-3xl font-black">{stats?.total || 0}</div>
-          </Card>
+          <div className="flex gap-4">
+            <Card className="bg-primary text-primary-foreground px-6 py-3">
+                <div className="text-[10px] font-bold uppercase opacity-80">Encuestas Totales</div>
+                <div className="text-3xl font-black">{stats?.total || 0}</div>
+            </Card>
+            <Card className="bg-white border-2 border-primary/20 px-6 py-3">
+                <div className="text-[10px] font-bold uppercase text-primary tracking-widest">Pueblos Originarios</div>
+                <div className="text-3xl font-black text-primary">{stats?.pueblo_originario || 0}</div>
+            </Card>
+          </div>
         </div>
 
         {!stats || stats.total === 0 ? (

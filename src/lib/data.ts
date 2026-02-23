@@ -108,7 +108,8 @@ export type EncuestaSatisfaccion = {
   fecha: string;
   hora: string;
   edad: string;
-  genero: 'hombre' | 'mujer' | 'pueblo_originario';
+  genero: 'hombre' | 'mujer';
+  pueblo_originario: boolean;
   utilidad_maquina: 'muy_util' | 'util' | 'poco_util' | 'nada_util';
   facilidad_maquina: 'muy_facil' | 'facil' | 'poco_facil' | 'nada_facil';
   seguridad_maquina: 'muy_seguro' | 'seguro' | 'poco_seguro' | 'nada_seguro';
