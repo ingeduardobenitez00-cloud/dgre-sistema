@@ -10,12 +10,13 @@ import { collection, query, orderBy, where, doc, updateDoc } from 'firebase/fire
 import { type SolicitudCapacitacion, type Dato } from '@/lib/data';
 import { Loader2, Calendar, MapPin, ClipboardCheck, LayoutList, Building2, UserPlus, CheckCircle2, QrCode, X, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateToDDMMYYYY } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
 
 export default function AgendaCapacitacionPage() {
   const { user, isUserLoading } = useUser();
