@@ -20,7 +20,9 @@ import {
   Trash2, 
   Clock,
   Lock,
-  Search
+  Search,
+  FileText,
+  Printer
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where, doc, updateDoc, orderBy } from 'firebase/firestore';
@@ -43,8 +45,8 @@ export default function ControlMovimientoMaquinasPage() {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   
   // States for forms
-  const [salidaFirma, setSalidaFirma] = useState<string | null>(null);
-  const [devolucionFirma, setDevolucionFirma] = useState<string | null>(null);
+  const [salidaFotoDoc, setSalidaFotoDoc] = useState<string | null>(null);
+  const [devolucionFotoDoc, setDevolucionFotoDoc] = useState<string | null>(null);
   const [salidaData, setSalidaData] = useState({
     codigo_maquina: '',
     fecha: '',
@@ -145,8 +147,8 @@ export default function ControlMovimientoMaquinasPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (type === 'salida') setSalidaFirma(reader.result as string);
-        else setDevolucionFirma(reader.result as string);
+        if (type === 'salida') setSalidaFotoDoc(reader.result as string);
+        else setDevolucionFotoDoc(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -154,8 +156,8 @@ export default function ControlMovimientoMaquinasPage() {
 
   const handleSaveSalida = async () => {
     if (!firestore || !user || !selectedSolicitud) return;
-    if (!salidaData.codigo_maquina || !salidaFirma) {
-      toast({ variant: 'destructive', title: 'Faltan datos', description: 'Ingrese el código de máquina y la firma.' });
+    if (!salidaData.codigo_maquina || !salidaFotoDoc) {
+      toast({ variant: 'destructive', title: 'Faltan datos', description: 'Ingrese el código de máquina y capture la foto del documento firmado.' });
       return;
     }
 
@@ -168,7 +170,7 @@ export default function ControlMovimientoMaquinasPage() {
       hora: salidaData.hora,
       codigo_maquina: salidaData.codigo_maquina,
       lugar: selectedSolicitud.lugar_local,
-      firma: salidaFirma,
+      firma: salidaFotoDoc, // Ahora es la foto del documento completo
     };
 
     const docData = {
@@ -196,8 +198,8 @@ export default function ControlMovimientoMaquinasPage() {
 
   const handleSaveDevolucion = async () => {
     if (!firestore || !user || !selectedSolicitud || !currentMovimiento) return;
-    if (!devolucionFirma) {
-      toast({ variant: 'destructive', title: 'Falta firma', description: 'Por favor capture la firma de devolución.' });
+    if (!devolucionFotoDoc) {
+      toast({ variant: 'destructive', title: 'Falta documento', description: 'Por favor capture la foto del formulario de devolución firmado.' });
       return;
     }
 
@@ -210,7 +212,7 @@ export default function ControlMovimientoMaquinasPage() {
       hora: devolucionData.hora,
       codigo_maquina: currentMovimiento.salida?.codigo_maquina || '',
       lugar: selectedSolicitud.lugar_local,
-      firma: devolucionFirma,
+      firma: devolucionFotoDoc, // Ahora es la foto del documento completo
     };
 
     try {
@@ -230,9 +232,32 @@ export default function ControlMovimientoMaquinasPage() {
     }
   };
 
-  const generatePDF = (type: 'salida' | 'devolucion') => {
-    const data = type === 'salida' ? currentMovimiento?.salida : currentMovimiento?.devolucion;
-    if (!data || !logoBase64) return;
+  const generatePDF = (type: 'salida' | 'devolucion', isProforma: boolean = false) => {
+    if (!selectedSolicitud || !logoBase64) return;
+
+    let dataToUse: any = null;
+    
+    if (isProforma) {
+      const currentData = type === 'salida' ? salidaData : devolucionData;
+      if (type === 'salida' && !currentData.codigo_maquina) {
+        toast({ variant: 'destructive', title: 'Código requerido', description: 'Ingrese el código de la máquina para la proforma.' });
+        return;
+      }
+      dataToUse = {
+        nombre: selectedSolicitud.divulgador_nombre || user?.profile?.username || '',
+        cedula: selectedSolicitud.divulgador_cedula || user?.profile?.cedula || '',
+        vinculo: selectedSolicitud.divulgador_vinculo || user?.profile?.vinculo || '',
+        fecha: currentData.fecha,
+        hora: currentData.hora,
+        codigo_maquina: type === 'salida' ? currentData.codigo_maquina : (currentMovimiento?.salida?.codigo_maquina || ''),
+        lugar: selectedSolicitud.lugar_local,
+        firma: null
+      };
+    } else {
+      dataToUse = type === 'salida' ? currentMovimiento?.salida : currentMovimiento?.devolucion;
+    }
+
+    if (!dataToUse) return;
 
     const doc = new jsPDF();
     const margin = 20;
@@ -244,6 +269,13 @@ export default function ControlMovimientoMaquinasPage() {
     doc.setFontSize(12);
     doc.text(type === 'salida' ? "FORMULARIO 01: SALIDA DE MÁQUINA" : "FORMULARIO 02: DEVOLUCIÓN DE MÁQUINA", 105, 28, { align: "center" });
 
+    if (isProforma) {
+      doc.setFontSize(10);
+      doc.setTextColor(150);
+      doc.text("PROFORMA PARA FIRMA FÍSICA", 105, 34, { align: "center" });
+      doc.setTextColor(0);
+    }
+
     let y = 50;
     const addLine = (label: string, value: string) => {
       doc.setFont('helvetica', 'bold');
@@ -254,29 +286,34 @@ export default function ControlMovimientoMaquinasPage() {
       y += 12;
     };
 
-    addLine("FUNCIONARIO RESPONSABLE", data.nombre);
-    addLine("NÚMERO DE CÉDULA", data.cedula);
-    addLine("VÍNCULO", data.vinculo);
-    addLine("FECHA", formatDateToDDMMYYYY(data.fecha));
-    addLine("HORA DE " + (type === 'salida' ? 'SALIDA' : 'DEVOLUCIÓN'), data.hora);
-    addLine("CÓDIGO MÁQUINA", data.codigo_maquina);
-    addLine("LUGAR DE DIVULGACIÓN", data.lugar);
+    addLine("FUNCIONARIO RESPONSABLE", dataToUse.nombre);
+    addLine("NÚMERO DE CÉDULA", dataToUse.cedula);
+    addLine("VÍNCULO", dataToUse.vinculo);
+    addLine("FECHA", formatDateToDDMMYYYY(dataToUse.fecha));
+    addLine("HORA DE " + (type === 'salida' ? 'SALIDA' : 'DEVOLUCIÓN'), dataToUse.hora);
+    addLine("CÓDIGO MÁQUINA", dataToUse.codigo_maquina);
+    addLine("LUGAR DE DIVULGACIÓN", dataToUse.lugar);
 
     y += 10;
     doc.setFont('helvetica', 'bold');
     doc.text("FIRMA DEL FUNCIONARIO:", margin, y);
-    if (data.firma) {
-      doc.addImage(data.firma, 'JPEG', margin + 60, y - 5, 60, 30);
+    
+    if (!isProforma && dataToUse.firma) {
+      // Si ya tiene firma (foto del doc), la mostramos abajo
+      doc.addPage();
+      doc.text("RESPALDO DEL DOCUMENTO FIRMADO", 105, 20, { align: 'center' });
+      doc.addImage(dataToUse.firma, 'JPEG', margin, 30, 170, 230);
+    } else {
+      y += 50;
+      doc.setFontSize(10);
+      doc.text("__________________________", 55, y, { align: "center" });
+      doc.text("Firma y Aclaración", 55, y + 5, { align: "center" });
+      doc.text("__________________________", 155, y, { align: "center" });
+      doc.text("Sello y Firma Jefatura", 155, y + 5, { align: "center" });
     }
 
-    y += 50;
-    doc.setFontSize(10);
-    doc.text("__________________________", 55, y, { align: "center" });
-    doc.text("Firma y Aclaración", 55, y + 5, { align: "center" });
-    doc.text("__________________________", 155, y, { align: "center" });
-    doc.text("Sello y Firma Jefatura", 155, y + 5, { align: "center" });
-
-    doc.save(`${type.toUpperCase()}-${data.cedula}.pdf`);
+    const name = isProforma ? 'Proforma' : 'Comprobante';
+    doc.save(`${name}-${type.toUpperCase()}-${dataToUse.cedula}.pdf`);
   };
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
@@ -352,6 +389,12 @@ export default function ControlMovimientoMaquinasPage() {
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
                 <div className="space-y-4">
+                  {!currentMovimiento && (
+                    <Button variant="outline" className="w-full h-10 font-black uppercase text-[10px] border-2 border-dashed" onClick={() => generatePDF('salida', true)}>
+                      <Printer className="mr-2 h-3.5 w-3.5" /> GENERAR PROFORMA 01
+                    </Button>
+                  )}
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <Label className="text-[10px] uppercase font-black text-muted-foreground">Fecha Salida</Label>
@@ -376,13 +419,13 @@ export default function ControlMovimientoMaquinasPage() {
 
                   <div className="p-4 bg-muted/20 rounded-lg border space-y-3">
                     <Label className="text-xs font-bold uppercase flex items-center gap-2">
-                      <Lock className="h-3 w-3" /> Firma del Funcionario
+                      <FileText className="h-3 w-3" /> Documento Físico Firmado
                     </Label>
-                    {currentMovimiento?.salida?.firma || salidaFirma ? (
+                    {currentMovimiento?.salida?.firma || salidaFotoDoc ? (
                       <div className="relative aspect-[3/1] bg-white rounded border overflow-hidden">
-                        <Image src={currentMovimiento?.salida?.firma || salidaFirma!} alt="Firma" fill className="object-contain" />
+                        <Image src={currentMovimiento?.salida?.firma || salidaFotoDoc!} alt="Respaldo Documento" fill className="object-contain" />
                         {!currentMovimiento && (
-                          <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => setSalidaFirma(null)}>
+                          <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => setSalidaFotoDoc(null)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         )}
@@ -390,7 +433,7 @@ export default function ControlMovimientoMaquinasPage() {
                     ) : (
                       <label htmlFor="capture-salida" className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-white transition-colors">
                         <Camera className="h-6 w-6 text-muted-foreground mb-1" />
-                        <span className="text-[10px] font-bold text-muted-foreground">CAPTURAR FIRMA</span>
+                        <span className="text-[10px] font-bold text-muted-foreground">CAPTURAR DOCUMENTO</span>
                         <Input id="capture-salida" type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoCapture(e, 'salida')} />
                       </label>
                     )}
@@ -399,12 +442,12 @@ export default function ControlMovimientoMaquinasPage() {
               </CardContent>
               <CardFooter className="bg-muted/10 border-t p-4 flex flex-col gap-3">
                 {!currentMovimiento ? (
-                  <Button className="w-full h-12 font-bold" onClick={handleSaveSalida} disabled={isSubmitting}>
+                  <Button className="w-full h-12 font-bold" onClick={handleSaveSalida} disabled={isSubmitting || !salidaFotoDoc}>
                     {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "REGISTRAR SALIDA"}
                   </Button>
                 ) : (
                   <Button variant="outline" className="w-full h-12 font-bold border-primary text-primary" onClick={() => generatePDF('salida')}>
-                    <FileDown className="mr-2 h-5 w-5" /> DESCARGAR FORMULARIO 01
+                    <FileDown className="mr-2 h-5 w-5" /> COMPROBANTE 01
                   </Button>
                 )}
               </CardFooter>
@@ -436,6 +479,12 @@ export default function ControlMovimientoMaquinasPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {currentMovimiento && !currentMovimiento.devolucion && (
+                      <Button variant="outline" className="w-full h-10 font-black uppercase text-[10px] border-2 border-dashed border-orange-200 text-orange-600" onClick={() => generatePDF('devolucion', true)}>
+                        <Printer className="mr-2 h-3.5 w-3.5" /> GENERAR PROFORMA 02
+                      </Button>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <Label className="text-[10px] uppercase font-black text-muted-foreground">Fecha Devolución</Label>
@@ -454,13 +503,13 @@ export default function ControlMovimientoMaquinasPage() {
 
                     <div className="p-4 bg-muted/20 rounded-lg border space-y-3">
                       <Label className="text-xs font-bold uppercase flex items-center gap-2">
-                        <Lock className="h-3 w-3" /> Firma del Funcionario
+                        <FileText className="h-3 w-3" /> Documento Físico Firmado
                       </Label>
-                      {currentMovimiento?.devolucion?.firma || devolucionFirma ? (
+                      {currentMovimiento?.devolucion?.firma || devolucionFotoDoc ? (
                         <div className="relative aspect-[3/1] bg-white rounded border overflow-hidden">
-                          <Image src={currentMovimiento?.devolucion?.firma || devolucionFirma!} alt="Firma" fill className="object-contain" />
+                          <Image src={currentMovimiento?.devolucion?.firma || devolucionFotoDoc!} alt="Respaldo Documento" fill className="object-contain" />
                           {!currentMovimiento?.devolucion && (
-                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => setDevolucionFirma(null)}>
+                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => setDevolucionFotoDoc(null)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           )}
@@ -468,7 +517,7 @@ export default function ControlMovimientoMaquinasPage() {
                       ) : (
                         <label htmlFor="capture-devolucion" className="flex flex-col items-center justify-center h-24 border-2 border-dashed border-orange-200 rounded-lg cursor-pointer hover:bg-white transition-colors">
                           <Camera className="h-6 w-6 text-orange-400 mb-1" />
-                          <span className="text-[10px] font-bold text-orange-400">CAPTURAR FIRMA</span>
+                          <span className="text-[10px] font-bold text-orange-400">CAPTURAR DOCUMENTO</span>
                           <Input id="capture-devolucion" type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoCapture(e, 'devolucion')} />
                         </label>
                       )}
@@ -478,12 +527,12 @@ export default function ControlMovimientoMaquinasPage() {
               </CardContent>
               <CardFooter className="bg-muted/10 border-t p-4 flex flex-col gap-3">
                 {currentMovimiento && !currentMovimiento.devolucion ? (
-                  <Button className="w-full h-12 font-bold bg-orange-600 hover:bg-orange-700" onClick={handleSaveDevolucion} disabled={isSubmitting || !isDevolucionEnabled}>
+                  <Button className="w-full h-12 font-bold bg-orange-600 hover:bg-orange-700" onClick={handleSaveDevolucion} disabled={isSubmitting || !isDevolucionEnabled || !devolucionFotoDoc}>
                     {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "REGISTRAR DEVOLUCIÓN"}
                   </Button>
                 ) : currentMovimiento?.devolucion ? (
                   <Button variant="outline" className="w-full h-12 font-bold border-orange-600 text-orange-600" onClick={() => generatePDF('devolucion')}>
-                    <FileDown className="mr-2 h-5 w-5" /> DESCARGAR FORMULARIO 02
+                    <FileDown className="mr-2 h-5 w-5" /> COMPROBANTE 02
                   </Button>
                 ) : (
                   <Button disabled className="w-full h-12 font-bold">DEVOLUCIÓN PENDIENTE</Button>
