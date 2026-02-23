@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -16,26 +17,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [bootReady, setBootReady] = useState(false);
 
-  // Etapa 1: Asegurar que el componente está montado en el cliente antes de nada
   useEffect(() => {
     setMounted(true);
-    // Pequeño retraso para dejar que el navegador respire tras el montaje inicial
     const timer = setTimeout(() => setBootReady(true), 100);
     return () => clearTimeout(timer);
   }, []);
 
-  // Etapa 2: Manejo de redirecciones de forma no bloqueante
   useEffect(() => {
     if (!mounted || isUserLoading) return;
 
-    if (!user && pathname !== '/login') {
+    // Definir rutas que no requieren login
+    const publicRoutes = ['/login', '/encuesta-satisfaccion'];
+    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+
+    if (!user && !isPublicRoute) {
       router.replace('/login');
     } else if (user && pathname === '/login') {
       router.replace('/');
     }
   }, [user, isUserLoading, pathname, router, mounted]);
 
-  // Si hay un error crítico de conexión con Firebase
   if (userError && mounted) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center p-6 text-center space-y-6 bg-background">
@@ -53,11 +54,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // No renderizar nada hasta que el componente esté montado (evita errores de hidratación)
   if (!mounted) return null;
 
-  // Pantalla de carga ultra-ligera
-  if ((isUserLoading || !bootReady) && pathname !== '/login') {
+  // Rutas públicas no muestran el Sidebar
+  const publicRoutes = ['/login', '/encuesta-satisfaccion'];
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+
+  if (isPublicRoute) {
+    return <div className="animate-in fade-in duration-500">{children}</div>;
+  }
+
+  if ((isUserLoading || !bootReady)) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -73,12 +80,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Página de Login aislada
-  if (pathname === '/login') {
-    return <div className="animate-in fade-in duration-500">{children}</div>;
-  }
-
-  // Interfaz principal con Sidebar
   return (
     <SidebarProvider defaultOpen={false}>
       <Sidebar collapsible="offcanvas">

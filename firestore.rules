@@ -78,7 +78,7 @@ service cloud.firestore {
     }
 
     match /solicitudes-capacitacion/{solicitudId} {
-      allow read: if isSignedIn();
+      allow read: if true; // Permitir lectura pública para encuestas vía QR
       allow create: if isSignedIn();
       allow update: if isSignedIn();
       allow delete: if isAdmin();
@@ -86,7 +86,7 @@ service cloud.firestore {
 
     match /encuestas-satisfaccion/{encuestaId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if true; // Permitir que ciudadanos envíen encuestas
       allow update: if isSignedIn();
       allow delete: if isAdmin();
     }
