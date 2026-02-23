@@ -31,11 +31,6 @@ service cloud.firestore {
       return ('permissions' in data && permString in data.permissions) || (action in data.permissions);
     }
 
-    function hasGlobalPermission(permission) {
-      let data = getUserData();
-      return isSignedIn() && data != null && 'permissions' in data && permission in data.permissions;
-    }
-
     /** Publicly readable data **/
     match /datos/{datoId} {
       allow read: if true;
@@ -78,37 +73,30 @@ service cloud.firestore {
     }
 
     match /solicitudes-capacitacion/{solicitudId} {
-      allow read: if true; // Permitir lectura pública para encuestas vía QR
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read: if true; 
+      allow create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
     match /encuestas-satisfaccion/{encuestaId} {
       allow read: if isSignedIn();
-      allow create: if true; // Permitir que ciudadanos envíen encuestas
+      allow create: if true; 
       allow update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
     match /informes-divulgador/{informeId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
     match /informes-semanales-anexo-iv/{informeId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
     match /movimientos-maquinas/{movimientoId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
@@ -119,8 +107,7 @@ service cloud.firestore {
 
     /** User Profiles **/
     match /users/{userId} {
-        allow get: if isSignedIn();
-        allow list: if isSignedIn();
+        allow get, list: if isSignedIn();
         allow create: if isAdmin();
         allow update: if (request.auth.uid == userId) || isAdmin();
         allow delete: if isAdmin();

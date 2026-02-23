@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -30,27 +31,25 @@ export default function InformeSemanalAnexoIVPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
-  // States for filtering (Admins)
+  // States for filtering
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [departments, setDepartments] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
 
-  // De-couple "Administrative" power from hardcoded roles. Now depends on admin role OR admin_filter permission.
   const canFilterAll = user?.profile?.role === 'admin' || user?.profile?.permissions?.includes('admin_filter');
 
   // Master list of departments and districts for filtering
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
-  // Initialize filters based on user profile or defaults
+  // Initialize filters based on user profile
   useEffect(() => {
     if (!isUserLoading && user?.profile) {
       if (!canFilterAll) {
         setSelectedDepartment(user.profile.departamento || null);
         setSelectedDistrict(user.profile.distrito || null);
       } else if (!selectedDepartment && user.profile.departamento) {
-        // Optional: default to their own dept if admin
         setSelectedDepartment(user.profile.departamento);
         setSelectedDistrict(user.profile.distrito || null);
       }
@@ -71,6 +70,7 @@ export default function InformeSemanalAnexoIVPage() {
   }, [datosData, selectedDepartment]);
 
   // Fetch Informes del Divulgador (Anexo III) based on selection
+  // CRITICAL: Ensure query only runs with valid filters to avoid permission errors on listing full collection
   const informesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedDepartment || !selectedDistrict) return null;
     return query(
@@ -84,7 +84,7 @@ export default function InformeSemanalAnexoIVPage() {
   const { data: informesAnexoIII, isLoading: isLoadingInformes } = useCollection<InformeDivulgador>(informesQuery);
 
   const consolidatedFilas = useMemo(() => {
-    if (!informesAnexoIII) return Array(12).fill(null).map(() => ({
+    const emptyRows = Array(12).fill(null).map(() => ({
       lugar: '',
       fecha: '',
       hora_desde: '',
@@ -94,6 +94,8 @@ export default function InformeSemanalAnexoIVPage() {
       vinculo: '',
       cantidad_personas: 0,
     }));
+
+    if (!informesAnexoIII || informesAnexoIII.length === 0) return emptyRows;
 
     const mapped = informesAnexoIII.map(inf => ({
       lugar: inf.lugar_divulgacion,
@@ -106,19 +108,8 @@ export default function InformeSemanalAnexoIVPage() {
       cantidad_personas: inf.total_personas || 0,
     }));
 
-    const emptyRowsCount = Math.max(0, 12 - mapped.length);
-    const emptyRows = Array(emptyRowsCount).fill(null).map(() => ({
-      lugar: '',
-      fecha: '',
-      hora_desde: '',
-      hora_hasta: '',
-      nombre_divulgador: '',
-      cedula: '',
-      vinculo: '',
-      cantidad_personas: 0,
-    }));
-
-    return [...mapped, ...emptyRows].slice(0, 12);
+    const result = [...mapped, ...emptyRows].slice(0, 12);
+    return result;
   }, [informesAnexoIII]);
 
   useEffect(() => {
@@ -233,11 +224,9 @@ export default function InformeSemanalAnexoIVPage() {
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         
-        // Left Signature: Divulgador
         doc.text("__________________________________", margin + 50, finalY, { align: "center" });
         doc.text("Firma y aclaración Divulgador", margin + 50, finalY + 5, { align: "center" });
 
-        // Right Signature: Jefes
         doc.text("__________________________________", pageWidth - margin - 50, finalY, { align: "center" });
         doc.text("Firma, aclaración y sello Jefes", pageWidth - margin - 50, finalY + 5, { align: "center" });
 
@@ -257,7 +246,6 @@ export default function InformeSemanalAnexoIVPage() {
       <Header title="Informe Semanal - Anexo IV" />
       <main className="flex-1 p-4 md:p-8">
         
-        {/* Unified Filter Logic: Access based on admin role or specific permission */}
         {canFilterAll && (
           <div className="mx-auto max-w-7xl mb-6">
             <Card className="bg-white border-primary/20 shadow-sm">
