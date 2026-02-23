@@ -93,34 +93,20 @@ export default function SolicitudCapacitacionPage() {
     fetchLogo();
   }, []);
 
+  // Lógica de Mapa Reparada
   useEffect(() => {
     let map: any = null;
+    let L: any = null;
     let resizeObserver: ResizeObserver | null = null;
 
     const initMap = async () => {
-      if (typeof window === 'undefined' || !mapContainerRef.current) return;
+      if (typeof window === 'undefined' || !mapContainerRef.current || mapInstanceRef.current) return;
 
       try {
-        const L = (await import('leaflet')).default;
+        L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        if (!document.getElementById('leaflet-css')) {
-          const link = document.createElement('link');
-          link.id = 'leaflet-css';
-          link.rel = 'stylesheet';
-          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-          document.head.appendChild(link);
-        }
-        if (!document.getElementById('geosearch-css')) {
-          const link = document.createElement('link');
-          link.id = 'geosearch-css';
-          link.rel = 'stylesheet';
-          link.href = 'https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css';
-          document.head.appendChild(link);
-        }
-
-        if (!mapContainerRef.current || mapInstanceRef.current) return;
-
+        // Configuración de iconos de Leaflet (evita que desaparezcan los marcadores)
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -148,7 +134,9 @@ export default function SolicitudCapacitacionPage() {
           showMarker: true,
           autoClose: true,
           searchLabel: 'Buscar dirección...',
-          keepResult: true
+          keepResult: true,
+          retainZoomLevel: false,
+          animateZoom: true,
         });
         map.addControl(searchControl);
 
@@ -168,21 +156,26 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
+        // Forzar redimensionamiento al inicio
+        setTimeout(() => {
+          if (map) map.invalidateSize();
+        }, 500);
+
+        // Observer para manejar cambios de visibilidad o de tamaño del contenedor
         resizeObserver = new ResizeObserver(() => {
-          if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
         });
         resizeObserver.observe(mapContainerRef.current);
-
-        map.invalidateSize();
-        setTimeout(() => map.invalidateSize(), 500);
-        setTimeout(() => map.invalidateSize(), 1500);
 
       } catch (err) {
         console.error("Error al inicializar el mapa:", err);
       }
     };
 
-    const timer = setTimeout(initMap, 300);
+    // Inicialización con retraso para asegurar que el DOM está listo
+    const timer = setTimeout(initMap, 400);
 
     return () => {
       clearTimeout(timer);
@@ -569,8 +562,8 @@ export default function SolicitudCapacitacionPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
-                    <div className="rounded-xl overflow-hidden border-4 border-muted shadow-inner bg-muted/20 relative group">
-                      <div ref={mapContainerRef} className="h-[300px] w-full bg-muted/20" style={{ minHeight: '300px' }} />
+                    <div className="rounded-xl overflow-hidden border-4 border-muted shadow-inner bg-muted/20 relative">
+                      <div ref={mapContainerRef} className="h-[350px] w-full bg-muted/30" style={{ minHeight: '350px' }} />
                       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
                         <div className="bg-black/80 text-white text-[9px] font-black uppercase px-4 py-2 rounded-full backdrop-blur-md shadow-2xl border border-white/20 whitespace-nowrap">
                           Doble clic en el mapa para capturar coordenadas exactas
