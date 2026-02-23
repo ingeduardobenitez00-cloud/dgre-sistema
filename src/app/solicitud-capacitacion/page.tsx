@@ -104,7 +104,6 @@ export default function SolicitudCapacitacionPage() {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        // Garantizar carga de estilos
         if (!document.getElementById('leaflet-css')) {
           const link = document.createElement('link');
           link.id = 'leaflet-css';
@@ -122,7 +121,6 @@ export default function SolicitudCapacitacionPage() {
 
         if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-        // Fix de iconos
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -170,7 +168,6 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // Doble validación de tamaño para evitar mapa gris
         resizeObserver = new ResizeObserver(() => {
           if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
         });
@@ -185,7 +182,6 @@ export default function SolicitudCapacitacionPage() {
       }
     };
 
-    // Inicialización diferida para asegurar renderizado del contenedor
     const timer = setTimeout(initMap, 300);
 
     return () => {
@@ -556,47 +552,6 @@ export default function SolicitudCapacitacionPage() {
                   </div>
                 </div>
 
-                <Separator />
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                      <MapPin className="h-4 w-4" /> GEORREFERENCIACIÓN DEL EVENTO
-                    </Label>
-                    {formData.gps && (
-                      <Badge className="bg-green-100 text-green-700 border-none shadow-sm font-black text-[9px] uppercase px-3 py-1">
-                        UBICACIÓN FIJADA
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="rounded-xl overflow-hidden border-4 border-muted shadow-inner bg-muted/20 relative group">
-                    <div ref={mapContainerRef} className="h-[400px] w-full bg-muted/20" style={{ minHeight: '400px' }} />
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
-                      <div className="bg-black/80 text-white text-[9px] font-black uppercase px-4 py-2 rounded-full backdrop-blur-md shadow-2xl border border-white/20 whitespace-nowrap">
-                        Doble clic en el mapa para capturar coordenadas exactas
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Navigation className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black uppercase text-muted-foreground leading-none mb-1">COORDENADAS GPS</p>
-                        <p className="font-black text-sm text-primary tracking-tight">
-                          {formData.gps || 'PENDIENTE DE CAPTURA'}
-                        </p>
-                      </div>
-                    </div>
-                    {formData.gps && (
-                      <Badge className="bg-primary text-white border-none shadow-sm font-black text-[9px] uppercase px-3 py-1">
-                        CAPTURADO
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
               </CardContent>
               <CardFooter className="bg-primary p-0">
                   <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full h-16 bg-primary text-white hover:bg-primary/90 text-xl font-black uppercase rounded-none shadow-2xl">
@@ -607,6 +562,42 @@ export default function SolicitudCapacitacionPage() {
           </div>
 
           <div className="space-y-8">
+              <Card className="shadow-lg border-none overflow-hidden">
+                  <CardHeader className="bg-muted/50 border-b">
+                    <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-primary">
+                      <MapPin className="h-4 w-4" /> GEORREFERENCIACIÓN DEL EVENTO
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="rounded-xl overflow-hidden border-4 border-muted shadow-inner bg-muted/20 relative group">
+                      <div ref={mapContainerRef} className="h-[300px] w-full bg-muted/20" style={{ minHeight: '300px' }} />
+                      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+                        <div className="bg-black/80 text-white text-[9px] font-black uppercase px-4 py-2 rounded-full backdrop-blur-md shadow-2xl border border-white/20 whitespace-nowrap">
+                          Doble clic en el mapa para capturar coordenadas exactas
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex flex-col items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Navigation className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-black uppercase text-muted-foreground leading-none mb-1">COORDENADAS GPS</p>
+                          <p className="font-black text-xs text-primary tracking-tight truncate">
+                            {formData.gps || 'PENDIENTE DE CAPTURA'}
+                          </p>
+                        </div>
+                      </div>
+                      {formData.gps && (
+                        <Badge className="bg-green-100 text-green-700 border-none shadow-sm font-black text-[9px] uppercase px-3 py-1 w-full justify-center">
+                          UBICACIÓN FIJADA
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
+              </Card>
+
               <Card className="shadow-lg border-none overflow-hidden">
                   <CardHeader className="bg-muted/50 border-b">
                     <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-primary">
