@@ -34,7 +34,8 @@ import {
   TableProperties,
   ArrowLeftRight,
   Flag,
-  FileUp
+  FileUp,
+  UserCircle
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -55,6 +56,7 @@ export default function AppSidebar() {
       label: "CIDEE - CAPACITACIONES",
       items: [
         { href: "/solicitud-capacitacion", label: "Nueva Solicitud", icon: ClipboardCheck },
+        { href: "/divulgadores", label: "Directorio Divulgadores", icon: UserCircle },
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
         { href: "/control-movimiento-maquinas", label: "Movimiento de Máquinas", icon: ArrowLeftRight },
         { href: "/encuesta-satisfaccion", label: "Encuesta Satisfacción", icon: MessageSquareHeart },
@@ -103,26 +105,23 @@ export default function AppSidebar() {
   ];
 
   const isAccessible = (href: string) => {
+    if (!user) return false;
     if (href === '/') return true;
-    if (user?.profile?.role === 'admin') return true;
+    if (user.profile?.role === 'admin') return true;
     const moduleName = href.substring(1);
-    return user?.profile?.modules?.includes(moduleName);
+    return user.profile?.modules?.includes(moduleName);
   };
 
   return (
     <div className="flex h-full flex-col bg-sidebar border-r">
       <SidebarHeader className="py-6 px-4">
         <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border border-muted/20">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border">
               <Image src="/logo.png" alt="Logo" width={30} height={30} className="object-contain" priority />
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-black text-foreground uppercase leading-none tracking-tight">
-                  JUSTICIA
-              </span>
-              <span className="text-[11px] font-black text-primary uppercase leading-none tracking-tight mt-0.5">
-                  ELECTORAL
-              </span>
+              <span className="text-[11px] font-black uppercase leading-none tracking-tight">JUSTICIA</span>
+              <span className="text-[11px] font-black text-primary uppercase leading-none tracking-tight mt-0.5">ELECTORAL</span>
             </div>
         </div>
       </SidebarHeader>
@@ -133,13 +132,11 @@ export default function AppSidebar() {
           if (accessibleItems.length === 0) return null;
 
           return (
-            <Collapsible key={group.label} className="group/collapsible mb-2" defaultOpen={group.label === "Principal" || group.label === "CIDEE - CAPACITACIONES"}>
+            <Collapsible key={group.label} className="group/collapsible mb-2" defaultOpen={true}>
               <SidebarGroup className="py-0">
                 <SidebarGroupLabel asChild>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent/50 px-3 py-2 rounded-lg transition-all duration-200 group/trigger">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-sidebar-foreground/60 group-hover/trigger:text-sidebar-foreground transition-colors">
-                      {group.label}
-                    </span>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent/50 px-3 py-2 rounded-lg transition-all">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-sidebar-foreground/60">{group.label}</span>
                     <ChevronDown className="h-3 w-3 opacity-30 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                   </CollapsibleTrigger>
                 </SidebarGroupLabel>
@@ -153,17 +150,14 @@ export default function AppSidebar() {
                             <SidebarMenuButton
                               asChild
                               isActive={isActive}
-                              tooltip={item.label}
                               className={cn(
-                                "min-h-10 h-auto px-3 rounded-lg transition-all duration-200 border border-transparent",
-                                isActive 
-                                  ? "bg-primary text-primary-foreground shadow-sm font-bold border-primary/10" 
-                                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground/80"
+                                "min-h-10 h-auto px-3 rounded-lg transition-all",
+                                isActive ? "bg-primary text-primary-foreground shadow-sm font-bold" : "hover:bg-sidebar-accent text-sidebar-foreground/80"
                               )}
                             >
                               <Link href={item.href} className="flex items-center gap-3 w-full py-2">
                                 <item.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary-foreground" : "text-sidebar-foreground/60")} />
-                                <span className="text-xs leading-none whitespace-nowrap">{item.label}</span>
+                                <span className="text-xs leading-none">{item.label}</span>
                               </Link>
                             </SidebarMenuButton>
                           </SidebarMenuItem>
@@ -177,16 +171,6 @@ export default function AppSidebar() {
           );
         })}
       </SidebarContent>
-
-      <SidebarFooter className="mt-auto border-t border-sidebar-border/50 p-4 bg-muted/5">
-        <div className="flex flex-col gap-1 opacity-40">
-            <span className="text-[9px] font-black tracking-tighter uppercase">Sistema de Gestión Integral</span>
-            <div className="flex items-center justify-between">
-              <span className="text-[8px] font-mono uppercase font-bold text-primary">CIDEE - DGRE</span>
-              <span className="text-[8px] font-mono font-bold">v1.0.0</span>
-            </div>
-        </div>
-      </SidebarFooter>
     </div>
   );
 }

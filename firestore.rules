@@ -3,7 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /** Funciones Auxiliares de Seguridad **/
+    /** Funciones Auxiliares **/
     function isSignedIn() {
       return request.auth != null;
     }
@@ -17,52 +17,27 @@ service cloud.firestore {
       let data = getUserData();
       return isSignedIn() && data != null && data.role == 'admin';
     }
-    
-    function isRole(role) {
-      let data = getUserData();
-      return isSignedIn() && data != null && data.role == role;
-    }
-    
-    function hasPermission(module, action) {
-      let data = getUserData();
-      if (!isSignedIn() || data == null) return false;
-      if (data.role == 'admin') return true;
-      let permString = module + ":" + action;
-      return ('permissions' in data && permString in data.permissions) || (action in data.permissions);
+
+    /** Regla Crítica para Personal Operativo **/
+    match /divulgadores/{document=**} {
+      allow read, write: if isSignedIn();
     }
 
-    /** Reglas para Datos Públicos y Geografía **/
+    /** Reglas Generales **/
     match /datos/{datoId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    match /departamentos/{departamentoId} {
-      allow read: if true;
-      allow write: if isAdmin();
-        match /distritos/{distritoId} {
-          allow read: if true;
-          allow write: if isAdmin();
-        }
-    }
-
-    match /partidos-politicos/{partidoId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /locales-votacion/{localId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-    
-    match /imagenes/{imagenId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if (request.auth.uid == userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /solicitudes-capacitacion/{solicitudId} {
-      allow read: if true; 
+      allow read: if isSignedIn(); 
       allow create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
@@ -92,12 +67,22 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /** Gestión de Perfiles de Usuario **/
-    match /users/{userId} {
-        allow get, list: if isSignedIn();
-        allow create: if isAdmin();
-        allow update: if (request.auth.uid == userId) || isAdmin();
-        allow delete: if isAdmin();
+    match /partidos-politicos/{partidoId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /locales-votacion/{localId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    
+    match /reports/{reportId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /imagenes/{imagenId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

@@ -79,6 +79,18 @@
         "role"
       ]
     },
+    "Divulgador": {
+      "title": "Divulgador",
+      "type": "object",
+      "description": "Personal operativo para capacitaciones.",
+      "properties": {
+        "nombre": { "type": "string" },
+        "cedula": { "type": "string" },
+        "vinculo": { "type": "string", "enum": ["PERMANENTE", "CONTRATADO", "COMISIONADO"] },
+        "departamento": { "type": "string" },
+        "distrito": { "type": "string" }
+      }
+    },
     "SolicitudCapacitacion": {
       "title": "Solicitud de Capacitación",
       "type": "object",
@@ -107,6 +119,12 @@
         "$ref": "#/entities/UserProfile"
       },
       "description": "Stores user profile information."
+    },
+    "/divulgadores/{divulgadorId}": {
+      "schema": {
+        "$ref": "#/entities/Divulgador"
+      },
+      "description": "Stores operational staff information."
     },
     "/solicitudes-capacitacion/{solicitudId}": {
       "schema": {
