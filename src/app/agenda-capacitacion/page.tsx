@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -91,7 +90,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, user, isUserLoading]);
 
-  const { data: divulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divuladoresQuery);
+  const { data: divulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
   const filteredDivul = useMemo(() => {
     if (!divulgadores) return [];
