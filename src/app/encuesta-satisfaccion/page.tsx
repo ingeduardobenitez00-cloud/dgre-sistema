@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, Suspense, useMemo } from 'react';
@@ -217,7 +216,7 @@ function EncuestaContent() {
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/20">
-      {user ? <Header title="Encuesta de Satisfacción" /> : (
+      {user ? <Header title="Oficina" /> : (
         <header className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-50">
             <div className="flex items-center gap-4">
                 <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain" />

@@ -71,12 +71,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const publicRoutes = ['/login', '/encuesta-satisfaccion'];
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  // Logic to determine if we should show the full app shell (with sidebar)
+  // We show sidebar if: 
+  // 1. User is logged in AND it's not the login page.
+  // 2. Even on "public" pages like encuesta, if logged in, we want the sidebar for navigation.
+  const isLoginPage = pathname === '/login';
+  const isEncuestaPage = pathname.startsWith('/encuesta-satisfaccion');
+  const isPublicView = isEncuestaPage && !user;
+
+  const showSimpleLayout = isLoginPage || isPublicView;
 
   return (
     <SidebarProvider defaultOpen={true}>
-      {isPublicRoute ? (
+      {showSimpleLayout ? (
         <div className="flex flex-1 flex-col animate-in fade-in duration-500">
           {children}
         </div>
