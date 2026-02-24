@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/header';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { UserPlus, Users, Loader2, Edit, Trash2, Search, AlertCircle, UserCircle, MapPin } from 'lucide-react';
+import { UserPlus, Users, Loader2, Edit, Trash2, Search, AlertCircle, UserCircle, MapPin, Landmark, Navigation } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
@@ -35,7 +35,39 @@ export default function DivulgadoresPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
   const [selectedDept, setSelectedDept] = useState<string>('');
+  const [selectedDist, setSelectedDist] = useState<string>('');
+
+  const profile = currentUser?.profile;
+
+  // Permisos jerárquicos
+  const hasAdminFilter = useMemo(() => 
+    ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
+    [profile]
+  );
+  
+  const hasDeptFilter = useMemo(() => 
+    !hasAdminFilter && profile?.permissions?.includes('department_filter'),
+    [profile, hasAdminFilter]
+  );
+
+  const hasDistFilter = useMemo(() => 
+    !hasAdminFilter && !hasDeptFilter && (profile?.permissions?.includes('district_filter') || profile?.role === 'jefe' || profile?.role === 'funcionario'),
+    [profile, hasAdminFilter, hasDeptFilter]
+  );
+
+  // Sincronizar jurisdicción del perfil al cargar
+  useEffect(() => {
+    if (profile) {
+      if (hasDeptFilter || hasDistFilter) {
+        setSelectedDept(profile.departamento || '');
+      }
+      if (hasDistFilter) {
+        setSelectedDist(profile.distrito || '');
+      }
+    }
+  }, [profile, hasDeptFilter, hasDistFilter]);
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData } = useCollection<Dato>(datosQuery);
@@ -51,17 +83,10 @@ export default function DivulgadoresPage() {
   }, [datosData, selectedDept]);
 
   const divulQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || !currentUser?.uid || !currentUser?.profile) return null;
+    if (!firestore || isUserLoading || !currentUser?.uid || !profile) return null;
     const colRef = collection(firestore, 'divulgadores');
-    const profile = currentUser.profile;
     
-    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
-    const hasDeptFilter = profile.permissions?.includes('department_filter');
-    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
-    
-    if (hasAdminFilter) {
-      return query(colRef, orderBy('nombre'));
-    }
+    if (hasAdminFilter) return colRef; // Listado total para admins/directores
     
     if (hasDeptFilter && profile.departamento) {
         return query(colRef, where('departamento', '==', profile.departamento));
@@ -76,7 +101,7 @@ export default function DivulgadoresPage() {
     }
     
     return null;
-  }, [firestore, currentUser, isUserLoading]);
+  }, [firestore, currentUser, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
   const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulQuery);
 
@@ -96,21 +121,37 @@ export default function DivulgadoresPage() {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore) return;
+    if (!firestore || !profile) return;
+    
+    const finalDept = hasAdminFilter ? selectedDept : (profile.departamento || '');
+    const finalDist = (hasAdminFilter || hasDeptFilter) ? selectedDist : (profile.distrito || '');
+
+    if (!finalDept || !finalDist) {
+      toast({ variant: 'destructive', title: "Faltan datos", description: "Seleccione la jurisdicción correspondiente." });
+      return;
+    }
+
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     const docData = {
       nombre: (formData.get('nombre') as string).toUpperCase(),
       cedula: formData.get('cedula') as string,
       vinculo: formData.get('vinculo') as any,
-      departamento: formData.get('departamento') as string,
-      distrito: formData.get('distrito') as string,
+      departamento: finalDept,
+      distrito: finalDist,
       fecha_registro: new Date().toISOString()
     };
+
     try {
       await addDoc(collection(firestore, 'divulgadores'), docData);
       toast({ title: "¡Registrado!", description: `${docData.nombre} ha sido añadido al directorio.` });
       (e.target as HTMLFormElement).reset();
+      if (hasAdminFilter) {
+        setSelectedDept('');
+        setSelectedDist('');
+      } else if (hasDeptFilter) {
+        setSelectedDist('');
+      }
     } catch (err) {
       toast({ variant: 'destructive', title: "Error", description: "No se pudo registrar al divulgador." });
     } finally { setIsSubmitting(false); }
@@ -136,7 +177,7 @@ export default function DivulgadoresPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-black tracking-tight uppercase text-primary">Personal Operativo</h1>
-            <p className="text-muted-foreground flex items-center gap-2 mt-1 text-sm">
+            <p className="text-muted-foreground flex items-center gap-2 mt-1 text-sm font-medium">
               <UserCircle className="h-4 w-4" />
               Gestión de divulgadores para capacitaciones del CIDEE.
             </p>
@@ -153,98 +194,134 @@ export default function DivulgadoresPage() {
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Nombre Completo</Label>
-                  <Input name="nombre" required className="font-bold uppercase h-11" placeholder="EJ: JUAN PEREZ" />
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nombre Completo</Label>
+                  <Input name="nombre" required className="font-bold uppercase h-11 border-2" placeholder="EJ: JUAN PEREZ" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Cédula de Identidad</Label>
-                  <Input name="cedula" required className="font-bold h-11" placeholder="Sin puntos" />
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cédula de Identidad</Label>
+                  <Input name="cedula" required className="font-black h-11 border-2" placeholder="Sin puntos" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Vínculo Laboral</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Vínculo Laboral</Label>
                   <Select name="vinculo" required defaultValue="CONTRATADO">
-                    <SelectTrigger className="font-bold h-11">
+                    <SelectTrigger className="font-bold h-11 border-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PERMANENTE">PERMANENTE</SelectItem>
-                      <SelectItem value="CONTRATADO">CONTRATADO</SelectItem>
-                      <SelectItem value="COMISIONADO">COMISIONADO</SelectItem>
+                      <SelectItem value="PERMANENTE" className="font-bold">PERMANENTE</SelectItem>
+                      <SelectItem value="CONTRATADO" className="font-bold">CONTRATADO</SelectItem>
+                      <SelectItem value="COMISIONADO" className="font-bold">COMISIONADO</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-1 gap-4">
+                
+                <div className="grid grid-cols-1 gap-4 pt-2">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Departamento</Label>
-                    <Select name="departamento" required onValueChange={setSelectedDept}>
-                      <SelectTrigger className="font-bold h-11"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                      <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <Label className="text-[10px] font-black uppercase flex items-center gap-1.5 text-primary">
+                      <Landmark className="h-3 w-3"/> Departamento {(!hasAdminFilter) && "(Fijo)"}
+                    </Label>
+                    {hasAdminFilter ? (
+                      <Select name="departamento" required onValueChange={setSelectedDept} value={selectedDept}>
+                        <SelectTrigger className="font-bold h-11 border-2"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                        <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="h-11 flex items-center px-3 font-black uppercase text-sm bg-muted/50 border-2 rounded-md text-primary/70">
+                        {profile?.departamento}
+                      </div>
+                    )}
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Distrito</Label>
-                    <Select name="distrito" required disabled={!selectedDept}>
-                      <SelectTrigger className="font-bold h-11"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                      <SelectContent>{districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <Label className="text-[10px] font-black uppercase flex items-center gap-1.5 text-primary">
+                      <Navigation className="h-3 w-3"/> Distrito {hasDistFilter && "(Fijo)"}
+                    </Label>
+                    {hasDistFilter ? (
+                      <div className="h-11 flex items-center px-3 font-black uppercase text-sm bg-muted/50 border-2 rounded-md text-primary/70">
+                        {profile?.distrito}
+                      </div>
+                    ) : (
+                      <Select name="distrito" required onValueChange={setSelectedDist} value={selectedDist} disabled={!selectedDept && hasAdminFilter}>
+                        <SelectTrigger className="font-bold h-11 border-2"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                        <SelectContent>{districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
               </CardContent>
               <CardFooter className="bg-muted/30 border-t p-4">
-                <Button type="submit" className="w-full font-black uppercase h-12 shadow-lg" disabled={isSubmitting}>
+                <Button type="submit" className="w-full font-black uppercase h-12 shadow-lg text-xs" disabled={isSubmitting}>
                   {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "GUARDAR PERSONAL"}
                 </Button>
               </CardFooter>
             </form>
           </Card>
 
-          <Card className="lg:col-span-2 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between bg-muted/10 border-b">
-              <CardTitle className="uppercase font-black text-sm flex items-center gap-2"><Users className="h-4 w-4" /> Lista de Personal</CardTitle>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input placeholder="Buscar..." className="pl-9 h-9 text-[10px] font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <Card className="lg:col-span-2 shadow-lg overflow-hidden border-none">
+            <CardHeader className="flex flex-row items-center justify-between bg-primary px-6 py-4">
+              <CardTitle className="uppercase font-black text-xs flex items-center gap-2 text-white tracking-widest">
+                <Users className="h-4 w-4" /> LISTA DE PERSONAL ({filteredDivul.length})
+              </CardTitle>
+              <div className="relative w-64 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/50 group-focus-within:text-white" />
+                <Input 
+                  placeholder="Buscar por nombre o CI..." 
+                  className="pl-9 h-9 text-[10px] font-bold bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white focus:text-primary transition-all" 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)} 
+                />
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 bg-white">
                 <Table>
-                  <TableHeader className="bg-muted/50"><TableRow>
-                      <TableHead className="text-[9px] font-black uppercase">Divulgador</TableHead>
-                      <TableHead className="text-[9px] font-black uppercase">Jurisdicción</TableHead>
-                      <TableHead className="text-[9px] font-black uppercase">Vínculo</TableHead>
-                      <TableHead className="text-right text-[9px] font-black uppercase">Acción</TableHead>
-                  </TableRow></TableHeader>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="hover:bg-transparent border-b-2">
+                      <TableHead className="text-[9px] font-black uppercase tracking-widest px-6 py-4">Divulgador</TableHead>
+                      <TableHead className="text-[9px] font-black uppercase tracking-widest px-6 py-4">Jurisdicción</TableHead>
+                      <TableHead className="text-[9px] font-black uppercase tracking-widest px-6 py-4">Vínculo</TableHead>
+                      <TableHead className="text-right text-[9px] font-black uppercase tracking-widest px-6 py-4">Acción</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {isLoadingDivul ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary" /></TableCell></TableRow>
-                    ) : filteredDivul.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground font-bold uppercase text-[10px]">No hay personal registrado en esta zona.</TableCell></TableRow>
-                    ) : filteredDivul.map(d => (
-                      <TableRow key={d.id} className="hover:bg-primary/5 transition-colors">
-                        <TableCell className="py-3">
-                          <p className="font-black text-xs uppercase">{d.nombre}</p>
-                          <p className="text-[9px] text-muted-foreground font-bold">C.I. {d.cedula}</p>
+                      <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="animate-spin h-10 w-10 mx-auto text-primary opacity-20" /></TableCell></TableRow>
+                    ) : filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-24">
+                          <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-10 mb-4" />
+                          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">No hay personal registrado en esta zona.</p>
                         </TableCell>
-                        <TableCell className="py-3">
+                      </TableRow>
+                    ) : filteredDivul.map(d => (
+                      <TableRow key={d.id} className="hover:bg-primary/5 transition-colors border-b">
+                        <TableCell className="py-4 px-6">
+                          <p className="font-black text-xs uppercase text-primary leading-none mb-1">{d.nombre}</p>
+                          <p className="text-[9px] text-muted-foreground font-black tracking-tighter">C.I. {d.cedula}</p>
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
                           <p className="text-[10px] font-black uppercase text-primary leading-tight">{d.departamento}</p>
                           <p className="text-[9px] font-bold text-muted-foreground uppercase">{d.distrito}</p>
                         </TableCell>
-                        <TableCell className="py-3">
-                          <Badge variant="secondary" className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full border-none">{d.vinculo}</Badge>
+                        <TableCell className="py-4 px-6">
+                          <Badge variant="secondary" className="text-[8px] font-black uppercase px-2.5 py-0.5 rounded-full bg-primary/5 text-primary border-none">{d.vinculo}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right px-6">
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive hover:bg-destructive/10 rounded-full transition-all">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent>
+                            <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
                               <AlertDialogHeader>
-                                <AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle>
-                                <AlertDialogDescription>Esta acción removerá a {d.nombre} del directorio institucional.</AlertDialogDescription>
+                                <AlertDialogTitle className="font-black uppercase text-primary">¿Eliminar registro?</AlertDialogTitle>
+                                <AlertDialogDescription className="font-medium text-xs">
+                                  Esta acción removerá a <strong className="text-primary">{d.nombre}</strong> del directorio institucional de forma permanente.
+                                </AlertDialogDescription>
                               </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(d.id)} className="bg-destructive">Eliminar</AlertDialogAction>
+                              <AlertDialogFooter className="mt-4">
+                                <AlertDialogCancel className="font-bold text-[10px] uppercase rounded-xl">Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(d.id)} className="bg-destructive text-white font-black text-[10px] uppercase rounded-xl shadow-lg">Eliminar Permanente</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
