@@ -129,7 +129,7 @@ const ACTIONS = [
     { id: 'pdf', label: 'PDF' },
 ];
 
-const GLOBAL_PERMISSIONS = ['admin_filter', 'district_filter', 'assign_staff'];
+const GLOBAL_PERMISSIONS = ['admin_filter', 'department_filter', 'district_filter', 'assign_staff'];
 
 /**
  * Plantillas de permisos por defecto para cada rol.
@@ -517,7 +517,7 @@ export default function UsersPage() {
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">ASIGNACIÓN DE MÓDULOS Y ACCIONES</Label>
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-4">
                     <div className="flex items-center space-x-2">
                       <Checkbox 
                         id="global-perm-admin_filter" 
@@ -530,6 +530,19 @@ export default function UsersPage() {
                         }}
                       />
                       <label htmlFor="global-perm-admin_filter" className="text-[9px] font-black uppercase text-primary">Filtro Nacional</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="global-perm-department_filter" 
+                        name="global-perm-department_filter" 
+                        checked={selectedPerms.has('department_filter')}
+                        onCheckedChange={(checked) => {
+                          const next = new Set(selectedPerms);
+                          if(checked) next.add('department_filter'); else next.delete('department_filter');
+                          setSelectedPerms(next);
+                        }}
+                      />
+                      <label htmlFor="global-perm-department_filter" className="text-[9px] font-black uppercase text-primary">Filtro Departamental</label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox 
@@ -744,7 +757,7 @@ export default function UsersPage() {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center">
                                   <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">PERMISOS DE ACCESO</Label>
-                                  <div className="flex gap-4">
+                                  <div className="flex flex-wrap gap-4">
                                     <div className="flex items-center space-x-2">
                                       <Checkbox 
                                         id="edit-global-perm-admin_filter" 
@@ -756,6 +769,18 @@ export default function UsersPage() {
                                         }}
                                       />
                                       <label htmlFor="edit-global-perm-admin_filter" className="text-[9px] font-black uppercase text-primary">Filtro Nacional</label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Checkbox 
+                                        id="edit-global-perm-department_filter" 
+                                        checked={editSelectedPerms.has('department_filter')}
+                                        onCheckedChange={(checked) => {
+                                          const next = new Set(editSelectedPerms);
+                                          if(checked) next.add('department_filter'); else next.delete('department_filter');
+                                          setEditSelectedPerms(next);
+                                        }}
+                                      />
+                                      <label htmlFor="edit-global-perm-department_filter" className="text-[9px] font-black uppercase text-primary">Filtro Departamental</label>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                       <Checkbox 

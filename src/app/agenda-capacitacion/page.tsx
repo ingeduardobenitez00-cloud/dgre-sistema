@@ -54,11 +54,18 @@ export default function AgendaCapacitacionPage() {
     const colRef = collection(firestore, 'solicitudes-capacitacion');
     const profile = user.profile;
     
-    const canViewAll = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
+    // Jerarquía de filtros
+    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
+    const hasDeptFilter = profile.permissions?.includes('department_filter');
+    const hasDistFilter = profile.permissions?.includes('district_filter');
+
+    if (hasAdminFilter) return query(colRef, orderBy('fecha', 'asc'));
     
-    if (canViewAll) return query(colRef, orderBy('fecha', 'asc'));
-    
-    if (profile.departamento && profile.distrito) {
+    if (hasDeptFilter && profile.departamento) {
+        return query(colRef, where('departamento', '==', profile.departamento), orderBy('fecha', 'asc'));
+    }
+
+    if ((hasDistFilter || profile.role === 'jefe') && profile.departamento && profile.distrito) {
         return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito), orderBy('fecha', 'asc'));
     }
     
@@ -72,10 +79,17 @@ export default function AgendaCapacitacionPage() {
     const colRef = collection(firestore, 'divulgadores');
     const profile = user.profile;
 
-    const canViewAll = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
-    if (canViewAll) return query(colRef, orderBy('nombre'));
+    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
+    const hasDeptFilter = profile.permissions?.includes('department_filter');
+    const hasDistFilter = profile.permissions?.includes('district_filter');
 
-    if (profile.departamento && profile.distrito) {
+    if (hasAdminFilter) return query(colRef, orderBy('nombre'));
+
+    if (hasDeptFilter && profile.departamento) {
+        return query(colRef, where('departamento', '==', profile.departamento), orderBy('nombre'));
+    }
+
+    if ((hasDistFilter || profile.role === 'jefe') && profile.departamento && profile.distrito) {
       return query(
         colRef, 
         where('departamento', '==', profile.departamento), 
@@ -207,9 +221,9 @@ export default function AgendaCapacitacionPage() {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
 
-  // Lógica de visibilidad corregida: permitir acceso si tiene admin_filter o jurisdicción completa
-  const canViewAll = ['admin', 'director'].includes(user?.profile?.role || '') || user?.profile?.permissions?.includes('admin_filter');
-  const hasNoJurisdiction = user && !user.profile?.departamento && !canViewAll;
+  // Lógica de visibilidad corregida
+  const hasGlobalView = ['admin', 'director'].includes(user?.profile?.role || '') || user?.profile?.permissions?.includes('admin_filter') || user?.profile?.permissions?.includes('department_filter');
+  const hasNoJurisdiction = user && !user.profile?.departamento && !hasGlobalView;
 
   if (hasNoJurisdiction) {
     return (
@@ -326,7 +340,7 @@ export default function AgendaCapacitacionPage() {
                                       )}
 
                                       <Button variant="outline" size="sm" className="h-9 text-[9px] font-black uppercase border-2 flex-1 lg:flex-none" onClick={() => setQrSolicitud(item)}>
-                                          <QrCode className="mr-1.5 h-3 w-3" /> QR ENCUESTA
+                                          <QrCode className="mr-1.5 h-3.5 w-3.5" /> QR ENCUESTA
                                       </Button>
                                       
                                       <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1 lg:flex-none">
