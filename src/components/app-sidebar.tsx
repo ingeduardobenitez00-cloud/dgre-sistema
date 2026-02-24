@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -34,7 +35,8 @@ import {
   PieChart,
   TableProperties,
   ArrowLeftRight,
-  Flag
+  Flag,
+  UserPlus
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -55,6 +57,7 @@ export default function AppSidebar() {
       label: "CIDEE - CAPACITACIONES",
       items: [
         { href: "/solicitud-capacitacion", label: "Nueva Solicitud", icon: ClipboardCheck },
+        { href: "/divulgadores", label: "Divulgadores", icon: UserPlus },
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
         { href: "/control-movimiento-maquinas", label: "Movimiento de Máquinas", icon: ArrowLeftRight },
         { href: "/encuesta-satisfaccion", label: "Encuesta Satisfacción", icon: MessageSquareHeart },
@@ -103,8 +106,6 @@ export default function AppSidebar() {
   ];
 
   const isAccessible = (href: string) => {
-    // Se elimina el acceso automático por rol 'admin'.
-    // El acceso ahora depende estrictamente de la lista de módulos en el perfil.
     if (href === '/') return true;
     const moduleName = href.substring(1);
     return user?.profile?.modules?.includes(moduleName);

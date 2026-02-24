@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -18,7 +19,7 @@ const MODULE_GROUPS = [
   {
     label: "CIDEE - CAPACITACIONES",
     description: "Gestión de solicitudes, agendas, movimientos de equipos, encuestas e informes de capacitación nacional.",
-    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'control-movimiento-maquinas', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion']
+    modules: ['solicitud-capacitacion', 'divulgadores', 'agenda-capacitacion', 'control-movimiento-maquinas', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion']
   },
   {
     label: "Registros Electorales",
@@ -61,7 +62,6 @@ export default function Home() {
     return MODULE_GROUPS.map(group => {
       const accessibleInGroup = dashboardMenuItems.filter(item => {
         const moduleName = item.href.substring(1);
-        // Respetar estrictamente la lista de módulos asignados, incluso para administradores
         const hasAccess = user.profile?.modules?.includes(moduleName);
         return group.modules.includes(moduleName) && hasAccess;
       });

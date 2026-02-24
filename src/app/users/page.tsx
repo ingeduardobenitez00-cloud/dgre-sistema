@@ -95,7 +95,7 @@ const MODULE_LABELS: { [key: string]: string } = {
 const MODULE_GROUPS = [
   {
     label: "CIDEE - CAPACITACIONES",
-    modules: ['solicitud-capacitacion', 'agenda-capacitacion', 'divulgadores', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion']
+    modules: ['solicitud-capacitacion', 'divulgadores', 'agenda-capacitacion', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion']
   },
   {
     label: "DGRE",

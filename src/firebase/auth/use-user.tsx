@@ -1,3 +1,4 @@
+
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -6,7 +7,7 @@ import { type User } from 'firebase/auth';
 
 export interface UserProfile {
   username?: string;
-  role?: 'admin' | 'director' | 'jefe' | 'funcionario' | 'divulgador' | 'viewer';
+  role?: 'admin' | 'director' | 'jefe' | 'funcionario' | 'viewer';
   departamento?: string;
   distrito?: string;
   modules?: string[];
@@ -36,7 +37,6 @@ export const useUser = (): UserHookResult => {
 
   const { data: profileData, isLoading: isProfileLoading, error: profileError } = useDoc<UserProfile>(userProfileDocRef);
   
-  // Track when profile loading actually finishes to avoid UI flickering
   useEffect(() => {
     if (!isProfileLoading) {
       setProfileLoadingComplete(true);
@@ -51,8 +51,6 @@ export const useUser = (): UserHookResult => {
     };
   }, [authUser, profileData]);
 
-  // A more aggressive loading check: if auth is null and not loading, we are done.
-  // If auth is present, we only wait for profile if it hasn't finished its first check.
   const loading = isAuthLoading || (!!authUser && isProfileLoading && !profileLoadingComplete);
 
   return {
