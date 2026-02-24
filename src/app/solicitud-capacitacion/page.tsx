@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
-import { type PartidoPolitico } from '@/lib/data';
+import { type PartidoPolitico, type Dato } from '@/lib/data';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import {
@@ -97,6 +97,18 @@ export default function SolicitudCapacitacionPage() {
     };
     fetchLogo();
   }, []);
+
+  // Fetch official data to show codes
+  const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
+  const { data: datosData } = useCollection<Dato>(datosQuery);
+
+  const userJurisdiction = useMemo(() => {
+    if (!user?.profile || !datosData) return null;
+    return datosData.find(d => 
+      d.departamento === user.profile?.departamento && 
+      d.distrito === user.profile?.distrito
+    );
+  }, [user, datosData]);
 
   // REPARACIÓN DEFINITIVA DEL MAPA
   useEffect(() => {
@@ -435,7 +447,9 @@ export default function SolicitudCapacitacionPage() {
                       <Landmark className="h-3 w-3" /> Departamento Asignado
                     </Label>
                     <p className="font-black text-sm uppercase px-3 py-2 bg-white rounded-lg border border-primary/10 shadow-sm truncate">
-                      {user?.profile?.departamento || 'Sin asignar'}
+                      {userJurisdiction?.departamento_codigo 
+                        ? `${userJurisdiction.departamento_codigo} - ${userJurisdiction.departamento}` 
+                        : user?.profile?.departamento || 'Sin asignar'}
                     </p>
                   </div>
                   <div className="space-y-1">
@@ -443,7 +457,9 @@ export default function SolicitudCapacitacionPage() {
                       <Navigation className="h-3 w-3" /> Distrito / Oficina
                     </Label>
                     <p className="font-black text-sm uppercase px-3 py-2 bg-white rounded-lg border border-primary/10 shadow-sm truncate">
-                      {user?.profile?.distrito || 'Sin asignar'}
+                      {userJurisdiction?.distrito_codigo 
+                        ? `${userJurisdiction.departamento_codigo} - ${userJurisdiction.distrito_codigo} - ${userJurisdiction.distrito}` 
+                        : user?.profile?.distrito || 'Sin asignar'}
                     </p>
                   </div>
                 </div>
