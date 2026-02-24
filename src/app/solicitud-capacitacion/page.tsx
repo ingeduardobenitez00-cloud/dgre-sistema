@@ -223,17 +223,34 @@ export default function SolicitudCapacitacionPage() {
     };
   }, []);
 
-  const searchCedulaInPadron = useCallback(async (cedula: string) => {
-    if (!firestore || !cedula || cedula.length < 4) return;
+  const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
+    if (!firestore || !cedulaInput) {
+      setPadronFound(false);
+      return;
+    }
+    
+    const rawCedula = cedulaInput.trim();
+    if (rawCedula.length < 4) return;
+
     setIsSearchingCedula(true);
     try {
-      const cleanedCedula = cedula.replace(/[.,-]/g, '');
-      const q = query(collection(firestore, 'padron'), where('cedula', '==', cleanedCedula), limit(1));
-      const querySnapshot = await getDocs(q);
+      const padronRef = collection(firestore, 'padron');
+      const cleanedCedula = rawCedula.replace(/[.,-]/g, '');
+      
+      // Intentar búsqueda exacta primero
+      let q = query(padronRef, where('cedula', '==', rawCedula), limit(1));
+      let querySnapshot = await getDocs(q);
+
+      // Si no encuentra y el original es distinto al limpio, intentar con el limpio
+      if (querySnapshot.empty && rawCedula !== cleanedCedula) {
+        q = query(padronRef, where('cedula', '==', cleanedCedula), limit(1));
+        querySnapshot = await getDocs(q);
+      }
+
       if (!querySnapshot.empty) {
         const userDoc = querySnapshot.docs[0].data();
         const fullName = `${userDoc.nombre || ''} ${userDoc.apellido || ''}`.trim();
-        setFormData(prev => ({ ...prev, nombre_completo: fullName, cedula: cedula }));
+        setFormData(prev => ({ ...prev, nombre_completo: fullName }));
         setPadronFound(true);
         toast({ title: "Ciudadano Encontrado", description: `Datos de ${fullName} cargados.` });
       } else { 
