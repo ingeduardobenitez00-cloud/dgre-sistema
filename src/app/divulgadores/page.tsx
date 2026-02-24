@@ -54,18 +54,18 @@ export default function DivulgadoresPage() {
     return [...new Set(datosData.filter(d => d.departamento === selectedDept).map(d => d.distrito))].sort();
   }, [datosData, selectedDept]);
 
-  // Divulgadores Data - Consulta robusta y defensiva
+  // Consulta robusta: solo se dispara cuando el perfil está listo
   const divulQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !currentUser?.uid || !currentUser?.profile) return null;
     
     const colRef = collection(firestore, 'divulgadores');
     const profile = currentUser.profile;
     
-    // El administrador o usuarios con filtro nacional ven todo
+    // Admin o permisos nacionales ven todo
     const canViewAll = profile.role === 'admin' || profile.permissions?.includes('admin_filter');
     if (canViewAll) return query(colRef, orderBy('nombre'));
     
-    // Usuarios locales ven su distrito
+    // Usuarios regionales ven su distrito
     if (profile.distrito) {
         return query(colRef, where('distrito', '==', profile.distrito), orderBy('nombre'));
     }
@@ -102,7 +102,7 @@ export default function DivulgadoresPage() {
 
     try {
       await addDoc(collection(firestore, 'divulgadores'), docData);
-      toast({ title: "¡Divulgador Registrado!", description: "Ahora puede ser asignado en la agenda." });
+      toast({ title: "¡Divulgador Registrado!" });
       (e.target as HTMLFormElement).reset();
       setSelectedDept('');
     } catch (err) {
@@ -157,19 +157,18 @@ export default function DivulgadoresPage() {
         {divulError && (
           <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl flex items-center gap-3 text-destructive">
             <AlertCircle className="h-5 w-5" />
-            <p className="text-xs font-bold uppercase">Error de sincronización con la base de datos. Por favor, refresque la página.</p>
+            <p className="text-xs font-bold uppercase">Error de sincronización. Asegúrese de tener una sesión activa.</p>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
           <Card className="lg:col-span-1 border-t-4 border-t-primary shadow-lg h-fit">
             <form onSubmit={handleRegister}>
               <CardHeader className="bg-muted/30 border-b">
                 <CardTitle className="uppercase font-black text-sm flex items-center gap-2">
                   <UserPlus className="h-4 w-4" /> Nuevo Divulgador
                 </CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase">Registro de personal operativo CIDEE.</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase">Personal operativo (Sin acceso a sistema).</CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="space-y-2">
@@ -231,7 +230,7 @@ export default function DivulgadoresPage() {
               </CardTitle>
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input placeholder="Buscar por nombre o C.I..." className="pl-9 h-9 text-[10px] font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                <Input placeholder="Buscar..." className="pl-9 h-9 text-[10px] font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -249,9 +248,9 @@ export default function DivulgadoresPage() {
                     {isLoadingDivul ? (
                       <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary" /></TableCell></TableRow>
                     ) : filteredDivul.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground text-[10px] font-bold uppercase">No hay divulgadores registrados o acceso restringido.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground text-[10px] font-bold uppercase">No hay registros disponibles.</TableCell></TableRow>
                     ) : filteredDivul.map(d => (
-                      <TableRow key={d.id} className="group/row">
+                      <TableRow key={d.id} className="hover:bg-primary/5 transition-colors">
                         <TableCell className="py-3">
                           <p className="font-black text-xs uppercase leading-none">{d.nombre}</p>
                           <p className="text-[9px] text-muted-foreground font-bold mt-1">C.I. {d.cedula}</p>
@@ -277,7 +276,7 @@ export default function DivulgadoresPage() {
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle className="uppercase font-black text-destructive">¿Eliminar registro?</AlertDialogTitle>
-                                  <AlertDialogDescription className="text-xs font-bold uppercase">Esta acción eliminará al divulgador de la base de datos de asignación.</AlertDialogDescription>
+                                  <AlertDialogDescription className="text-xs font-bold uppercase">Esta acción es irreversible.</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel className="font-bold text-xs uppercase">Cancelar</AlertDialogCancel>

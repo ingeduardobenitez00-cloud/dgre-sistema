@@ -31,6 +31,14 @@ service cloud.firestore {
       return ('permissions' in data && permString in data.permissions) || (action in data.permissions);
     }
 
+    /** 
+     * COLECCIÓN DIVULGADORES - ACCESO PRIORITARIO (v1.2.0)
+     * Permite listado y gestión a todo personal autenticado.
+     */
+    match /divulgadores/{allPaths=**} {
+      allow read, write: if isSignedIn();
+    }
+
     /** Publicly readable data **/
     match /datos/{datoId} {
       allow read: if true;
@@ -54,13 +62,6 @@ service cloud.firestore {
     match /partidos-politicos/{partidoId} {
       allow read: if true;
       allow write: if isAdmin();
-    }
-
-    /** Main Data Collections **/
-    
-    // REGLA DEFINITIVA DE DIVULGADORES - ACCESO PARA TODO PERSONAL AUTENTICADO
-    match /divulgadores/{document=**} {
-      allow read, write: if isSignedIn();
     }
 
     match /locales-votacion/{localId} {
