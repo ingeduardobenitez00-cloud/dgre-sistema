@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, EyeOff, UserPlus, Users, Loader2, Edit, Trash2, Search, X, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Users, Loader2, Edit, Trash2, Search, X, ShieldCheck, ShieldAlert, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -130,10 +130,6 @@ const ACTIONS = [
 ];
 
 const GLOBAL_PERMISSIONS = ['admin_filter', 'assign_staff'];
-const GLOBAL_PERMISSION_LABELS: { [key: string]: string } = {
-    admin_filter: 'Filtrar Todo el País',
-    assign_staff: 'Asignar Personal en Agenda'
-};
 
 export default function UsersPage() {
   const { toast } = useToast();
@@ -146,31 +142,35 @@ export default function UsersPage() {
   const { data: datosData } = useCollection<Dato>(datosQuery);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [departments, setDepartments] = useState<string[]>([]);
-  const [districts, setDistricts] = useState<string[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+  
+  // Registration States
+  const [regDepartamento, setRegDepartamento] = useState<string>('');
+  const [regDistrito, setRegDistrito] = useState<string>('');
+  const [regRole, setRegRole] = useState<UserProfile['role']>('viewer');
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Editing States
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-
   const [editRole, setEditRole] = useState<UserProfile['role']>();
+  const [editDepartamento, setEditDepartamento] = useState<string>('');
+  const [editDistrito, setEditDistrito] = useState<string>('');
 
-  useEffect(() => {
-    if (datosData) {
-      const uniqueDepts = [...new Set(datosData.map(d => d.departamento))].sort();
-      setDepartments(uniqueDepts);
-    }
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const departments = useMemo(() => {
+    if (!datosData) return [];
+    return [...new Set(datosData.map(d => d.departamento))].sort();
   }, [datosData]);
-  
-  useEffect(() => {
-    if (selectedDepartment && datosData) {
-      const uniqueDistricts = [...new Set(datosData.filter(d => d.departamento === selectedDepartment).map(d => d.distrito))].sort();
-      setDistricts(uniqueDistricts);
-    } else {
-      setDistricts([]);
-    }
-  }, [selectedDepartment, datosData]);
+
+  const regDistricts = useMemo(() => {
+    if (!datosData || !regDepartamento) return [];
+    return [...new Set(datosData.filter(d => d.departamento === regDepartamento).map(d => d.distrito))].sort();
+  }, [datosData, regDepartamento]);
+
+  const editDistricts = useMemo(() => {
+    if (!datosData || !editDepartamento) return [];
+    return [...new Set(datosData.filter(d => d.departamento === editDepartamento).map(d => d.distrito))].sort();
+  }, [datosData, editDepartamento]);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -220,20 +220,17 @@ export default function UsersPage() {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const username = formData.get('username') as string;
-    const role = formData.get('role') as UserProfile['role'];
-    const departamento = formData.get('departamento') as string;
-    const distrito = formData.get('distrito') as string;
 
     const { modules, permissions } = processPermissions(formData);
 
     const newUserProfile: Omit<UserProfile, 'id'> = { 
-      username, 
+      username: username.toUpperCase(), 
       email, 
-      role, 
+      role: regRole, 
       modules, 
       permissions, 
-      departamento, 
-      distrito
+      departamento: regDepartamento, 
+      distrito: regDistrito
     };
 
     const tempAppName = 'temp-creation-' + Math.random().toString(36).substring(7);
@@ -247,6 +244,9 @@ export default function UsersPage() {
       await signOut(tempAuth);
       toast({ title: 'Usuario Creado' });
       form.reset();
+      setRegDepartamento('');
+      setRegDistrito('');
+      setRegRole('viewer');
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     } finally {
@@ -258,7 +258,8 @@ export default function UsersPage() {
   const handleOpenEditModal = (user: UserProfile) => {
     setEditingUser(user);
     setEditRole(user.role);
-    setSelectedDepartment(user.departamento || '');
+    setEditDepartamento(user.departamento || '');
+    setEditDistrito(user.distrito || '');
     setEditModalOpen(true);
   };
 
@@ -269,11 +270,11 @@ export default function UsersPage() {
     const formData = new FormData(event.currentTarget);
     const { modules, permissions } = processPermissions(formData, true);
     const updatedFields = { 
-      role: formData.get('role') as any, 
+      role: editRole, 
       modules, 
       permissions, 
-      departamento: formData.get('departamento') as string, 
-      distrito: formData.get('distrito') as string 
+      departamento: editDepartamento, 
+      distrito: editDistrito 
     };
     try {
       await updateDoc(doc(firestore, 'users', editingUser.id), updatedFields);
@@ -331,26 +332,27 @@ export default function UsersPage() {
         <Card className="border-t-4 border-t-primary shadow-lg">
           <form onSubmit={handleSubmit}>
             <CardHeader className="bg-muted/30 border-b">
-              <CardTitle className="uppercase font-black text-primary text-sm">MATRIZ DE MÓDULOS Y PERMISOS</CardTitle>
+              <CardTitle className="uppercase font-black text-primary text-sm">NUEVO USUARIO Y MATRIZ DE PERMISOS</CardTitle>
             </CardHeader>
             <CardContent className="space-y-8 pt-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Usuario</Label>
-                  <Input name="username" required className="font-bold" />
+                  <Label className="text-[10px] font-black uppercase">Nombre y Apellido</Label>
+                  <Input name="username" required className="font-bold uppercase" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Correo</Label>
+                  <Label className="text-[10px] font-black uppercase">Correo Oficial</Label>
                   <Input name="email" type="email" required className="font-bold" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Contraseña</Label>
+                  <Label className="text-[10px] font-black uppercase">Contraseña Provisional</Label>
                   <Input name="password" type="password" required className="font-bold" />
                 </div>
+                
                 <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase">Rol</Label>
-                    <Select name="role" required defaultValue="viewer">
-                        <SelectTrigger className="font-bold">
+                    <Label className="text-[10px] font-black uppercase">Rol Institucional</Label>
+                    <Select name="role" required value={regRole} onValueChange={(v: any) => setRegRole(v)}>
+                        <SelectTrigger className="font-bold h-11">
                         <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -362,11 +364,36 @@ export default function UsersPage() {
                         </SelectContent>
                     </Select>
                 </div>
+
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Departamento</Label>
+                    <Select value={regDepartamento} onValueChange={(v) => { setRegDepartamento(v); setRegDistrito(''); }}>
+                        <SelectTrigger className="font-bold h-11">
+                            <SelectValue placeholder="Elegir..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Distrito</Label>
+                    <Select value={regDistrito} onValueChange={setRegDistrito} disabled={!regDepartamento}>
+                        <SelectTrigger className="font-bold h-11">
+                            <SelectValue placeholder="Elegir..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {regDistricts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
               </div>
 
               <Separator />
 
               <div className="space-y-6">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">ASIGNACIÓN DE MÓDULOS Y ACCIONES</Label>
                 <Accordion type="multiple" className="w-full border rounded-xl overflow-hidden bg-white">
                     {MODULE_GROUPS.map((group, idx) => (
                         <AccordionItem value={`group-${idx}`} key={group.label}>
@@ -387,7 +414,7 @@ export default function UsersPage() {
               </div>
             </CardContent>
             <CardFooter className="bg-muted/30 border-t p-6">
-              <Button type="submit" className="w-full font-black uppercase" disabled={isSubmitting}>
+              <Button type="submit" className="w-full h-12 font-black uppercase shadow-lg" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "REGISTRAR USUARIO"}
               </Button>
             </CardFooter>
@@ -395,26 +422,44 @@ export default function UsersPage() {
         </Card>
 
         <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="uppercase font-black text-sm">Usuarios Activos</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="uppercase font-black text-sm">Usuarios Activos en el Sistema</CardTitle>
+            <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar por nombre..." className="pl-10 h-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="border rounded-xl bg-white overflow-hidden">
+          <CardContent className="p-0">
+            <div className="border-t bg-white overflow-hidden">
                 <Table>
                     <TableHeader className="bg-muted/50">
                     <TableRow>
                         <TableHead className="text-[10px] font-black uppercase">Usuario</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Correo</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Jurisdicción</TableHead>
                         <TableHead className="text-[10px] font-black uppercase">Rol</TableHead>
                         <TableHead className="text-right text-[10px] font-black uppercase">Acciones</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {filteredUsers.map((user) => (
-                        <TableRow key={user.id}>
-                            <TableCell className="font-black text-xs uppercase">{user.username}</TableCell>
-                            <TableCell className="text-xs">{user.email}</TableCell>
-                            <TableCell><Badge className="text-[9px] uppercase">{user.role}</Badge></TableCell>
+                    {isLoadingUsers ? (
+                        <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    ) : filteredUsers.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="text-center py-10 font-bold uppercase text-muted-foreground">No se encontraron usuarios.</TableCell></TableRow>
+                    ) : filteredUsers.map((user) => (
+                        <TableRow key={user.id} className="hover:bg-muted/30">
+                            <TableCell className="py-4">
+                                <p className="font-black text-xs uppercase">{user.username}</p>
+                                <p className="text-[10px] text-muted-foreground">{user.email}</p>
+                            </TableCell>
+                            <TableCell>
+                                {user.departamento ? (
+                                    <div className="space-y-0.5">
+                                        <p className="text-[9px] font-black uppercase text-primary leading-none">{user.departamento}</p>
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase leading-none">{user.distrito}</p>
+                                    </div>
+                                ) : <span className="text-[9px] italic text-muted-foreground">Nacional</span>}
+                            </TableCell>
+                            <TableCell><Badge variant="secondary" className="text-[8px] uppercase font-black px-2 py-0.5">{user.role}</Badge></TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal(user)}><Edit className="h-4 w-4" /></Button>
@@ -424,15 +469,15 @@ export default function UsersPage() {
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
-                                                <AlertDialogTitle>¿Está absolutamente seguro?</AlertDialogTitle>
+                                                <AlertDialogTitle>¿Eliminar usuario permanentemente?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    Esta acción eliminará permanentemente el perfil de <strong>{user.username}</strong> de la base de datos.
+                                                    Esta acción removerá el acceso de <strong>{user.username}</strong> al sistema.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                                 <AlertDialogAction onClick={() => handleDeleteUser(user.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                                    Eliminar
+                                                    Confirmar Eliminación
                                                 </AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
@@ -450,18 +495,19 @@ export default function UsersPage() {
 
       {editingUser && (
         <Dialog open={isEditModalOpen} onOpenChange={setEditModalOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-3xl">
                 <DialogHeader className="p-6 bg-primary text-white shrink-0">
-                    <DialogTitle className="text-xl font-black uppercase">Editar Usuario: {editingUser.username}</DialogTitle>
+                    <DialogTitle className="text-xl font-black uppercase">Editar Perfil: {editingUser.username}</DialogTitle>
+                    <DialogDescription className="text-white/70 font-bold uppercase text-[10px]">Actualice el rol, jurisdicción y permisos del usuario.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleUpdateUser} className="flex-1 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto p-8 bg-background">
                         <div className="space-y-8">
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase">Rol</Label>
+                                    <Label className="text-[10px] font-black uppercase">Rol Institucional</Label>
                                     <Select name="role" required value={editRole} onValueChange={(v: any) => setEditRole(v)}>
-                                        <SelectTrigger className="font-bold">
+                                        <SelectTrigger className="font-bold h-11">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -473,29 +519,60 @@ export default function UsersPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Departamento</Label>
+                                    <Select value={editDepartamento} onValueChange={(v) => { setEditDepartamento(v); setEditDistrito(''); }}>
+                                        <SelectTrigger className="font-bold h-11">
+                                            <SelectValue placeholder="Elegir..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Distrito</Label>
+                                    <Select value={editDistrito} onValueChange={setEditDistrito} disabled={!editDepartamento}>
+                                        <SelectTrigger className="font-bold h-11">
+                                            <SelectValue placeholder="Elegir..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {editDistricts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
-                            <Accordion type="multiple" className="w-full border rounded-xl overflow-hidden bg-white">
-                                {MODULE_GROUPS.map((group, idx) => (
-                                    <AccordionItem value={`edit-group-${idx}`} key={`edit-${group.label}`}>
-                                        <AccordionTrigger className="hover:no-underline py-3 px-5 text-[10px] font-black uppercase text-primary bg-muted/10">
-                                            {group.label}
-                                        </AccordionTrigger>
-                                        <AccordionContent className="p-0">
-                                            <PermissionHeader />
-                                            <div className="divide-y">
-                                                {group.modules.map(module => (
-                                                    <PermissionRow key={module} mod={module} isEdit={true} />
-                                                ))}
-                                            </div>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
+
+                            <Separator />
+
+                            <div className="space-y-4">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">PERMISOS DE ACCESO</Label>
+                                <Accordion type="multiple" className="w-full border rounded-xl overflow-hidden bg-white">
+                                    {MODULE_GROUPS.map((group, idx) => (
+                                        <AccordionItem value={`edit-group-${idx}`} key={`edit-${group.label}`}>
+                                            <AccordionTrigger className="hover:no-underline py-3 px-5 text-[10px] font-black uppercase text-primary bg-muted/10">
+                                                {group.label}
+                                            </AccordionTrigger>
+                                            <AccordionContent className="p-0">
+                                                <PermissionHeader />
+                                                <div className="divide-y">
+                                                    {group.modules.map(module => (
+                                                        <PermissionRow key={module} mod={module} isEdit={true} />
+                                                    ))}
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                </Accordion>
+                            </div>
                         </div>
                     </div>
                     <DialogFooter className="p-6 bg-muted/30 border-t">
-                        <DialogClose asChild><Button variant="outline">Cerrar</Button></DialogClose>
-                        <Button type="submit" disabled={isSubmitting}>GUARDAR CAMBIOS</Button>
+                        <DialogClose asChild><Button variant="ghost" className="font-bold uppercase text-xs">CANCELAR</Button></DialogClose>
+                        <Button type="submit" className="font-black uppercase shadow-lg px-10" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                            ACTUALIZAR PERFIL
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
