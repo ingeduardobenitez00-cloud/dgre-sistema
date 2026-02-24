@@ -131,7 +131,7 @@ export default function AppSidebar() {
           if (accessibleItems.length === 0) return null;
 
           return (
-            <Collapsible key={group.label} className="group/collapsible mb-2" defaultOpen={true}>
+            <Collapsible key={group.label} className="group/collapsible mb-2" defaultOpen={false}>
               <SidebarGroup className="py-0">
                 <SidebarGroupLabel asChild>
                   <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent/50 px-3 py-2 rounded-lg transition-all">

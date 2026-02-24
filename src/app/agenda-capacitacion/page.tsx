@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -177,7 +176,7 @@ export default function AgendaCapacitacionPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            <Accordion type="multiple" className="w-full space-y-4" defaultValue={structuredAgenda.map(d => d.name)}>
+            <Accordion type="multiple" className="w-full space-y-4">
               {structuredAgenda.map((dept) => (
                 <AccordionItem key={dept.name} value={dept.name} className="border bg-white rounded-xl overflow-hidden shadow-sm">
                   <AccordionTrigger className="hover:no-underline px-6 py-4 bg-primary/5 group">
