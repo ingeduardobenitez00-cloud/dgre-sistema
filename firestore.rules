@@ -18,6 +18,11 @@ service cloud.firestore {
       return isSignedIn() && data != null && data.role == 'admin';
     }
 
+    /** Regla para el Padrón Electoral (Solo Lectura para Personal) **/
+    match /padron/{document=**} {
+      allow read: if isSignedIn();
+    }
+
     /** Regla Crítica para Personal Operativo **/
     match /divulgadores/{document=**} {
       allow read, write: if isSignedIn();

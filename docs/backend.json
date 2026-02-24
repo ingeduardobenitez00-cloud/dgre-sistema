@@ -106,6 +106,18 @@
         "nombre_completo": { "type": "string" },
         "cedula": { "type": "string" }
       }
+    },
+    "PadronItem": {
+      "title": "Padrón Electoral",
+      "type": "object",
+      "description": "Registro oficial de ciudadanos.",
+      "properties": {
+        "cedula": { "type": "string" },
+        "nombre": { "type": "string" },
+        "apellido": { "type": "string" },
+        "departamento": { "type": "string" },
+        "distrito": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -131,6 +143,12 @@
         "$ref": "#/entities/SolicitudCapacitacion"
       },
       "description": "Stores training requests."
+    },
+    "/padron/{padronId}": {
+      "schema": {
+        "$ref": "#/entities/PadronItem"
+      },
+      "description": "Stores electoral register information."
     }
   }
 }

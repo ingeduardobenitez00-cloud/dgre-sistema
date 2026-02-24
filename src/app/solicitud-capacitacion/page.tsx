@@ -201,7 +201,6 @@ export default function SolicitudCapacitacionPage() {
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
     const term = (cedulaInput || '').trim();
-    // Limpiamos a solo números porque en la DB está sin puntos
     const cleanTerm = term.replace(/\D/g, ''); 
     
     if (!firestore || cleanTerm.length < 4) {
@@ -215,7 +214,6 @@ export default function SolicitudCapacitacionPage() {
     setIsSearchingCedula(true);
     try {
       const padronRef = collection(firestore, 'padron');
-      // Buscamos el string numérico exacto
       const q = query(padronRef, where('cedula', '==', cleanTerm), limit(1));
       const querySnapshot = await getDocs(q);
 
