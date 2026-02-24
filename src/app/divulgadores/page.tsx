@@ -7,14 +7,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { UserPlus, Users, Loader2, Edit, Trash2, Search, Building2, Landmark, CheckCircle2, AlertCircle } from 'lucide-react';
+import { UserPlus, Users, Loader2, Edit, Trash2, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,23 +54,28 @@ export default function DivulgadoresPage() {
     return [...new Set(datosData.filter(d => d.departamento === selectedDept).map(d => d.distrito))].sort();
   }, [datosData, selectedDept]);
 
-  // Consulta robusta: solo se dispara cuando el perfil está listo
+  // Consulta robusta: se dispara cuando la sesión está lista
   const divulQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || !currentUser?.uid || !currentUser?.profile) return null;
+    if (!firestore || isUserLoading || !currentUser?.uid) return null;
     
     const colRef = collection(firestore, 'divulgadores');
     const profile = currentUser.profile;
     
-    // Admin o permisos nacionales ven todo
+    // Si no hay perfil aún, no disparamos para evitar error de permisos por falta de contexto de rol
+    if (!profile) return null;
+
     const canViewAll = profile.role === 'admin' || profile.permissions?.includes('admin_filter');
-    if (canViewAll) return query(colRef, orderBy('nombre'));
     
-    // Usuarios regionales ven su distrito
+    if (canViewAll) {
+      return query(colRef, orderBy('nombre'));
+    }
+    
     if (profile.distrito) {
         return query(colRef, where('distrito', '==', profile.distrito), orderBy('nombre'));
     }
     
-    return null;
+    // Fallback: listado básico ordenado si no hay filtros regionales
+    return query(colRef, orderBy('nombre'));
   }, [firestore, currentUser, isUserLoading]);
 
   const { data: divulgadores, isLoading: isLoadingDivul, error: divulError } = useCollection<Divulgador>(divulQuery);
@@ -157,7 +162,7 @@ export default function DivulgadoresPage() {
         {divulError && (
           <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl flex items-center gap-3 text-destructive">
             <AlertCircle className="h-5 w-5" />
-            <p className="text-xs font-bold uppercase">Error de sincronización. Asegúrese de tener una sesión activa.</p>
+            <p className="text-xs font-bold uppercase">Error de sincronización. Verificando permisos de acceso...</p>
           </div>
         )}
 
@@ -168,7 +173,7 @@ export default function DivulgadoresPage() {
                 <CardTitle className="uppercase font-black text-sm flex items-center gap-2">
                   <UserPlus className="h-4 w-4" /> Nuevo Divulgador
                 </CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase">Personal operativo (Sin acceso a sistema).</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase">Personal operativo registrado en el sistema.</CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="space-y-2">
@@ -248,7 +253,7 @@ export default function DivulgadoresPage() {
                     {isLoadingDivul ? (
                       <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary" /></TableCell></TableRow>
                     ) : filteredDivul.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground text-[10px] font-bold uppercase">No hay registros disponibles.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground text-[10px] font-bold uppercase">No hay registros disponibles o el listado se está sincronizando.</TableCell></TableRow>
                     ) : filteredDivul.map(d => (
                       <TableRow key={d.id} className="hover:bg-primary/5 transition-colors">
                         <TableCell className="py-3">
@@ -299,7 +304,7 @@ export default function DivulgadoresPage() {
       <Dialog open={isEditModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-w-lg p-0 overflow-hidden">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
-            <DialogTitle className="uppercase font-black text-xl">Editar Divulgador</DialogTitle>
+            <CardTitle className="uppercase font-black text-xl">Editar Divulgador</CardTitle>
           </DialogHeader>
           <form onSubmit={handleUpdate} className="p-6 space-y-4">
             <div className="space-y-2">

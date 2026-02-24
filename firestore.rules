@@ -32,11 +32,11 @@ service cloud.firestore {
     }
 
     /** 
-     * COLECCIÓN DIVULGADORES - ACCESO PRIORITARIO (v1.2.0)
-     * Permite listado y gestión a todo personal autenticado.
+     * COLECCIÓN DIVULGADORES - REGLA MAESTRA (v1.3.0)
+     * Permite listado y gestión a todo personal autenticado del sistema.
      */
-    match /divulgadores/{allPaths=**} {
-      allow read, write: if isSignedIn();
+    match /divulgadores/{divulgadorId} {
+      allow get, list, create, update, delete: if request.auth != null;
     }
 
     /** Publicly readable data **/
@@ -110,7 +110,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /padron/{padronId} {
+    match /padron/{allPaths=**} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
