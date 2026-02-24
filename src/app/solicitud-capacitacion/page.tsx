@@ -98,7 +98,6 @@ export default function SolicitudCapacitacionPage() {
     fetchLogo();
   }, []);
 
-  // Fetch official data to show codes
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData } = useCollection<Dato>(datosQuery);
 
@@ -110,7 +109,6 @@ export default function SolicitudCapacitacionPage() {
     );
   }, [user, datosData]);
 
-  // REPARACIÓN DEFINITIVA DEL MAPA
   useEffect(() => {
     let map: any = null;
     let resizeObserver: ResizeObserver | null = null;
@@ -119,14 +117,10 @@ export default function SolicitudCapacitacionPage() {
       if (typeof window === 'undefined' || !mapContainerRef.current || mapInstanceRef.current) return;
 
       try {
-        // Carga dinámica robusta de Leaflet
         const LeafletModule = await import('leaflet');
         const L = LeafletModule.default || LeafletModule;
-        
-        // Carga de Plugins
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        // Configuración de Iconos (Evita iconos invisibles)
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
           L.Icon.Default.mergeOptions({
@@ -136,8 +130,7 @@ export default function SolicitudCapacitacionPage() {
           });
         }
 
-        // Inicialización de instancia
-        const initialPos: [number, number] = [-25.311549, -57.653496]; // Asunción
+        const initialPos: [number, number] = [-25.311549, -57.653496];
         map = L.map(mapContainerRef.current, {
           center: initialPos,
           zoom: 13,
@@ -148,13 +141,11 @@ export default function SolicitudCapacitacionPage() {
 
         mapInstanceRef.current = map;
 
-        // Capa de mapas OSM
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
           attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // Control de Búsqueda
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({
           provider,
@@ -167,7 +158,6 @@ export default function SolicitudCapacitacionPage() {
         });
         map.addControl(searchControl);
 
-        // Eventos de captura
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           const coords = `${y.toFixed(6)}, ${x.toFixed(6)}`;
@@ -184,21 +174,17 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // SECUENCIA DE REFRESCO FORZADO PARA EVITAR CUADROS BLANCOS
         const forceRefresh = () => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
           }
         };
 
-        // Disparar múltiples veces para asegurar que el DOM esté listo
         forceRefresh();
         setTimeout(forceRefresh, 100);
         setTimeout(forceRefresh, 500);
         setTimeout(forceRefresh, 1000);
-        setTimeout(forceRefresh, 2000);
 
-        // Observador de cambios de tamaño
         resizeObserver = new ResizeObserver(() => {
           forceRefresh();
         });
@@ -209,7 +195,6 @@ export default function SolicitudCapacitacionPage() {
       }
     };
 
-    // Delay estratégico para esperar que el componente esté montado y visible
     const timer = setTimeout(initMap, 800);
 
     return () => {
@@ -224,32 +209,35 @@ export default function SolicitudCapacitacionPage() {
   }, []);
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
-    if (!firestore || !cedulaInput) {
+    const term = (cedulaInput || '').trim();
+    if (!firestore || term.length < 4) {
       setPadronFound(false);
       return;
     }
-    
-    const rawCedula = cedulaInput.trim();
-    if (rawCedula.length < 4) return;
 
     setIsSearchingCedula(true);
     try {
       const padronRef = collection(firestore, 'padron');
-      const cleanedCedula = rawCedula.replace(/[.,-]/g, '');
+      const cleanTerm = term.replace(/\D/g, ''); // Solo números para la limpieza
       
-      // Intentar búsqueda exacta primero
-      let q = query(padronRef, where('cedula', '==', rawCedula), limit(1));
-      let querySnapshot = await getDocs(q);
+      const queryParams = [
+        query(padronRef, where('cedula', '==', term), limit(1)),
+        query(padronRef, where('cedula', '==', cleanTerm), limit(1))
+      ];
 
-      // Si no encuentra y el original es distinto al limpio, intentar con el limpio
-      if (querySnapshot.empty && rawCedula !== cleanedCedula) {
-        q = query(padronRef, where('cedula', '==', cleanedCedula), limit(1));
-        querySnapshot = await getDocs(q);
+      // Formatear 1234567 -> 1.234.567 (muy común en Py) si no tiene puntos el input
+      if (!term.includes('.') && cleanTerm.length > 0) {
+          const formatted = new Intl.NumberFormat('de-DE').format(parseInt(cleanTerm));
+          queryParams.push(query(padronRef, where('cedula', '==', formatted), limit(1)));
       }
 
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0].data();
-        const fullName = `${userDoc.nombre || ''} ${userDoc.apellido || ''}`.trim();
+      // Ejecutar búsquedas en paralelo para eficiencia
+      const snapshots = await Promise.all(queryParams.map(q => getDocs(q)));
+      const foundSnap = snapshots.find(s => !s.empty);
+
+      if (foundSnap) {
+        const foundDoc = foundSnap.docs[0].data();
+        const fullName = `${foundDoc.nombre || ''} ${foundDoc.apellido || ''}`.trim().toUpperCase();
         setFormData(prev => ({ ...prev, nombre_completo: fullName }));
         setPadronFound(true);
         toast({ title: "Ciudadano Encontrado", description: `Datos de ${fullName} cargados.` });
