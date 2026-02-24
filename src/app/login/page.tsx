@@ -97,6 +97,7 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       // Create User Profile in Firestore with role 'jefe'
+      // Se eliminan los módulos de Registros Electorales para los nuevos Jefes según requerimiento
       await setDoc(doc(firestore, 'users', user.uid), {
         username: regData.username.toUpperCase(),
         email: regData.email,
@@ -105,22 +106,19 @@ export default function LoginPage() {
         distrito: regData.distrito,
         modules: [
           'solicitud-capacitacion',
+          'divulgadores',
           'agenda-capacitacion',
           'control-movimiento-maquinas',
           'encuesta-satisfaccion',
           'informe-divulgador',
           'informe-semanal-puntos-fijos',
-          'estadisticas-capacitacion',
-          'ficha',
-          'fotos'
+          'estadisticas-capacitacion'
         ],
         permissions: [
-          'ficha:view',
-          'ficha:edit',
-          'ficha:add',
           'solicitud:add',
           'informe:add',
-          'pdf:gen'
+          'pdf:gen',
+          'assign_staff'
         ],
         fecha_registro: new Date().toISOString()
       });
