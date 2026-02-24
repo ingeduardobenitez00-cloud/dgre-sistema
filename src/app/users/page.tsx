@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, EyeOff, UserPlus, Users, Loader2, Edit, Trash2, Search, X, ShieldCheck, ShieldAlert, MapPin } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Users, Loader2, Edit, Trash2, Search, X, ShieldCheck, ShieldAlert, MapPin, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -229,8 +229,8 @@ export default function UsersPage() {
       role: regRole, 
       modules, 
       permissions, 
-      departamento: regDepartamento, 
-      distrito: regDistrito
+      departamento: regDepartamento || '', 
+      distrito: regDistrito || ''
     };
 
     const tempAppName = 'temp-creation-' + Math.random().toString(36).substring(7);
@@ -269,13 +269,16 @@ export default function UsersPage() {
     setIsSubmitting(true);
     const formData = new FormData(event.currentTarget);
     const { modules, permissions } = processPermissions(formData, true);
+    
+    const isRegionalRole = editRole !== 'admin' && editRole !== 'director';
     const updatedFields = { 
       role: editRole, 
       modules, 
       permissions, 
-      departamento: editDepartamento, 
-      distrito: editDistrito 
+      departamento: isRegionalRole ? editDepartamento : editDepartamento || '', 
+      distrito: isRegionalRole ? editDistrito : editDistrito || '' 
     };
+    
     try {
       await updateDoc(doc(firestore, 'users', editingUser.id), updatedFields);
       toast({ title: 'Perfil Actualizado' });
@@ -324,6 +327,10 @@ export default function UsersPage() {
     </div>
   );
 
+  const isGeoMandatory = (role: string) => {
+    return role === 'jefe' || role === 'funcionario';
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-muted/5">
       <Header title="Gestión de Usuarios" />
@@ -366,20 +373,25 @@ export default function UsersPage() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Departamento</Label>
+                    <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                      <MapPin className="h-3 w-3"/> Departamento {isGeoMandatory(regRole) ? '*' : '(Opcional)'}
+                    </Label>
                     <Select value={regDepartamento} onValueChange={(v) => { setRegDepartamento(v); setRegDistrito(''); }}>
                         <SelectTrigger className="font-bold h-11">
-                            <SelectValue placeholder="Elegir..." />
+                            <SelectValue placeholder="Alcance Nacional" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="nacional" className="italic text-muted-foreground">--- NACIONAL ---</SelectItem>
                             {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Distrito</Label>
-                    <Select value={regDistrito} onValueChange={setRegDistrito} disabled={!regDepartamento}>
+                    <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                      <MapPin className="h-3 w-3"/> Distrito {isGeoMandatory(regRole) ? '*' : '(Opcional)'}
+                    </Label>
+                    <Select value={regDistrito} onValueChange={setRegDistrito} disabled={!regDepartamento || regDepartamento === 'nacional'}>
                         <SelectTrigger className="font-bold h-11">
                             <SelectValue placeholder="Elegir..." />
                         </SelectTrigger>
@@ -457,7 +469,12 @@ export default function UsersPage() {
                                         <p className="text-[9px] font-black uppercase text-primary leading-none">{user.departamento}</p>
                                         <p className="text-[9px] font-bold text-muted-foreground uppercase leading-none">{user.distrito}</p>
                                     </div>
-                                ) : <span className="text-[9px] italic text-muted-foreground">Nacional</span>}
+                                ) : (
+                                  <div className="flex items-center gap-1.5 text-blue-700">
+                                    <Globe className="h-3 w-3" />
+                                    <span className="text-[9px] font-black uppercase">Nacional</span>
+                                  </div>
+                                )}
                             </TableCell>
                             <TableCell><Badge variant="secondary" className="text-[8px] uppercase font-black px-2 py-0.5">{user.role}</Badge></TableCell>
                             <TableCell className="text-right">
@@ -520,19 +537,24 @@ export default function UsersPage() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Departamento</Label>
-                                    <Select value={editDepartamento} onValueChange={(v) => { setEditDepartamento(v); setEditDistrito(''); }}>
+                                    <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                                      <MapPin className="h-3 w-3"/> Departamento {isGeoMandatory(editRole || '') ? '*' : '(Opcional)'}
+                                    </Label>
+                                    <Select value={editDepartamento} onValueChange={(v) => { setEditDepartamento(v === 'nacional' ? '' : v); setEditDistrito(''); }}>
                                         <SelectTrigger className="font-bold h-11">
-                                            <SelectValue placeholder="Elegir..." />
+                                            <SelectValue placeholder="Alcance Nacional" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="nacional" className="italic text-muted-foreground">--- NACIONAL ---</SelectItem>
                                             {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase flex items-center gap-1"><MapPin className="h-3 w-3"/> Distrito</Label>
-                                    <Select value={editDistrito} onValueChange={setEditDistrito} disabled={!editDepartamento}>
+                                    <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                                      <MapPin className="h-3 w-3"/> Distrito {isGeoMandatory(editRole || '') ? '*' : '(Opcional)'}
+                                    </Label>
+                                    <Select value={editDistrito} onValueChange={setEditDistrito} disabled={!editDepartamento || editDepartamento === ''}>
                                         <SelectTrigger className="font-bold h-11">
                                             <SelectValue placeholder="Elegir..." />
                                         </SelectTrigger>
