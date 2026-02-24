@@ -129,11 +129,10 @@ const ACTIONS = [
     { id: 'pdf', label: 'PDF' },
 ];
 
-const GLOBAL_PERMISSIONS = ['admin_filter', 'assign_staff'];
+const GLOBAL_PERMISSIONS = ['admin_filter', 'district_filter', 'assign_staff'];
 
 /**
  * Plantillas de permisos por defecto para cada rol.
- * UPDATED: Jefe role no longer includes admin_filter by default to enforce district filtering.
  */
 const ROLE_DEFAULTS: Record<UserProfile['role'], { modules: string[], permissions: string[] }> = {
   admin: {
@@ -146,11 +145,11 @@ const ROLE_DEFAULTS: Record<UserProfile['role'], { modules: string[], permission
   },
   jefe: {
     modules: ['solicitud-capacitacion', 'divulgadores', 'agenda-capacitacion', 'control-movimiento-maquinas', 'denuncia-lacres', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion'],
-    permissions: ['assign_staff', 'solicitud-capacitacion:view', 'solicitud-capacitacion:add', 'divulgadores:view', 'divulgadores:add', 'agenda-capacitacion:view', 'informe-divulgador:view', 'informe-divulgador:add', 'informe-semanal-puntos-fijos:view', 'informe-semanal-puntos-fijos:add', 'informe-semanal-puntos-fijos:pdf']
+    permissions: ['district_filter', 'assign_staff', 'solicitud-capacitacion:view', 'solicitud-capacitacion:add', 'divulgadores:view', 'divulgadores:add', 'agenda-capacitacion:view', 'informe-divulgador:view', 'informe-divulgador:add', 'informe-semanal-puntos-fijos:view', 'informe-semanal-puntos-fijos:add', 'informe-semanal-puntos-fijos:pdf']
   },
   funcionario: {
     modules: ['ficha', 'fotos', 'cargar-ficha', 'locales-votacion', 'cargar-fotos-locales', 'solicitud-capacitacion'],
-    permissions: ['ficha:view', 'ficha:edit', 'fotos:view', 'fotos:add', 'locales-votacion:view', 'solicitud-capacitacion:add']
+    permissions: ['district_filter', 'ficha:view', 'ficha:edit', 'fotos:view', 'fotos:add', 'locales-votacion:view', 'solicitud-capacitacion:add']
   },
   viewer: {
     modules: ['resumen', 'estadisticas-capacitacion', 'locales-votacion'],
@@ -239,13 +238,11 @@ export default function UsersPage() {
       const next = new Set(editSelectedModules);
       if (next.has(mod)) {
         next.delete(mod);
-        // Quitar también todos los permisos asociados
         const nextPerms = new Set(editSelectedPerms);
         ACTIONS.forEach(a => nextPerms.delete(`${mod}:${a.id}`));
         setEditSelectedPerms(nextPerms);
       } else {
         next.add(mod);
-        // Por defecto añadir permiso de Ver
         const nextPerms = new Set(editSelectedPerms);
         nextPerms.add(`${mod}:view`);
         setEditSelectedPerms(nextPerms);
@@ -276,7 +273,6 @@ export default function UsersPage() {
         next.delete(perm);
       } else {
         next.add(perm);
-        // Si se marca un permiso específico, asegurar que el módulo esté marcado
         const nextModules = new Set(editSelectedModules);
         nextModules.add(mod);
         setEditSelectedModules(nextModules);
@@ -537,6 +533,19 @@ export default function UsersPage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox 
+                        id="global-perm-district_filter" 
+                        name="global-perm-district_filter" 
+                        checked={selectedPerms.has('district_filter')}
+                        onCheckedChange={(checked) => {
+                          const next = new Set(selectedPerms);
+                          if(checked) next.add('district_filter'); else next.delete('district_filter');
+                          setSelectedPerms(next);
+                        }}
+                      />
+                      <label htmlFor="global-perm-district_filter" className="text-[9px] font-black uppercase text-primary">Filtro Distrital</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
                         id="global-perm-assign_staff" 
                         name="global-perm-assign_staff" 
                         checked={selectedPerms.has('assign_staff')}
@@ -747,6 +756,18 @@ export default function UsersPage() {
                                         }}
                                       />
                                       <label htmlFor="edit-global-perm-admin_filter" className="text-[9px] font-black uppercase text-primary">Filtro Nacional</label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Checkbox 
+                                        id="edit-global-perm-district_filter" 
+                                        checked={editSelectedPerms.has('district_filter')}
+                                        onCheckedChange={(checked) => {
+                                          const next = new Set(editSelectedPerms);
+                                          if(checked) next.add('district_filter'); else next.delete('district_filter');
+                                          setEditSelectedPerms(next);
+                                        }}
+                                      />
+                                      <label htmlFor="edit-global-perm-district_filter" className="text-[9px] font-black uppercase text-primary">Filtro Distrital</label>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                       <Checkbox 
