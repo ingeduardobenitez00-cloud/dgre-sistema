@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -119,7 +118,7 @@ export default function AppSidebar() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border">
               <Image src="/logo.png" alt="Logo" width={30} height={30} className="object-contain" priority />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
               <span className="text-[11px] font-black uppercase leading-none tracking-tight">JUSTICIA</span>
               <span className="text-[11px] font-black text-primary uppercase leading-none tracking-tight mt-0.5">ELECTORAL</span>
             </div>
@@ -136,8 +135,8 @@ export default function AppSidebar() {
               <SidebarGroup className="py-0">
                 <SidebarGroupLabel asChild>
                   <CollapsibleTrigger className="flex w-full items-center justify-between hover:bg-sidebar-accent/50 px-3 py-2 rounded-lg transition-all">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-sidebar-foreground/60">{group.label}</span>
-                    <ChevronDown className="h-3 w-3 opacity-30 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">{group.label}</span>
+                    <ChevronDown className="h-3 w-3 opacity-30 transition-transform group-data-[state=open]/collapsible:rotate-180 group-data-[collapsible=icon]:hidden" />
                   </CollapsibleTrigger>
                 </SidebarGroupLabel>
                 <CollapsibleContent className="space-y-1 mt-1">
@@ -154,10 +153,11 @@ export default function AppSidebar() {
                                 "min-h-10 h-auto px-3 rounded-lg transition-all",
                                 isActive ? "bg-primary text-primary-foreground shadow-sm font-bold" : "hover:bg-sidebar-accent text-sidebar-foreground/80"
                               )}
+                              tooltip={item.label}
                             >
                               <Link href={item.href} className="flex items-center gap-3 w-full py-2">
                                 <item.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary-foreground" : "text-sidebar-foreground/60")} />
-                                <span className="text-xs leading-none">{item.label}</span>
+                                <span className="text-xs leading-none group-data-[collapsible=icon]:hidden">{item.label}</span>
                               </Link>
                             </SidebarMenuButton>
                           </SidebarMenuItem>

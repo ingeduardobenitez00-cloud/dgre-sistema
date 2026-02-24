@@ -75,14 +75,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={true}>
       {isPublicRoute ? (
         <div className="flex flex-1 flex-col animate-in fade-in duration-500">
           {children}
         </div>
       ) : (
         <>
-          <Sidebar collapsible="offcanvas">
+          <Sidebar collapsible="icon">
             <AppSidebar />
           </Sidebar>
           <SidebarInset>
