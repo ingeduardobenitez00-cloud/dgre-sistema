@@ -61,11 +61,10 @@ function DenunciaContent() {
   }, []);
 
   const agendaQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.profile) return null;
+    if (!firestore || isUserLoading || !user?.profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
     const profile = user.profile;
     
-    // Jerarquía de filtros
     const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
     const hasDeptFilter = profile.permissions?.includes('department_filter');
     const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
@@ -81,7 +80,7 @@ function DenunciaContent() {
     }
     
     return null;
-  }, [firestore, user]);
+  }, [firestore, user, isUserLoading]);
 
   const { data: agendaItems } = useCollection<SolicitudCapacitacion>(agendaQuery);
 

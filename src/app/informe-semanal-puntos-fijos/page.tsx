@@ -47,7 +47,7 @@ export default function InformeSemanalAnexoIVPage() {
   useEffect(() => {
     if (!isUserLoading && profile) {
       if (hasAdminFilter) {
-        // No pre-selection for admins unless they want to
+        // Libre navegación
       } else if (hasDeptFilter && profile.departamento) {
         setSelectedDepartment(profile.departamento);
       } else if (hasDistFilter && profile.departamento && profile.distrito) {
@@ -55,7 +55,7 @@ export default function InformeSemanalAnexoIVPage() {
         setSelectedDistrict(profile.distrito);
       }
     }
-  }, [user, isUserLoading, hasAdminFilter, hasDeptFilter, hasDistFilter]);
+  }, [isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
   useEffect(() => {
     if (datosData) {
@@ -106,8 +106,7 @@ export default function InformeSemanalAnexoIVPage() {
       cantidad_personas: inf.total_personas || 0,
     }));
 
-    const result = [...mapped, ...emptyRows].slice(0, 12);
-    return result;
+    return [...mapped, ...emptyRows].slice(0, 12);
   }, [informesAnexoIII]);
 
   useEffect(() => {
@@ -127,29 +126,26 @@ export default function InformeSemanalAnexoIVPage() {
 
   const handleSubmit = async () => {
     if (!firestore || !user || !informesAnexoIII || informesAnexoIII.length === 0) {
-        toast({ variant: "destructive", title: "Sin datos", description: "No hay informes del divulgador registrados para consolidar." });
+        toast({ variant: "destructive", title: "Sin datos", description: "No hay informes registrados para consolidar." });
         return;
     }
 
     setIsSubmitting(true);
+    const docData = {
+      departamento: selectedDepartment || '',
+      distrito: selectedDistrict || '',
+      filas: consolidatedFilas.filter(f => f.lugar),
+      usuario_id: user.uid,
+      fecha_creacion: new Date().toISOString(),
+      server_timestamp: serverTimestamp(),
+    };
+
     try {
-      const informeData = {
-        departamento: selectedDepartment || '',
-        distrito: selectedDistrict || '',
-        filas: consolidatedFilas.filter(f => f.lugar),
-        usuario_id: user.uid,
-        fecha_creacion: new Date().toISOString(),
-        server_timestamp: serverTimestamp(),
-      };
-      await addDoc(collection(firestore, 'informes-semanales-anexo-iv'), informeData);
-      
-      toast({ title: "¡Consolidado Guardado!", description: "El informe semanal ha sido registrado con éxito." });
+      await addDoc(collection(firestore, 'informes-semanales-anexo-iv'), docData);
+      toast({ title: "¡Consolidado Guardado!" });
     } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el informe." });
-    } finally {
-      setIsSubmitting(false);
-    }
+      toast({ variant: "destructive", title: "Error" });
+    } finally { setIsSubmitting(false); }
   };
 
   const generatePDF = () => {
@@ -159,24 +155,16 @@ export default function InformeSemanalAnexoIVPage() {
         const margin = 10;
         const pageWidth = doc.internal.pageSize.getWidth();
 
-        if (logoBase64) {
-            doc.addImage(logoBase64, 'PNG', margin, 5, 15, 15);
-        }
+        if (logoBase64) doc.addImage(logoBase64, 'PNG', margin, 5, 15, 15);
 
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14); doc.setFont('helvetica', 'bold');
         doc.text("ANEXO IV", pageWidth / 2, 12, { align: "center" });
-        doc.setFontSize(12);
-        doc.text("INFORME SEMANAL PUNTOS FIJOS DE DIVULGACIÓN 2026", pageWidth / 2, 18, { align: "center" });
+        doc.setFontSize(12); doc.text("INFORME SEMANAL PUNTOS FIJOS DE DIVULGACIÓN 2026", pageWidth / 2, 18, { align: "center" });
 
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        
-        const yInfo = 28;
-        doc.text(`REPORTE CONSOLIDADO AL: ${new Date().toLocaleDateString('es-PY')}`, margin, yInfo);
-        
-        doc.text(`DISTRITO: ${(selectedDistrict || '').toUpperCase()}`, margin, yInfo + 6);
-        doc.text(`DEPARTAMENTO: ${(selectedDepartment || '').toUpperCase()}`, margin + 80, yInfo + 6);
+        doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+        doc.text(`REPORTE CONSOLIDADO AL: ${new Date().toLocaleDateString('es-PY')}`, margin, 28);
+        doc.text(`DISTRITO: ${(selectedDistrict || '').toUpperCase()}`, margin, 34);
+        doc.text(`DEPARTAMENTO: ${(selectedDepartment || '').toUpperCase()}`, margin + 80, 34);
 
         const tableBody = consolidatedFilas.map((f, i) => [
             i + 1,
@@ -191,50 +179,23 @@ export default function InformeSemanalAnexoIVPage() {
 
         autoTable(doc, {
             startY: 45,
-            head: [[
-                'N.º', 
-                'LUGAR DE DIVULGACIÓN', 
-                'FECHA', 
-                'HORARIO', 
-                'NOMBRE COMPLETO FUNCIONARIO DIVULGADOR', 
-                'C.I.C. N.º', 
-                'VÍNCULO', 
-                'CANT. PERS.'
-            ]],
+            head: [['N.º', 'LUGAR DE DIVULGACIÓN', 'FECHA', 'HORARIO', 'FUNCIONARIO DIVULGADOR', 'C.I.C. N.º', 'VÍNCULO', 'CANT. PERS.']],
             body: tableBody,
             theme: 'grid',
             headStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', halign: 'center', fontSize: 7 },
             styles: { fontSize: 7, cellPadding: 2, halign: 'center' },
-            columnStyles: {
-                0: { cellWidth: 8 },
-                1: { cellWidth: 45, halign: 'left' },
-                2: { cellWidth: 20 },
-                3: { cellWidth: 35 },
-                4: { cellWidth: 50, halign: 'left' },
-                5: { cellWidth: 20 },
-                6: { cellWidth: 35 },
-                7: { cellWidth: 15 },
-            },
+            columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 45, halign: 'left' }, 4: { cellWidth: 50, halign: 'left' } },
             margin: { left: margin, right: margin }
         });
 
         const finalY = (doc as any).lastAutoTable.finalY + 30;
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        
         doc.text("__________________________________", margin + 50, finalY, { align: "center" });
         doc.text("Firma y aclaración Divulgador", margin + 50, finalY + 5, { align: "center" });
-
         doc.text("__________________________________", pageWidth - margin - 50, finalY, { align: "center" });
         doc.text("Firma, aclaración y sello Jefes", pageWidth - margin - 50, finalY + 5, { align: "center" });
 
         doc.save(`AnexoIV-${selectedDistrict || 'Semanal'}.pdf`);
-    } catch (error) {
-        console.error(error);
-        toast({ variant: "destructive", title: "Error", description: "No se pudo generar el PDF." });
-    } finally {
-        setIsGeneratingPdf(false);
-    }
+    } catch (error) { toast({ variant: "destructive", title: "Error al generar PDF" }); } finally { setIsGeneratingPdf(false); }
   };
 
   if (isUserLoading || isLoadingDatos) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
@@ -244,125 +205,111 @@ export default function InformeSemanalAnexoIVPage() {
       <Header title="Informe Semanal - Anexo IV" />
       <main className="flex-1 p-4 md:p-8">
         
-        {(hasAdminFilter || hasDeptFilter) && (
-          <div className="mx-auto max-w-7xl mb-6">
-            <Card className="bg-white border-primary/20 shadow-sm">
-              <CardHeader className="py-4">
-                <CardTitle className="text-xs font-bold flex items-center gap-2 uppercase tracking-widest text-primary">
-                  <Search className="h-4 w-4" />
-                  Selección de Ubicación
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Departamento</Label>
-                    <Select 
-                      onValueChange={(v) => { setSelectedDepartment(v); setSelectedDistrict(null); }} 
-                      value={selectedDepartment || undefined}
-                      disabled={hasDeptFilter && !!profile?.departamento}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar departamento..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Distrito</Label>
-                    <Select 
-                      onValueChange={setSelectedDistrict} 
-                      value={selectedDistrict || undefined} 
-                      disabled={!selectedDepartment}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={!selectedDepartment ? "Primero elija departamento" : "Seleccionar distrito..."} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+        <div className="mx-auto max-w-7xl mb-6">
+          <Card className="bg-white border-primary/20 shadow-sm">
+            <CardHeader className="py-4">
+              <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest text-primary">
+                <Search className="h-4 w-4" /> FILTRO DE JURISDICCIÓN
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[9px] uppercase font-black text-muted-foreground">Departamento</Label>
+                  <Select 
+                    onValueChange={(v) => { setSelectedDepartment(v); setSelectedDistrict(null); }} 
+                    value={selectedDepartment || undefined}
+                    disabled={hasDeptFilter || hasDistFilter}
+                  >
+                    <SelectTrigger className="h-11 font-bold">
+                      <SelectValue placeholder="Seleccionar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(d => <SelectItem key={d} value={d} className="font-bold">{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                <div className="space-y-2">
+                  <Label className="text-[9px] uppercase font-black text-muted-foreground">Distrito</Label>
+                  <Select 
+                    onValueChange={setSelectedDistrict} 
+                    value={selectedDistrict || undefined} 
+                    disabled={hasDistFilter || !selectedDepartment}
+                  >
+                    <SelectTrigger className="h-11 font-bold">
+                      <SelectValue placeholder="Seleccionar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {districts.map(d => <SelectItem key={d} value={d} className="font-bold">{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <Card className="mx-auto max-w-7xl shadow-xl border-t-4 border-t-primary">
           <CardHeader className="bg-primary/5">
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 font-black uppercase text-lg">
                         <TableProperties className="h-6 w-6 text-primary" />
-                        ANEXO IV - INFORME SEMANAL PUNTOS FIJOS DE DIVULGACIÓN
+                        Anexo IV - Consolidado Semanal
                     </CardTitle>
-                    <CardDescription>Resumen automatizado de actividades basado en los Informes del Divulgador (Anexo III).</CardDescription>
+                    <CardDescription className="text-[10px] font-bold uppercase">Sincronización automática con los registros del Anexo III.</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 text-right min-w-[150px]">
-                        <p className="text-[10px] font-black text-primary uppercase leading-none">Departamento</p>
-                        <p className="text-sm font-bold truncate">{selectedDepartment || 'No seleccionado'}</p>
-                    </div>
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 text-right min-w-[150px]">
-                        <p className="text-[10px] font-black text-primary uppercase leading-none">Distrito</p>
-                        <p className="text-sm font-bold truncate">{selectedDistrict || 'No seleccionado'}</p>
+                    <div className="bg-white border-2 border-primary/10 rounded-lg px-4 py-2 text-right">
+                        <p className="text-[8px] font-black text-primary uppercase leading-none mb-1">Zona Reportada</p>
+                        <p className="text-xs font-black uppercase truncate max-w-[200px]">{selectedDistrict || 'PENDIENTE'} - {selectedDepartment || ''}</p>
                     </div>
                 </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
             {!selectedDepartment || !selectedDistrict ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4 border-2 border-dashed rounded-xl">
-                  <Search className="h-12 w-12 text-muted-foreground" />
-                  <div className="text-center">
-                      <p className="text-lg font-black text-muted-foreground uppercase">Seleccione una ubicación</p>
-                      <p className="text-sm text-muted-foreground">Elija un departamento y distrito para cargar los datos del informe.</p>
-                  </div>
+              <div className="flex flex-col items-center justify-center py-20 gap-4 border-2 border-dashed rounded-xl bg-white/50">
+                  <Search className="h-12 w-12 text-muted-foreground opacity-20" />
+                  <p className="text-sm font-black text-muted-foreground uppercase tracking-widest">Seleccione ubicación para cargar datos</p>
               </div>
             ) : isLoadingInformes ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Sincronizando con Anexo III...</p>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Compilando Informes Individuales...</p>
                 </div>
             ) : informesAnexoIII && informesAnexoIII.length > 0 ? (
                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 bg-green-50 border border-green-100 p-3 rounded-md text-green-700">
+                    <div className="flex items-center gap-2 bg-green-50 border-2 border-green-100 p-3 rounded-xl text-green-700">
                         <DatabaseZap className="h-4 w-4" />
-                        <span className="text-xs font-bold uppercase">Se han vinculado {informesAnexoIII.length} informes del divulgador para esta ubicación.</span>
+                        <span className="text-[10px] font-black uppercase">Se han vinculado {informesAnexoIII.length} registros para este reporte.</span>
                     </div>
                     
-                    <div className="overflow-x-auto border rounded-lg shadow-inner bg-background">
-                        <table className="w-full text-xs">
+                    <div className="overflow-x-auto border-2 rounded-xl shadow-inner bg-background">
+                        <table className="w-full text-[10px]">
                             <thead>
-                            <tr className="bg-muted border-b">
-                                <th className="p-2 text-center border-r w-10">N.º</th>
-                                <th className="p-2 text-left border-r min-w-[200px]">LUGAR DE DIVULGACIÓN</th>
-                                <th className="p-2 text-center border-r w-32">FECHA</th>
-                                <th className="p-2 text-center border-r min-w-[180px]">HORARIO (DE / A)</th>
-                                <th className="p-2 text-left border-r min-w-[200px]">FUNCIONARIO DIVULGADOR</th>
-                                <th className="p-2 text-center border-r w-28">C.I.C. N.º</th>
-                                <th className="p-2 text-center border-r w-32">VÍNCULO</th>
-                                <th className="p-2 text-center w-24">CANT. PERS.</th>
+                            <tr className="bg-muted/50 border-b-2">
+                                <th className="p-3 text-center border-r w-10 font-black">N.º</th>
+                                <th className="p-3 text-left border-r min-w-[200px] font-black">LUGAR DE DIVULGACIÓN</th>
+                                <th className="p-3 text-center border-r w-32 font-black">FECHA</th>
+                                <th className="p-3 text-center border-r min-w-[180px] font-black">HORARIO</th>
+                                <th className="p-3 text-left border-r min-w-[200px] font-black">FUNCIONARIO</th>
+                                <th className="p-3 text-center border-r w-28 font-black">C.I.C.</th>
+                                <th className="p-3 text-center border-r w-32 font-black">VÍNCULO</th>
+                                <th className="p-3 text-center w-24 font-black">CANT.</th>
                             </tr>
                             </thead>
-                            <tbody className="divide-y">
+                            <tbody className="divide-y-2">
                             {consolidatedFilas.map((fila, i) => (
                                 <tr key={i} className={fila.lugar ? "hover:bg-primary/5 transition-colors" : "bg-muted/5"}>
-                                <td className="p-2 text-center font-bold border-r text-muted-foreground">{i + 1}</td>
-                                <td className="p-2 border-r uppercase font-medium">{fila.lugar}</td>
-                                <td className="p-2 border-r text-center">{formatDateToDDMMYYYY(fila.fecha)}</td>
-                                <td className="p-2 border-r text-center">
-                                    {fila.hora_desde ? `${fila.hora_desde} - ${fila.hora_hasta}` : ''}
-                                </td>
-                                <td className="p-2 border-r uppercase">{fila.nombre_divulgador}</td>
-                                <td className="p-2 border-r text-center">{fila.cedula}</td>
-                                <td className="p-2 border-r uppercase text-center">{fila.vinculo}</td>
-                                <td className="p-2 text-center font-black text-primary">
-                                    {fila.lugar ? fila.cantidad_personas : ''}
-                                </td>
+                                <td className="p-3 text-center font-bold border-r text-muted-foreground">{i + 1}</td>
+                                <td className="p-3 border-r uppercase font-bold text-primary">{fila.lugar}</td>
+                                <td className="p-3 border-r text-center font-bold">{formatDateToDDMMYYYY(fila.fecha)}</td>
+                                <td className="p-3 border-r text-center font-medium">{fila.hora_desde ? `${fila.hora_desde} - ${fila.hora_hasta}` : ''}</td>
+                                <td className="p-3 border-r uppercase font-bold">{fila.nombre_divulgador}</td>
+                                <td className="p-3 border-r text-center font-black">{fila.cedula}</td>
+                                <td className="p-3 border-r uppercase text-center font-bold">{fila.vinculo}</td>
+                                <td className="p-3 text-center font-black text-primary text-sm">{fila.lugar ? fila.cantidad_personas : ''}</td>
                                 </tr>
                             ))}
                             </tbody>
@@ -370,22 +317,22 @@ export default function InformeSemanalAnexoIVPage() {
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center py-20 gap-4 border-2 border-dashed rounded-xl">
-                    <AlertCircle className="h-12 w-12 text-muted-foreground" />
-                    <div className="text-center">
-                        <p className="text-lg font-black text-muted-foreground uppercase">No hay datos para consolidar</p>
-                        <p className="text-sm text-muted-foreground">No se encontraron informes individuales registrados para <b>{selectedDistrict}</b>.</p>
+                <div className="flex flex-col items-center justify-center py-20 gap-4 border-2 border-dashed rounded-xl bg-muted/10">
+                    <AlertCircle className="h-12 w-12 text-destructive opacity-30" />
+                    <div className="text-center space-y-1">
+                        <p className="text-sm font-black text-muted-foreground uppercase">Sin registros en {selectedDistrict}</p>
+                        <p className="text-[10px] text-muted-foreground font-bold uppercase">No hay Anexos III cargados para consolidar esta semana.</p>
                     </div>
                 </div>
             )}
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row gap-4 bg-muted/10 border-t p-6">
-            <Button onClick={generatePDF} variant="outline" className="w-full sm:w-auto font-bold h-12" disabled={isGeneratingPdf || !informesAnexoIII || informesAnexoIII.length === 0}>
-              {isGeneratingPdf ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <FileDown className="mr-2 h-5 w-5" />} GENERAR ANEXO IV (PDF)
+            <Button onClick={generatePDF} variant="outline" className="w-full sm:w-auto font-black uppercase text-[10px] h-12 px-8 border-2 border-primary/20 text-primary" disabled={isGeneratingPdf || !informesAnexoIII || informesAnexoIII.length === 0}>
+              {isGeneratingPdf ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <FileDown className="mr-2 h-4 w-4" />} GENERAR PDF (ANEXO IV)
             </Button>
             <div className="flex-1" />
-            <Button onClick={handleSubmit} disabled={isSubmitting || !informesAnexoIII || informesAnexoIII.length === 0} className="w-full sm:w-auto px-10 h-12 font-bold text-lg shadow-lg">
-              {isSubmitting ? <><Loader2 className="animate-spin mr-2 h-5 w-5" /> GUARDANDO...</> : <><CheckCircle2 className="mr-2 h-5 w-5" /> GUARDAR CONSOLIDADO SEMANAL</>}
+            <Button onClick={handleSubmit} disabled={isSubmitting || !informesAnexoIII || informesAnexoIII.length === 0} className="w-full sm:w-auto px-12 h-12 font-black uppercase shadow-xl text-xs">
+              {isSubmitting ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> GUARDANDO...</> : <><CheckCircle2 className="mr-2 h-4 w-4" /> GUARDAR REPORTE OFICIAL</>}
             </Button>
           </CardFooter>
         </Card>

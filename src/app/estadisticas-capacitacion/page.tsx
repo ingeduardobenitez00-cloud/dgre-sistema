@@ -5,9 +5,9 @@ import { useMemo } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { type EncuestaSatisfaccion } from '@/lib/data';
-import { Loader2, PieChart as PieChartIcon, BarChart3, Users, ClipboardCheck, Landmark } from 'lucide-react';
+import { Loader2, PieChart as PieChartIcon, BarChart3, Users, ClipboardCheck, Landmark, ShieldAlert } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -19,7 +19,6 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
   Cell as RechartsCell
 } from 'recharts';
 
@@ -30,9 +29,26 @@ export default function EstadisticasCapacitacionPage() {
   const { user, isUserLoading } = useUser();
 
   const encuestasQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return collection(firestore, 'encuestas-satisfaccion');
-  }, [firestore, user]);
+    if (!firestore || isUserLoading || !user?.profile) return null;
+    const colRef = collection(firestore, 'encuestas-satisfaccion');
+    const profile = user.profile;
+
+    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
+    const hasDeptFilter = profile.permissions?.includes('department_filter');
+    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
+
+    if (hasAdminFilter) return colRef;
+    
+    if (hasDeptFilter && profile.departamento) {
+        return query(colRef, where('departamento', '==', profile.departamento));
+    }
+
+    if (hasDistFilter && profile.departamento && profile.distrito) {
+        return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
+    }
+    
+    return null;
+  }, [firestore, user, isUserLoading]);
 
   const { data: encuestas, isLoading } = useCollection<EncuestaSatisfaccion>(encuestasQuery);
 
@@ -79,95 +95,118 @@ export default function EstadisticasCapacitacionPage() {
 
   if (isUserLoading || isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
+  const hasGlobalView = ['admin', 'director'].includes(user?.profile?.role || '') || user?.profile?.permissions?.includes('admin_filter') || user?.profile?.permissions?.includes('department_filter') || user?.profile?.permissions?.includes('district_filter');
+  const hasNoJurisdiction = user && !user.profile?.departamento && !hasGlobalView;
+
+  if (hasNoJurisdiction) {
+    return (
+      <div className="flex min-h-screen flex-col bg-muted/10">
+        <Header title="Analítica CIDEE" />
+        <main className="flex-1 p-8 flex items-center justify-center">
+          <Card className="max-w-md w-full text-center p-8 border-dashed">
+            <ShieldAlert className="h-16 w-16 mx-auto text-muted-foreground opacity-20 mb-4" />
+            <h2 className="text-xl font-black uppercase text-primary mb-2">Acceso Restringido</h2>
+            <p className="text-xs text-muted-foreground font-bold uppercase">No tienes una jurisdicción asignada para ver estadísticas.</p>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen flex-col bg-muted/20">
+    <div className="flex min-h-screen flex-col bg-muted/5">
       <Header title="Estadísticas de Capacitación" />
-      <main className="flex-1 p-4 md:p-8 space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <main className="flex-1 p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h1 className="text-3xl font-black tracking-tight uppercase">Analítica CIDEE</h1>
-            <p className="text-muted-foreground">Resultados consolidados de las encuestas de satisfacción.</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase text-primary">Analítica Institucional</h1>
+            <p className="text-muted-foreground text-sm font-medium flex items-center gap-2 mt-1">
+                <Landmark className="h-4 w-4" />
+                Jurisdicción: <span className="font-black text-primary uppercase">
+                    {hasGlobalView && !user?.profile?.departamento ? 'Alcance Nacional' : `${user?.profile?.distrito} - ${user?.profile?.departamento}`}
+                </span>
+            </p>
           </div>
           <div className="flex gap-4">
-            <Card className="bg-primary text-primary-foreground px-6 py-3">
-                <div className="text-[10px] font-bold uppercase opacity-80">Encuestas Totales</div>
+            <Card className="bg-primary text-white px-6 py-4 shadow-xl border-none">
+                <div className="text-[10px] font-black uppercase opacity-70 tracking-widest leading-none mb-1">Total Encuestas</div>
                 <div className="text-3xl font-black">{stats?.total || 0}</div>
             </Card>
-            <Card className="bg-white border-2 border-primary/20 px-6 py-3">
-                <div className="text-[10px] font-bold uppercase text-primary tracking-widest">Pueblos Originarios</div>
+            <Card className="bg-white border-2 border-primary/10 px-6 py-4 shadow-sm">
+                <div className="text-[10px] font-black uppercase text-primary tracking-widest leading-none mb-1">Pueblos Originarios</div>
                 <div className="text-3xl font-black text-primary">{stats?.pueblo_originario || 0}</div>
             </Card>
           </div>
         </div>
 
         {!stats || stats.total === 0 ? (
-          <Card className="p-12 text-center">
-            <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">No hay encuestas registradas para generar estadísticas.</p>
+          <Card className="p-20 text-center border-dashed bg-white">
+            <ClipboardCheck className="mx-auto h-16 w-16 text-muted-foreground opacity-20 mb-4" />
+            <p className="text-lg font-black text-muted-foreground uppercase">No hay datos procesados en esta zona.</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="shadow-md border-t-4 border-t-blue-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-blue-500" /> ¿ES ÚTIL LA PRÁCTICA?
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <Card className="shadow-lg border-t-4 border-t-blue-600 bg-white">
+              <CardHeader className="pb-2 border-b mb-4 bg-muted/10">
+                <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest">
+                  <BarChart3 className="h-4 w-4 text-blue-600" /> Utilidad de la Práctica
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.utilidadData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={10} />
-                    <YAxis fontSize={10} />
+                    <XAxis dataKey="name" fontSize={9} fontWeight="bold" />
+                    <YAxis fontSize={9} fontWeight="bold" />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="value" fill="#2563eb" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <Card className="shadow-md border-t-4 border-t-green-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-green-500" /> ¿ES FÁCIL DE USAR?
+            <Card className="shadow-lg border-t-4 border-t-green-600 bg-white">
+              <CardHeader className="pb-2 border-b mb-4 bg-muted/10">
+                <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest">
+                  <BarChart3 className="h-4 w-4 text-green-600" /> Facilidad de Uso
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.facilidadData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={10} />
-                    <YAxis fontSize={10} />
+                    <XAxis dataKey="name" fontSize={9} fontWeight="bold" />
+                    <YAxis fontSize={9} fontWeight="bold" />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="value" fill="#16a34a" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <Card className="shadow-md border-t-4 border-t-amber-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-amber-500" /> PERCEPCIÓN DE SEGURIDAD
+            <Card className="shadow-lg border-t-4 border-t-amber-600 bg-white">
+              <CardHeader className="pb-2 border-b mb-4 bg-muted/10">
+                <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest">
+                  <BarChart3 className="h-4 w-4 text-amber-600" /> Nivel de Seguridad
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.seguridadData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={10} />
-                    <YAxis fontSize={10} />
+                    <XAxis dataKey="name" fontSize={9} fontWeight="bold" />
+                    <YAxis fontSize={9} fontWeight="bold" />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="value" fill="#d97706" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <Card className="shadow-md border-t-4 border-t-purple-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <PieChartIcon className="h-4 w-4 text-purple-500" /> DISTRIBUCIÓN POR GÉNERO
+            <Card className="shadow-lg border-t-4 border-t-purple-600 bg-white">
+              <CardHeader className="pb-2 border-b mb-4 bg-muted/10">
+                <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest">
+                  <PieChartIcon className="h-4 w-4 text-purple-600" /> Distribución de Género
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[300px]">
@@ -179,26 +218,26 @@ export default function EstadisticasCapacitacionPage() {
                       ))}
                     </Pie>
                     <Tooltip />
-                    <Legend />
+                    <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <Card className="shadow-md border-t-4 border-t-rose-500 lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Users className="h-4 w-4 text-rose-500" /> PARTICIPACIÓN POR RANGO DE EDAD
+            <Card className="shadow-lg border-t-4 border-t-rose-600 lg:col-span-2 bg-white">
+              <CardHeader className="pb-2 border-b mb-4 bg-muted/10">
+                <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest">
+                  <Users className="h-4 w-4 text-rose-600" /> Rango de Edad de los Participantes
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.edadesData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" fontSize={10} />
-                    <YAxis dataKey="name" type="category" fontSize={10} />
+                    <XAxis type="number" fontSize={9} fontWeight="bold" />
+                    <YAxis dataKey="name" type="category" fontSize={9} fontWeight="bold" />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#f43f5e" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="value" fill="#e11d48" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
