@@ -55,7 +55,6 @@ export default function DivulgadoresPage() {
     const colRef = collection(firestore, 'divulgadores');
     const profile = currentUser.profile;
     
-    // Jerarquía de filtros para listado
     const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
     const hasDeptFilter = profile.permissions?.includes('department_filter');
     const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
@@ -65,22 +64,26 @@ export default function DivulgadoresPage() {
     }
     
     if (hasDeptFilter && profile.departamento) {
-        return query(colRef, where('departamento', '==', profile.departamento), orderBy('nombre'));
+        return query(colRef, where('departamento', '==', profile.departamento));
     }
 
     if (hasDistFilter && profile.departamento && profile.distrito) {
         return query(
           colRef, 
           where('departamento', '==', profile.departamento), 
-          where('distrito', '==', profile.distrito), 
-          orderBy('nombre')
+          where('distrito', '==', profile.distrito)
         );
     }
     
     return null;
   }, [firestore, currentUser, isUserLoading]);
 
-  const { data: divulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulQuery);
+
+  const divulgadores = useMemo(() => {
+    if (!rawDivulgadores) return null;
+    return [...rawDivulgadores].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [rawDivulgadores]);
 
   const filteredDivul = useMemo(() => {
     if (!divulgadores) return [];
@@ -128,7 +131,7 @@ export default function DivulgadoresPage() {
   return (
     <div className="flex min-h-screen flex-col bg-muted/5">
       <Header title="Directorio de Divulgadores" />
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8">
+      <main className="flex-1 p-4 md:p-8 max-7xl mx-auto w-full space-y-8">
         
         <div className="flex items-center justify-between">
           <div>

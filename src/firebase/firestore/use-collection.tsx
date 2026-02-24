@@ -90,22 +90,28 @@ export function useCollection<T = any>(
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
+      (firestoreError: FirestoreError) => {
         const path: string =
           query.type === 'collection'
             ? (query as CollectionReference).path
             : (query as unknown as InternalQuery)._query.path.canonicalString()
 
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path,
-        })
-
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        errorEmitter.emit('permission-error', contextualError);
+        // Si es un error de permisos, usamos el error contextual
+        if (firestoreError.code === 'permission-denied') {
+            const contextualError = new FirestorePermissionError({
+                operation: 'list',
+                path,
+            });
+            setError(contextualError);
+            errorEmitter.emit('permission-error', contextualError);
+        } else {
+            // Si es otro tipo de error (ej. FAILED_PRECONDITION por falta de índice), mostramos el error real
+            setError(firestoreError);
+            console.error(`SISTEMA - Error de Base de Datos [${firestoreError.code}]:`, firestoreError.message);
+        }
+        
+        setData(null);
+        setIsLoading(false);
       }
     );
 

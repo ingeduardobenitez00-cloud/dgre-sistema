@@ -75,17 +75,25 @@ export default function AgendaCapacitacionPage() {
     }
     
     if (hasDeptFilter && profile.departamento) {
-        return query(colRef, where('departamento', '==', profile.departamento), orderBy('fecha', 'asc'));
+        // Quitamos orderBy para evitar necesidad de índice compuesto en el servidor
+        return query(colRef, where('departamento', '==', profile.departamento));
     }
 
     if (hasDistFilter && profile.departamento && profile.distrito) {
-        return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito), orderBy('fecha', 'asc'));
+        // Quitamos orderBy para evitar necesidad de índice compuesto en el servidor
+        return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
     }
     
     return null;
   }, [firestore, user, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: solicitudes, isLoading: isLoadingSolicitudes } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
+  const { data: rawSolicitudes, isLoading: isLoadingSolicitudes } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
+
+  // Ordenamiento en memoria para evitar errores de permisos por falta de índices
+  const solicitudes = useMemo(() => {
+    if (!rawSolicitudes) return null;
+    return [...rawSolicitudes].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  }, [rawSolicitudes]);
 
   const divulgadoresQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !profile) return null;
@@ -94,21 +102,25 @@ export default function AgendaCapacitacionPage() {
     if (hasAdminFilter) return query(colRef, orderBy('nombre'));
 
     if (hasDeptFilter && profile.departamento) {
-        return query(colRef, where('departamento', '==', profile.departamento), orderBy('nombre'));
+        return query(colRef, where('departamento', '==', profile.departamento));
     }
 
     if (hasDistFilter && profile.departamento && profile.distrito) {
       return query(
         colRef, 
         where('departamento', '==', profile.departamento), 
-        where('distrito', '==', profile.distrito),
-        orderBy('nombre')
+        where('distrito', '==', profile.distrito)
       );
     }
     return null;
   }, [firestore, user, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: divulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
+
+  const divulgadores = useMemo(() => {
+    if (!rawDivulgadores) return null;
+    return [...rawDivulgadores].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [rawDivulgadores]);
 
   const filteredDivul = useMemo(() => {
     if (!divulgadores) return [];
