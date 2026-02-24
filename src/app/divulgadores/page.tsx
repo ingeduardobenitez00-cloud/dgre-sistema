@@ -55,14 +55,23 @@ export default function DivulgadoresPage() {
   }, [datosData, selectedDept]);
 
   // Divulgadores Data
+  // CRITICAL FIX: Ensure user profile is loaded before querying to avoid permission errors
   const divulQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
+    if (!firestore || !currentUser?.profile) return null;
     const colRef = collection(firestore, 'divulgadores');
-    // Si es Jefe, solo ve los de su distrito
-    if (currentUser.profile?.role === 'jefe' || currentUser.profile?.role === 'funcionario') {
-        return query(colRef, where('distrito', '==', currentUser.profile.distrito || ''));
+    
+    // Si es Jefe o Funcionario, solo ve los de su distrito asignado
+    if (currentUser.profile.role === 'jefe' || currentUser.profile.role === 'funcionario') {
+        const dist = currentUser.profile.distrito || '';
+        if (dist) return query(colRef, where('distrito', '==', dist), orderBy('nombre'));
     }
-    return query(colRef, orderBy('nombre'));
+    
+    // Si tiene permiso de filtro nacional o es admin
+    const canViewAll = currentUser.profile.role === 'admin' || currentUser.profile.permissions?.includes('admin_filter');
+    if (canViewAll) return query(colRef, orderBy('nombre'));
+    
+    // Default fallback: empty query or based on profile district
+    return query(colRef, where('distrito', '==', currentUser.profile.distrito || 'NoDistrito'), orderBy('nombre'));
   }, [firestore, currentUser]);
 
   const { data: divulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulQuery);
