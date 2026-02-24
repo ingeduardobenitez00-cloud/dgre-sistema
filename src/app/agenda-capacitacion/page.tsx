@@ -8,14 +8,13 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, where, doc, updateDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador } from '@/lib/data';
-import { Loader2, Calendar, MapPin, LayoutList, Building2, QrCode, Printer, UserPlus, CheckCircle2, UserCheck, Search, ShieldAlert } from 'lucide-react';
+import { Loader2, Calendar, MapPin, LayoutList, Building2, QrCode, Printer, UserPlus, CheckCircle2, UserCheck, Search, ShieldAlert, Globe, Navigation, Landmark } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateToDDMMYYYY } from '@/lib/utils';
-import jsPDF from 'js-pdf';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -46,19 +45,34 @@ export default function AgendaCapacitacionPage() {
     fetchLogo();
   }, []);
 
+  const profile = user?.profile;
+
+  // Determinar niveles de filtro
+  const hasAdminFilter = useMemo(() => 
+    ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
+    [profile]
+  );
+  
+  const hasDeptFilter = useMemo(() => 
+    !hasAdminFilter && profile?.permissions?.includes('department_filter'),
+    [profile, hasAdminFilter]
+  );
+
+  const hasDistFilter = useMemo(() => 
+    !hasAdminFilter && !hasDeptFilter && (profile?.permissions?.includes('district_filter') || profile?.role === 'jefe' || profile?.role === 'funcionario'),
+    [profile, hasAdminFilter, hasDeptFilter]
+  );
+
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
   const solicitudesQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || !user?.uid || !user?.profile) return null;
+    if (!firestore || isUserLoading || !user?.uid || !profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
-    const profile = user.profile;
     
-    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
-    const hasDeptFilter = profile.permissions?.includes('department_filter');
-    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
-
-    if (hasAdminFilter) return query(colRef, orderBy('fecha', 'asc'));
+    if (hasAdminFilter) {
+      return query(colRef, orderBy('fecha', 'asc'));
+    }
     
     if (hasDeptFilter && profile.departamento) {
         return query(colRef, where('departamento', '==', profile.departamento), orderBy('fecha', 'asc'));
@@ -69,18 +83,13 @@ export default function AgendaCapacitacionPage() {
     }
     
     return null;
-  }, [firestore, user, isUserLoading]);
+  }, [firestore, user, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
   const { data: solicitudes, isLoading: isLoadingSolicitudes } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
 
   const divulgadoresQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || !user?.profile) return null;
+    if (!firestore || isUserLoading || !profile) return null;
     const colRef = collection(firestore, 'divulgadores');
-    const profile = user.profile;
-
-    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
-    const hasDeptFilter = profile.permissions?.includes('department_filter');
-    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
 
     if (hasAdminFilter) return query(colRef, orderBy('nombre'));
 
@@ -97,7 +106,7 @@ export default function AgendaCapacitacionPage() {
       );
     }
     return null;
-  }, [firestore, user, isUserLoading]);
+  }, [firestore, user, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
   const { data: divulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
@@ -221,8 +230,7 @@ export default function AgendaCapacitacionPage() {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
 
-  const hasGlobalView = ['admin', 'director'].includes(user?.profile?.role || '') || user?.profile?.permissions?.includes('admin_filter') || user?.profile?.permissions?.includes('department_filter') || user?.profile?.permissions?.includes('district_filter');
-  const hasNoJurisdiction = user && !user.profile?.departamento && !hasGlobalView;
+  const hasNoJurisdiction = user && !profile?.departamento && !hasAdminFilter;
 
   if (hasNoJurisdiction) {
     return (
@@ -248,11 +256,29 @@ export default function AgendaCapacitacionPage() {
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-black tracking-tight uppercase text-primary">Agenda Consolidada</h1>
-            <p className="text-muted-foreground flex items-center gap-2 mt-1 text-sm">
-              <LayoutList className="h-4 w-4" />
-              Gestión nacional de actividades del CIDEE.
-            </p>
+            <h1 className="text-3xl font-black tracking-tight uppercase text-primary">
+              {hasAdminFilter ? 'Agenda Nacional Consolidada' : hasDeptFilter ? 'Agenda Departamental' : 'Agenda Distrital'}
+            </h1>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Badge variant="outline" className="bg-white text-muted-foreground font-black uppercase text-[10px] py-1 border-primary/10 flex items-center gap-1.5">
+                <LayoutList className="h-3 w-3" /> Gestión de actividades
+              </Badge>
+              {hasAdminFilter && (
+                <Badge className="bg-blue-600 text-white font-black uppercase text-[10px] py-1 border-none flex items-center gap-1.5">
+                  <Globe className="h-3 w-3" /> Vista Global
+                </Badge>
+              )}
+              {hasDeptFilter && (
+                <Badge className="bg-amber-600 text-white font-black uppercase text-[10px] py-1 border-none flex items-center gap-1.5">
+                  <Landmark className="h-3 w-3" /> {profile?.departamento}
+                </Badge>
+              )}
+              {hasDistFilter && (
+                <Badge className="bg-green-600 text-white font-black uppercase text-[10px] py-1 border-none flex items-center gap-1.5">
+                  <Navigation className="h-3 w-3" /> {profile?.distrito}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
@@ -263,7 +289,7 @@ export default function AgendaCapacitacionPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            <Accordion type="multiple" className="w-full space-y-4">
+            <Accordion type="multiple" className="w-full space-y-4" defaultValue={structuredAgenda.map(d => d.name)}>
               {structuredAgenda.map((dept) => (
                 <AccordionItem key={dept.name} value={dept.name} className="border bg-white rounded-xl overflow-hidden shadow-sm">
                   <AccordionTrigger className="hover:no-underline px-6 py-4 bg-primary/5 group">
@@ -327,7 +353,7 @@ export default function AgendaCapacitacionPage() {
                                     </div>
 
                                     <div className="lg:col-span-3 flex flex-wrap lg:flex-nowrap justify-end gap-2 items-center">
-                                      {(user?.profile?.role === 'admin' || user?.profile?.role === 'jefe' || user?.profile?.permissions?.includes('assign_staff')) && (
+                                      {(profile?.role === 'admin' || profile?.role === 'jefe' || profile?.permissions?.includes('assign_staff')) && (
                                         <Button 
                                           variant="outline" 
                                           size="sm" 

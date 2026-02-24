@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -97,7 +98,6 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       // Create User Profile in Firestore with role 'jefe'
-      // REMOVED 'admin_filter' to ensure Jefe only sees their assigned district by default
       await setDoc(doc(firestore, 'users', user.uid), {
         username: regData.username.toUpperCase(),
         email: regData.email,
@@ -118,7 +118,8 @@ export default function LoginPage() {
           'solicitud:add',
           'informe:add',
           'pdf:gen',
-          'assign_staff'
+          'assign_staff',
+          'district_filter'
         ],
         fecha_registro: new Date().toISOString()
       });
