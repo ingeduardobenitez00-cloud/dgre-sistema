@@ -38,15 +38,6 @@ import {
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-geosearch/dist/geosearch.css';
 
-function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<F>): Promise<ReturnType<F>> =>
-    new Promise(resolve => {
-      if (timeout) clearTimeout(timeout);
-      timeout = setTimeout(() => resolve(func(...args)), waitFor);
-    });
-}
-
 export default function SolicitudCapacitacionPage() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
@@ -210,55 +201,47 @@ export default function SolicitudCapacitacionPage() {
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
     const term = (cedulaInput || '').trim();
-    if (!firestore || term.length < 4) {
+    // Limpiamos a solo números porque en la DB está sin puntos
+    const cleanTerm = term.replace(/\D/g, ''); 
+    
+    if (!firestore || cleanTerm.length < 4) {
       setPadronFound(false);
+      if (cleanTerm.length > 0) {
+        toast({ variant: 'destructive', title: 'Cédula muy corta', description: 'Ingrese al menos 4 dígitos.' });
+      }
       return;
     }
 
     setIsSearchingCedula(true);
     try {
       const padronRef = collection(firestore, 'padron');
-      const cleanTerm = term.replace(/\D/g, ''); // Solo números para la limpieza
-      
-      const queryParams = [
-        query(padronRef, where('cedula', '==', term), limit(1)),
-        query(padronRef, where('cedula', '==', cleanTerm), limit(1))
-      ];
+      // Buscamos el string numérico exacto
+      const q = query(padronRef, where('cedula', '==', cleanTerm), limit(1));
+      const querySnapshot = await getDocs(q);
 
-      // Formatear 1234567 -> 1.234.567 (muy común en Py) si no tiene puntos el input
-      if (!term.includes('.') && cleanTerm.length > 0) {
-          const formatted = new Intl.NumberFormat('de-DE').format(parseInt(cleanTerm));
-          queryParams.push(query(padronRef, where('cedula', '==', formatted), limit(1)));
-      }
-
-      // Ejecutar búsquedas en paralelo para eficiencia
-      const snapshots = await Promise.all(queryParams.map(q => getDocs(q)));
-      const foundSnap = snapshots.find(s => !s.empty);
-
-      if (foundSnap) {
-        const foundDoc = foundSnap.docs[0].data();
+      if (!querySnapshot.empty) {
+        const foundDoc = querySnapshot.docs[0].data();
         const fullName = `${foundDoc.nombre || ''} ${foundDoc.apellido || ''}`.trim().toUpperCase();
         setFormData(prev => ({ ...prev, nombre_completo: fullName }));
         setPadronFound(true);
         toast({ title: "Ciudadano Encontrado", description: `Datos de ${fullName} cargados.` });
       } else { 
         setPadronFound(false); 
+        toast({ variant: 'destructive', title: "No encontrado", description: "No se encontró el ciudadano en el padrón." });
       }
     } catch (error) { 
       console.error("Error searching cedula:", error); 
       setPadronFound(false); 
+      toast({ variant: 'destructive', title: "Error", description: "Ocurrió un problema en la búsqueda." });
     } finally { 
       setIsSearchingCedula(false); 
     }
   }, [firestore, toast]);
 
-  const debouncedSearch = useMemo(() => debounce(searchCedulaInPadron, 500), [searchCedulaInPadron]);
-  
   const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
     setFormData(prev => ({ ...prev, cedula: value, nombre_completo: '' }));
     setPadronFound(false);
-    debouncedSearch(value);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -595,15 +578,46 @@ export default function SolicitudCapacitacionPage() {
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground">NOMBRE COMPLETO</Label>
                         <div className="relative">
-                          <Input name="nombre_completo" placeholder="Nombre y Apellido" value={formData.nombre_completo} onChange={handleInputChange} readOnly={padronFound} className={cn("h-11 font-bold border-2", padronFound && "bg-green-50 border-green-200 text-green-900")} />
-                          {padronFound && <Button variant="ghost" size="icon" className="absolute right-1 top-1 h-9 w-9" onClick={() => { setFormData(p => ({...p, nombre_completo: '', cedula: ''})); setPadronFound(false); }}><X className="h-4 w-4"/></Button>}
+                          <Input 
+                            name="nombre_completo" 
+                            placeholder="Nombre y Apellido" 
+                            value={formData.nombre_completo} 
+                            onChange={handleInputChange} 
+                            readOnly={padronFound} 
+                            className={cn("h-11 font-bold border-2", padronFound && "bg-green-50 border-green-200 text-green-900")} 
+                          />
+                          {padronFound && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="absolute right-1 top-1 h-9 w-9" 
+                              onClick={() => { setFormData(p => ({...p, nombre_completo: '', cedula: ''})); setPadronFound(false); }}
+                            >
+                              <X className="h-4 w-4"/>
+                            </Button>
+                          )}
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground">C.I.C. N.º</Label>
-                        <div className="relative">
-                          <Input name="cedula" placeholder="Ej: 1.234.567" value={formData.cedula} onChange={handleCedulaChange} disabled={isSearchingCedula} className="h-11 font-black border-2" />
-                          {isSearchingCedula && <Loader2 className="absolute right-2 top-3 h-5 w-5 animate-spin text-primary" />}
+                        <div className="relative flex gap-2">
+                          <Input 
+                            name="cedula" 
+                            placeholder="Ej: 5630148" 
+                            value={formData.cedula} 
+                            onChange={handleCedulaChange} 
+                            className="h-11 font-black border-2" 
+                          />
+                          <Button 
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            className="h-11 w-11 shrink-0 border-2"
+                            onClick={() => searchCedulaInPadron(formData.cedula)}
+                            disabled={isSearchingCedula}
+                          >
+                            {isSearchingCedula ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                          </Button>
                         </div>
                       </div>
                   </div>
