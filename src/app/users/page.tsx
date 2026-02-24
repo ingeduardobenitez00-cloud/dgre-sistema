@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -97,23 +98,23 @@ const MODULE_GROUPS = [
     modules: ['solicitud-capacitacion', 'divulgadores', 'agenda-capacitacion', 'control-movimiento-maquinas', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion']
   },
   {
-    label: "Registros Electorales",
+    label: "REGISTROS ELECTORALES",
     modules: ['ficha', 'fotos', 'cargar-ficha']
   },
   {
-    label: "Análisis y Reportes",
+    label: "ANÁLISIS Y REPORTES",
     modules: ['resumen', 'informe-general']
   },
   {
-    label: "Locales de Votación",
+    label: "LOCALES DE VOTACIÓN",
     modules: ['locales-votacion', 'cargar-fotos-locales']
   },
   {
-    label: "Gestión de Datos",
+    label: "GESTIÓN DE DATOS",
     modules: ['importar-reportes', 'importar-locales', 'importar-partidos']
   },
   {
-    label: "Sistema",
+    label: "SISTEMA",
     modules: ['users', 'settings']
   },
 ];
@@ -298,18 +299,18 @@ export default function UsersPage() {
 
   const PermissionRow = ({ mod, isEdit = false }: { mod: string, isEdit?: boolean }) => {
     const prefix = isEdit ? 'edit-' : '';
-    const user = editingUser;
+    const userProfile = isEdit ? editingUser : null;
     return (
         <div className="grid grid-cols-12 gap-2 items-center py-2 px-3 border-b hover:bg-muted/30 transition-colors">
             <div className="col-span-2">
                 <p className="font-bold text-[10px] uppercase tracking-tighter truncate">{MODULE_LABELS[mod] || mod}</p>
             </div>
             <div className="col-span-2 flex justify-center">
-                <Checkbox id={`${prefix}access-${mod}`} name={`${prefix}access-${mod}`} defaultChecked={isEdit ? user?.modules?.includes(mod) : false} />
+                <Checkbox id={`${prefix}access-${mod}`} name={`${prefix}access-${mod}`} defaultChecked={isEdit ? userProfile?.modules?.includes(mod) : false} />
             </div>
-            {ACTIONS.filter(a => a.id !== 'view').forEach(action => (
+            {ACTIONS.filter(a => a.id !== 'view').map(action => (
                 <div key={action.id} className="col-span-2 flex justify-center">
-                    <Checkbox id={`${prefix}perm-${mod}-${action.id}`} name={`${prefix}perm-${mod}-${action.id}`} defaultChecked={isEdit ? user?.permissions?.includes(`${mod}:${action.id}`) : false} />
+                    <Checkbox id={`${prefix}perm-${mod}-${action.id}`} name={`${prefix}perm-${mod}-${action.id}`} defaultChecked={isEdit ? userProfile?.permissions?.includes(`${mod}:${action.id}`) : false} />
                 </div>
             ))}
         </div>
