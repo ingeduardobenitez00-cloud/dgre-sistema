@@ -31,32 +31,32 @@ export default function InformeSemanalAnexoIVPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
-  // States for filtering
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [departments, setDepartments] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
 
-  const canFilterAll = user?.profile?.role === 'admin' || user?.profile?.permissions?.includes('admin_filter');
+  const profile = user?.profile;
+  const hasAdminFilter = ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter');
+  const hasDeptFilter = profile?.permissions?.includes('department_filter');
+  const hasDistFilter = profile?.permissions?.includes('district_filter') || profile?.role === 'jefe' || profile?.role === 'funcionario';
 
-  // Master list of departments and districts for filtering
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
-  // Initialize filters based on user profile
   useEffect(() => {
-    if (!isUserLoading && user?.profile) {
-      if (!canFilterAll) {
-        setSelectedDepartment(user.profile.departamento || null);
-        setSelectedDistrict(user.profile.distrito || null);
-      } else if (!selectedDepartment && user.profile.departamento) {
-        setSelectedDepartment(user.profile.departamento);
-        setSelectedDistrict(user.profile.distrito || null);
+    if (!isUserLoading && profile) {
+      if (hasAdminFilter) {
+        // No pre-selection for admins unless they want to
+      } else if (hasDeptFilter && profile.departamento) {
+        setSelectedDepartment(profile.departamento);
+      } else if (hasDistFilter && profile.departamento && profile.distrito) {
+        setSelectedDepartment(profile.departamento);
+        setSelectedDistrict(profile.distrito);
       }
     }
-  }, [user, isUserLoading, canFilterAll]);
+  }, [user, isUserLoading, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  // Update lists for selectors
   useEffect(() => {
     if (datosData) {
       const uniqueDepts = [...new Set(datosData.map(d => d.departamento))].sort();
@@ -69,8 +69,6 @@ export default function InformeSemanalAnexoIVPage() {
     }
   }, [datosData, selectedDepartment]);
 
-  // Fetch Informes del Divulgador (Anexo III) based on selection
-  // CRITICAL: Ensure query only runs with valid filters to avoid permission errors on listing full collection
   const informesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedDepartment || !selectedDistrict) return null;
     return query(
@@ -246,20 +244,24 @@ export default function InformeSemanalAnexoIVPage() {
       <Header title="Informe Semanal - Anexo IV" />
       <main className="flex-1 p-4 md:p-8">
         
-        {canFilterAll && (
+        {(hasAdminFilter || hasDeptFilter) && (
           <div className="mx-auto max-w-7xl mb-6">
             <Card className="bg-white border-primary/20 shadow-sm">
               <CardHeader className="py-4">
                 <CardTitle className="text-xs font-bold flex items-center gap-2 uppercase tracking-widest text-primary">
                   <Search className="h-4 w-4" />
-                  Filtrar Ubicación (Acceso Administrativo)
+                  Selección de Ubicación
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Departamento</Label>
-                    <Select onValueChange={(v) => { setSelectedDepartment(v); setSelectedDistrict(null); }} value={selectedDepartment || undefined}>
+                    <Select 
+                      onValueChange={(v) => { setSelectedDepartment(v); setSelectedDistrict(null); }} 
+                      value={selectedDepartment || undefined}
+                      disabled={hasDeptFilter && !!profile?.departamento}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar departamento..." />
                       </SelectTrigger>
@@ -270,7 +272,11 @@ export default function InformeSemanalAnexoIVPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Distrito</Label>
-                    <Select onValueChange={setSelectedDistrict} value={selectedDistrict || undefined} disabled={!selectedDepartment}>
+                    <Select 
+                      onValueChange={setSelectedDistrict} 
+                      value={selectedDistrict || undefined} 
+                      disabled={!selectedDepartment}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder={!selectedDepartment ? "Primero elija departamento" : "Seleccionar distrito..."} />
                       </SelectTrigger>
@@ -308,7 +314,6 @@ export default function InformeSemanalAnexoIVPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            
             {!selectedDepartment || !selectedDistrict ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4 border-2 border-dashed rounded-xl">
                   <Search className="h-12 w-12 text-muted-foreground" />

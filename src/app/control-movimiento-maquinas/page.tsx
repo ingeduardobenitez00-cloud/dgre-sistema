@@ -50,7 +50,6 @@ export default function ControlMovimientoMaquinasPage() {
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   
-  // States for forms
   const [salidaData, setSalidaData] = useState({
     codigo_maquina: '',
     fecha: '',
@@ -64,7 +63,6 @@ export default function ControlMovimientoMaquinasPage() {
     lacre_estado: 'correcto' as 'correcto' | 'violentado',
   });
 
-  // Handle Hydration: Set initial dates on client mount
   useEffect(() => {
     const now = new Date();
     setSalidaData(p => ({
@@ -100,14 +98,24 @@ export default function ControlMovimientoMaquinasPage() {
   const agendaQuery = useMemoFirebase(() => {
     if (!firestore || !user?.profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
+    const profile = user.profile;
     
-    // Global views
-    const canFilterAll = ['admin', 'director'].includes(user.profile.role || '') || user.profile.permissions?.includes('admin_filter');
-    if (canFilterAll) return query(colRef, orderBy('fecha', 'desc'));
+    // Jerarquía de filtros
+    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
+    const hasDeptFilter = profile.permissions?.includes('department_filter');
+    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
+
+    if (hasAdminFilter) return query(colRef, orderBy('fecha', 'desc'));
     
-    // Regional restriction
-    if (!user.profile.departamento || !user.profile.distrito) return null;
-    return query(colRef, where('departamento', '==', user.profile.departamento), where('distrito', '==', user.profile.distrito), orderBy('fecha', 'desc'));
+    if (hasDeptFilter && profile.departamento) {
+        return query(colRef, where('departamento', '==', profile.departamento), orderBy('fecha', 'desc'));
+    }
+
+    if (hasDistFilter && profile.departamento && profile.distrito) {
+        return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito), orderBy('fecha', 'desc'));
+    }
+    
+    return null;
   }, [firestore, user]);
 
   const { data: agendaItems, isLoading: isLoadingAgenda } = useCollection<SolicitudCapacitacion>(agendaQuery);
@@ -269,7 +277,6 @@ export default function ControlMovimientoMaquinasPage() {
 
         {selectedSolicitudId && (
           <div className="space-y-8 animate-in fade-in duration-500">
-            
             {/* SECCIÓN A: SALIDA */}
             <Card className={cn("border-t-8 shadow-xl", currentMovimiento ? "border-t-green-500" : "border-t-primary")}>
               <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/10">
@@ -393,7 +400,6 @@ export default function ControlMovimientoMaquinasPage() {
                             </div>
                         </div>
 
-                        {/* ACCIÓN DE DENUNCIA SI ES VIOLENTADO */}
                         {(devolucionData.lacre_estado === 'violentado' || currentMovimiento?.devolucion?.lacre_estado === 'violentado') && (
                             <Card className="border-4 border-destructive/20 bg-destructive/5 animate-in slide-in-from-bottom-4">
                                 <CardHeader className="bg-destructive/10 border-b border-destructive/20">
@@ -423,7 +429,6 @@ export default function ControlMovimientoMaquinasPage() {
                 </CardFooter>
               )}
             </Card>
-
           </div>
         )}
 

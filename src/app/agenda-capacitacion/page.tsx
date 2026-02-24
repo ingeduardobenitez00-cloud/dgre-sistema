@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateToDDMMYYYY } from '@/lib/utils';
-import jsPDF from 'jspdf';
+import jsPDF from 'js-pdf';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -54,10 +54,9 @@ export default function AgendaCapacitacionPage() {
     const colRef = collection(firestore, 'solicitudes-capacitacion');
     const profile = user.profile;
     
-    // Jerarquía de filtros
     const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
     const hasDeptFilter = profile.permissions?.includes('department_filter');
-    const hasDistFilter = profile.permissions?.includes('district_filter');
+    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
 
     if (hasAdminFilter) return query(colRef, orderBy('fecha', 'asc'));
     
@@ -65,7 +64,7 @@ export default function AgendaCapacitacionPage() {
         return query(colRef, where('departamento', '==', profile.departamento), orderBy('fecha', 'asc'));
     }
 
-    if ((hasDistFilter || profile.role === 'jefe') && profile.departamento && profile.distrito) {
+    if (hasDistFilter && profile.departamento && profile.distrito) {
         return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito), orderBy('fecha', 'asc'));
     }
     
@@ -81,7 +80,7 @@ export default function AgendaCapacitacionPage() {
 
     const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
     const hasDeptFilter = profile.permissions?.includes('department_filter');
-    const hasDistFilter = profile.permissions?.includes('district_filter');
+    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
 
     if (hasAdminFilter) return query(colRef, orderBy('nombre'));
 
@@ -89,7 +88,7 @@ export default function AgendaCapacitacionPage() {
         return query(colRef, where('departamento', '==', profile.departamento), orderBy('nombre'));
     }
 
-    if ((hasDistFilter || profile.role === 'jefe') && profile.departamento && profile.distrito) {
+    if (hasDistFilter && profile.departamento && profile.distrito) {
       return query(
         colRef, 
         where('departamento', '==', profile.departamento), 
@@ -175,6 +174,7 @@ export default function AgendaCapacitacionPage() {
         reader.readAsDataURL(blob);
       });
 
+      const { jsPDF } = await import('jspdf');
       const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 20;
@@ -221,8 +221,7 @@ export default function AgendaCapacitacionPage() {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
 
-  // Lógica de visibilidad corregida
-  const hasGlobalView = ['admin', 'director'].includes(user?.profile?.role || '') || user?.profile?.permissions?.includes('admin_filter') || user?.profile?.permissions?.includes('department_filter');
+  const hasGlobalView = ['admin', 'director'].includes(user?.profile?.role || '') || user?.profile?.permissions?.includes('admin_filter') || user?.profile?.permissions?.includes('department_filter') || user?.profile?.permissions?.includes('district_filter');
   const hasNoJurisdiction = user && !user.profile?.departamento && !hasGlobalView;
 
   if (hasNoJurisdiction) {
@@ -260,7 +259,7 @@ export default function AgendaCapacitacionPage() {
         {structuredAgenda.length === 0 ? (
           <Card className="p-12 text-center border-dashed bg-white">
             <Calendar className="mx-auto h-12 w-12 text-muted-foreground/30 mb-4" />
-            <p className="text-lg font-bold text-muted-foreground uppercase">No hay actividades registradas.</p>
+            <p className="text-lg font-bold text-muted-foreground uppercase">No hay actividades registradas para esta zona.</p>
           </Card>
         ) : (
           <div className="space-y-6">

@@ -55,15 +55,20 @@ export default function DivulgadoresPage() {
     const colRef = collection(firestore, 'divulgadores');
     const profile = currentUser.profile;
     
-    // Admin or privileged users see all
-    const canViewAll = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
+    // Jerarquía de filtros para listado
+    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
+    const hasDeptFilter = profile.permissions?.includes('department_filter');
+    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
     
-    if (canViewAll) {
+    if (hasAdminFilter) {
       return query(colRef, orderBy('nombre'));
     }
     
-    // Regional staff sees only their district
-    if (profile.departamento && profile.distrito) {
+    if (hasDeptFilter && profile.departamento) {
+        return query(colRef, where('departamento', '==', profile.departamento), orderBy('nombre'));
+    }
+
+    if (hasDistFilter && profile.departamento && profile.distrito) {
         return query(
           colRef, 
           where('departamento', '==', profile.departamento), 
@@ -72,7 +77,6 @@ export default function DivulgadoresPage() {
         );
     }
     
-    // Fallback: Avoid full scan for other roles without jurisdiction to prevent permission errors
     return null;
   }, [firestore, currentUser, isUserLoading]);
 

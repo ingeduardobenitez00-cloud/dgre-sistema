@@ -60,14 +60,27 @@ function DenunciaContent() {
     fetchLogo();
   }, []);
 
-  // Lista de actividades para vincular
   const agendaQuery = useMemoFirebase(() => {
     if (!firestore || !user?.profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
-    const canFilterAll = user.profile.role === 'admin' || user.profile.permissions?.includes('admin_filter');
-    if (canFilterAll) return query(colRef, orderBy('fecha', 'desc'));
-    if (!user.profile.departamento || !user.profile.distrito) return null;
-    return query(colRef, where('departamento', '==', user.profile.departamento), where('distrito', '==', user.profile.distrito), orderBy('fecha', 'desc'));
+    const profile = user.profile;
+    
+    // Jerarquía de filtros
+    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
+    const hasDeptFilter = profile.permissions?.includes('department_filter');
+    const hasDistFilter = profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario';
+
+    if (hasAdminFilter) return query(colRef, orderBy('fecha', 'desc'));
+    
+    if (hasDeptFilter && profile.departamento) {
+        return query(colRef, where('departamento', '==', profile.departamento), orderBy('fecha', 'desc'));
+    }
+
+    if (hasDistFilter && profile.departamento && profile.distrito) {
+        return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito), orderBy('fecha', 'desc'));
+    }
+    
+    return null;
   }, [firestore, user]);
 
   const { data: agendaItems } = useCollection<SolicitudCapacitacion>(agendaQuery);
@@ -196,7 +209,6 @@ function DenunciaContent() {
             <CardDescription className="text-[10px] font-bold uppercase">Complete los detalles de la adulteración detectada.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-8 pt-8">
-            
             <div className="space-y-4">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground">Vincular a Actividad de Agenda</Label>
                 <Select onValueChange={setSelectedAgendaId} value={selectedAgendaId || undefined}>
@@ -271,7 +283,6 @@ function DenunciaContent() {
                     <p className="font-black uppercase text-muted-foreground tracking-widest">Seleccione una actividad programada</p>
                 </div>
             )}
-
           </CardContent>
           <CardFooter className="bg-muted/30 border-t p-6">
             <Button onClick={handleSubmit} disabled={isSubmitting || !selectedAgendaId} className="w-full h-16 text-xl font-black uppercase shadow-2xl bg-destructive hover:bg-destructive/90">
