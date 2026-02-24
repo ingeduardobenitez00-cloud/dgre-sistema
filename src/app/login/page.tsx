@@ -19,6 +19,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  signOut,
 } from 'firebase/auth';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -97,7 +98,6 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       // Create User Profile in Firestore with role 'jefe'
-      // Se eliminan los módulos de Registros Electorales para los nuevos Jefes según requerimiento
       await setDoc(doc(firestore, 'users', user.uid), {
         username: regData.username.toUpperCase(),
         email: regData.email,
@@ -123,8 +123,17 @@ export default function LoginPage() {
         fecha_registro: new Date().toISOString()
       });
 
-      toast({ title: 'Registro exitoso', description: 'Bienvenido Jefe de Oficina.' });
-      router.push('/');
+      // Sign out the user immediately after registration to force manual login
+      await signOut(auth);
+      
+      // Update states to show login form with pre-filled email
+      setLoginEmail(regData.email);
+      setMode('login');
+      
+      toast({ 
+        title: 'Registro exitoso', 
+        description: 'Su cuenta ha sido creada. Por favor, inicie sesión con sus credenciales.' 
+      });
     } catch (error: any) {
       toast({
         variant: 'destructive',
