@@ -7,8 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
 
 /**
- * An invisible component that listens for globally emitted 'permission-error' events.
- * It handles errors gracefully to prevent application crashes for end-users.
+ * Escucha errores de permisos de Firestore y los maneja silenciosamente
+ * durante el logout para evitar alertas innecesarias.
  */
 export function FirebaseErrorListener() {
   const { toast } = useToast();
@@ -16,18 +16,15 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (error: FirestorePermissionError) => {
-      // CRITICAL FIX: If there's no current user, it's likely a logout transition.
-      // We don't want to show "Acceso Restringido" when the user is simply leaving the app.
+      // Si no hay usuario, probablemente es una transición de logout. Ignoramos.
       if (!auth?.currentUser) return;
 
-      // Log to system console for debugging
       console.warn('SISTEMA - Acceso Denegado:', error.message);
       
-      // Show a graceful toast instead of crashing the app
       toast({
         variant: 'destructive',
         title: 'Acceso Restringido',
-        description: 'No tienes permisos suficientes para ver esta información o realizar esta acción.',
+        description: 'No tienes permisos suficientes para realizar esta acción.',
       });
     };
 

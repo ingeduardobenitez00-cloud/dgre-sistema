@@ -130,7 +130,8 @@ export default function SolicitudCapacitacionPage() {
           });
         }
 
-        const initialPos: [number, number] = [-25.311549, -57.653496];
+        // COORDENADAS ASUNCIÓN, PARAGUAY
+        const initialPos: [number, number] = [-25.30066, -57.63591];
         map = L.map(mapContainerRef.current, { 
           center: initialPos, 
           zoom: 13, 
@@ -519,7 +520,7 @@ export default function SolicitudCapacitacionPage() {
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <div className="bg-muted/10 p-4 rounded-xl border-2 border-dashed text-center">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground leading-tight">QUE PASA CON EL MAPA NO SE VE</p>
+                    <p className="text-[10px] font-black uppercase text-muted-foreground leading-tight">DOBLE CLIC EN EL MAPA PARA CAPTURAR COORDENADAS EXACTAS</p>
                 </div>
                 <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-muted">
                     <div ref={mapContainerRef} className="h-full w-full z-0" />
