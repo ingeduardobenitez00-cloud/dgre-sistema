@@ -33,6 +33,7 @@ import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
 import { type PartidoPolitico } from '@/lib/data';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Command,
   CommandEmpty,
@@ -105,7 +106,6 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // SOLUCIÓN DEFINITIVA DE MAPA: PUNTO DE PARTIDA ASUNCIÓN + AUTO-RENDERIZADO
   useEffect(() => {
     if (typeof window === 'undefined' || mapInitializing.current) return;
     
@@ -120,7 +120,6 @@ export default function SolicitudCapacitacionPage() {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        // Fix para iconos de Leaflet en Webpack/Next.js
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
           L.Icon.Default.mergeOptions({
@@ -130,7 +129,6 @@ export default function SolicitudCapacitacionPage() {
           });
         }
 
-        // COORDENADAS ASUNCIÓN, PARAGUAY (Punto de partida solicitado)
         const initialPos: [number, number] = [-25.30066, -57.63591];
         map = L.map(mapContainerRef.current, { 
           center: initialPos, 
@@ -170,7 +168,6 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // SOLUCIÓN AL CUADRO GRIS: ResizeObserver para recalcular tamaño al pintar
         observer = new ResizeObserver(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -178,7 +175,6 @@ export default function SolicitudCapacitacionPage() {
         });
         observer.observe(mapContainerRef.current);
 
-        // Disparar evento de resize global para asegurar carga de tiles
         setTimeout(() => {
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.invalidateSize();
@@ -284,10 +280,155 @@ export default function SolicitudCapacitacionPage() {
     if (!logoBase64) return;
     const doc = new jsPDF();
     const margin = 20;
-    doc.addImage(logoBase64, 'PNG', margin, 10, 20, 20);
-    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    doc.text("ANEXO V - SOLICITUD DE CAPACITACIÓN", 105, 20, { align: "center" });
-    doc.save(`Solicitud-${formData.lugar_local.replace(/\s+/g, '-')}.pdf`);
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // 1. Header: Logos and Title
+    doc.addImage(logoBase64, 'PNG', margin, 5, 22, 22);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text("Justicia Electoral", pageWidth / 2, 15, { align: "center" });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.text("Custodio de la Voluntad Popular", pageWidth / 2, 22, { align: "center" });
+
+    // Flag stripes
+    const barW = 5;
+    doc.setFillColor(200, 0, 0); doc.rect(pageWidth - margin - (barW * 3), 5, barW, 20, 'F');
+    doc.setFillColor(255, 255, 255); doc.rect(pageWidth - margin - (barW * 2), 5, barW, 20, 'F');
+    doc.setFillColor(0, 0, 200); doc.rect(pageWidth - margin - barW, 5, barW, 20, 'F');
+
+    // 2. Title Bar (Anexo V)
+    const tanColor = [218, 212, 187];
+    doc.setFillColor(tanColor[0], tanColor[1], tanColor[2]);
+    doc.rect(margin, 30, pageWidth - (margin * 2), 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text("ANEXO V – PROFORMA DE SOLICITUD", pageWidth / 2, 35.5, { align: "center" });
+
+    // 3. Date and Destination
+    const today = new Date(formData.fecha || new Date());
+    const day = today.getDate();
+    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const month = months[today.getMonth()];
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const dateText = `${profile?.distrito || 'Asunción'}, ${day} de ${month} de 2026`;
+    doc.text(dateText, pageWidth - margin, 48, { align: "right" });
+
+    doc.text("Señor/a", margin, 60);
+    doc.setFont('helvetica', 'bold');
+    const entity = formData.solicitante_entidad || formData.otra_entidad || "___________________________________________";
+    doc.text(entity.toUpperCase(), margin, 68);
+    doc.line(margin, 69, margin + 100, 69);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Presente:", margin, 76);
+
+    // 4. Opening Paragraph
+    doc.setFont('helvetica', 'normal');
+    const introText = "Tengo el agrado de dirigirme a usted/es, en virtud a las próximas Elecciones Internas simultáneas de las Organizaciones Políticas del 07 de junio del 2026, a los efectos de solicitar:";
+    const splitIntro = doc.splitTextToSize(introText, pageWidth - (margin * 2) - 10);
+    doc.text(splitIntro, margin + 10, 84);
+
+    // 5. Checkboxes (Request Type)
+    let y = 98;
+    const drawCheck = (label: string, checked: boolean, currentY: number) => {
+        doc.rect(margin + 15, currentY - 4, 5, 5);
+        if (checked) {
+            doc.setFont('zapfdingbats');
+            doc.text("4", margin + 16, currentY - 0.5); // Checkmark char
+            doc.setFont('helvetica', 'normal');
+        }
+        doc.text(label, margin + 25, currentY);
+    };
+
+    drawCheck("Divulgación sobre el uso de la Máquina de Votación Electrónica.", formData.tipo_solicitud === 'divulgacion', y);
+    y += 8;
+    drawCheck("Capacitación sobre las funciones de los miembros de mesa receptora de votos.", formData.tipo_solicitud === 'capacitacion', y);
+
+    // 6. Main Table
+    y += 10;
+    autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin },
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 'auto' } },
+        body: [
+            ['FECHA', `:  ${day}  /  ${today.getMonth() + 1}  / 2026`],
+            ['HORARIO', `DESDE:  ${formData.hora_desde}  horas\nHASTA:  ${formData.hora_hasta}  horas`],
+            ['LUGAR Y/O LOCAL', `:  ${formData.lugar_local.toUpperCase()}`],
+            ['DIRECCIÓN', `CALLE:  ${formData.direccion_calle.toUpperCase()}`],
+            ['BARRIO - COMPAÑÍA', `:  ${formData.barrio_compania.toUpperCase()}`],
+            ['DISTRITO', `:  ${(profile?.distrito || '').toUpperCase()}`],
+        ],
+    });
+
+    // 7. Applicant Data Table
+    y = (doc as any).lastAutoTable.finalY + 5;
+    
+    // Custom header for applicant table with checkboxes
+    doc.setFont('helvetica', 'bold');
+    doc.text("DATOS DEL SOLICITANTE – APODERADO", margin, y + 4);
+    doc.rect(margin + 75, y, 5, 5); if(formData.rol_solicitante === 'apoderado') doc.text("X", margin + 76, y + 4);
+    doc.text("OTRO", margin + 85, y + 4);
+    doc.rect(margin + 100, y, 5, 5); if(formData.rol_solicitante === 'otro') doc.text("X", margin + 101, y + 4);
+
+    y += 7;
+    autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin },
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 'auto' } },
+        body: [
+            ['NOMBRE COMPLETO', `:  ${formData.nombre_completo.toUpperCase()}`],
+            ['C.I.C. N.º', `:  ${formData.cedula}`],
+            ['NÚMERO DE CONTACTO\n(CELULAR – LÍNEA BAJA)', `:  ${formData.telefono}`],
+        ],
+    });
+
+    // 8. Observation Bar
+    y = (doc as any).lastAutoTable.finalY + 2;
+    doc.setFillColor(tanColor[0], tanColor[1], tanColor[2]);
+    doc.rect(margin, y, pageWidth - (margin * 2), 6, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.text("OBSERVACIÓN", pageWidth / 2, y + 4.5, { align: "center" });
+    
+    y += 10;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.text("La recepción de solicitudes se realiza hasta 48 horas de antelación a la fecha del evento.", pageWidth / 2, y, { align: "center" });
+    doc.text("En caso de cancelación de la actividad debe informarse con 24 horas de anticipación.", pageWidth / 2, y + 5, { align: "center" });
+
+    // 9. Closing and Signature
+    y += 15;
+    doc.setFont('helvetica', 'normal');
+    doc.text("Se hace propicia la ocasión para saludarle muy cordialmente.", margin, y);
+
+    y += 20;
+    doc.text("Firma del Solicitante: ___________________________________________", margin + 30, y);
+
+    // 10. Internal Use Box
+    y += 10;
+    const boxH = 50;
+    doc.rect(margin, y, pageWidth - (margin * 2), boxH);
+    doc.setFont('helvetica', 'bold');
+    doc.text("ESPACIO PARA USO INTERNO DE LA JUSTICIA ELECTORAL", pageWidth / 2, y + 6, { align: "center" });
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Divulgador designado: _______________________________________`, margin + 5, y + 15);
+    doc.text(`C.I.C. N.º: __________________`, margin + 120, y + 15);
+    doc.text(`Código de la Máquina de Votación asignada: _____________________________________________`, margin + 5, y + 25);
+    
+    doc.text(`______________________________________________`, pageWidth / 2, y + 38, { align: "center" });
+    doc.text(`Firma y sello del Jefe del Registro Electoral:`, pageWidth / 2, y + 43, { align: "center" });
+
+    doc.text(`Total de personas capacitadas:`, margin + 10, y + 48);
+    doc.rect(margin + 65, y + 44, 100, 5);
+
+    doc.save(`Solicitud-${formData.lugar_local.replace(/\s+/g, '-') || 'AnexoV'}.pdf`);
   };
 
   const partidosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'partidos-politicos'), orderBy('nombre')) : null, [firestore]);
@@ -311,7 +452,7 @@ export default function SolicitudCapacitacionPage() {
             </div>
             <div className="flex gap-2">
                 <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-10" onClick={generatePDF}>
-                    <Printer className="mr-2 h-3.5 w-3.5" /> VISTA PREVIA PDF
+                    <Printer className="mr-2 h-3.5 w-3.5" /> GENERAR PDF OFICIAL
                 </Button>
             </div>
         </div>
