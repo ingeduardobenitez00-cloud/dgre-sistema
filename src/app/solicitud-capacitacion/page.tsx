@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -111,7 +112,15 @@ export default function SolicitudCapacitacionPage() {
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const provider = new OpenStreetMapProvider();
-        const searchControl = new (GeoSearchControl as any)({ provider, style: 'bar', showMarker: true });
+        const searchControl = new (GeoSearchControl as any)({ 
+            provider, 
+            style: 'bar', 
+            showMarker: true,
+            searchLabel: 'Buscar dirección...',
+            placeholder: 'Buscar dirección...',
+            autoClose: true,
+            keepResult: true
+        });
         map.addControl(searchControl);
 
         map.on('geosearch/showlocation', (result: any) => {
@@ -413,58 +422,60 @@ export default function SolicitudCapacitacionPage() {
           </Card>
 
           <div className="space-y-8">
-            <Card className="shadow-xl border-none overflow-hidden rounded-xl bg-white">
-              <CardHeader className="bg-muted/30 border-b py-4">
-                <CardTitle className="text-[10px] font-black uppercase flex items-center gap-2">
-                    <Globe className="h-4 w-4" /> GEORREFERENCIACIÓN DEL EVENTO
+            <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
+              <CardHeader className="bg-white border-b py-6 px-8">
+                <CardTitle className="text-lg font-black uppercase text-primary flex items-center gap-3">
+                    <MapPin className="h-5 w-5" /> GEORREFERENCIACIÓN DEL EVENTO
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                <div className="bg-muted/10 p-3 rounded-lg border-2 border-dashed text-center">
-                    <p className="text-[8px] font-black uppercase text-muted-foreground leading-tight">Doble clic en el mapa para capturar coordenadas exactas</p>
+              <CardContent className="p-8 space-y-6">
+                <div className="bg-muted/10 p-4 rounded-xl border-2 border-dashed text-center">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground leading-tight">Doble clic en el mapa para capturar coordenadas exactas</p>
                 </div>
-                <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-4 border-white shadow-lg">
-                    <div ref={mapContainerRef} className="h-full w-full bg-muted" />
+                <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-4 border-white shadow-xl">
+                    <div ref={mapContainerRef} className="h-full w-full bg-muted z-0" />
                 </div>
-                <div className="flex items-center gap-4 bg-muted/20 p-4 rounded-xl border-2">
-                    <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-                        <Navigation className={cn("h-5 w-5", formData.gps ? "text-primary" : "text-muted-foreground/30")} />
+                <div className="flex items-center gap-5 bg-muted/20 p-6 rounded-2xl border-2">
+                    <div className="h-12 w-12 bg-white rounded-full flex items-center justify-center shadow-md">
+                        <Navigation className={cn("h-6 w-6", formData.gps ? "text-primary" : "text-muted-foreground/30")} />
                     </div>
                     <div>
-                        <p className="text-[8px] font-black uppercase text-muted-foreground leading-none mb-1">Coordenadas GPS</p>
-                        <p className="text-xs font-black uppercase">{formData.gps || 'PENDIENTE DE CAPTURA'}</p>
+                        <p className="text-[9px] font-black uppercase text-muted-foreground leading-none mb-1 tracking-widest">Coordenadas GPS</p>
+                        <p className={cn("text-sm font-black uppercase", !formData.gps && "text-muted-foreground opacity-60")}>
+                            {formData.gps || 'PENDIENTE DE CAPTURA'}
+                        </p>
                     </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="shadow-xl border-none overflow-hidden rounded-xl bg-white">
-              <CardHeader className="bg-muted/30 border-b py-4">
-                <CardTitle className="text-[10px] font-black uppercase flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4" /> RESPALDO DOCUMENTAL
+            <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
+              <CardHeader className="bg-white border-b py-6 px-8">
+                <CardTitle className="text-lg font-black uppercase text-primary flex items-center gap-3">
+                    <Camera className="h-5 w-5" /> RESPALDO DOCUMENTAL
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6 space-y-4">
+              <CardContent className="p-8 space-y-4">
                 {photoDataUri ? (
-                    <div className="relative aspect-video w-full rounded-xl overflow-hidden border-4 border-white shadow-lg group">
+                    <div className="relative aspect-video w-full rounded-2xl overflow-hidden border-4 border-white shadow-xl group">
                         <Image src={photoDataUri} alt="Respaldo" fill className="object-cover" />
-                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setPhotoDataUri(null)}>
-                            <Trash2 className="h-4 w-4" />
+                        <Button variant="destructive" size="icon" className="absolute top-4 right-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setPhotoDataUri(null)}>
+                            <Trash2 className="h-5 w-5" />
                         </Button>
                     </div>
                 ) : (
-                    <>
-                        <label className="flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-all">
-                            <Camera className="h-6 w-6 text-muted-foreground" />
-                            <span className="text-[9px] font-black uppercase text-muted-foreground">Cámara en vivo</span>
+                    <div className="space-y-4">
+                        <label className="flex flex-col items-center justify-center gap-3 h-32 border-2 border-dashed rounded-[1.5rem] cursor-pointer hover:bg-muted/10 transition-all bg-muted/5 group">
+                            <Camera className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cámara en vivo</span>
                             <Input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
                         </label>
-                        <label className="flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-all">
-                            <FileUp className="h-6 w-6 text-muted-foreground" />
-                            <span className="text-[9px] font-black uppercase text-muted-foreground">Galería / Archivo</span>
+                        <label className="flex flex-col items-center justify-center gap-3 h-32 border-2 border-dashed rounded-[1.5rem] cursor-pointer hover:bg-muted/10 transition-all bg-muted/5 group">
+                            <FileUp className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Galería / Archivo</span>
                             <Input type="file" accept="image/*" className="hidden" onChange={handlePhotoCapture} />
                         </label>
-                    </>
+                    </div>
                 )}
               </CardContent>
             </Card>
