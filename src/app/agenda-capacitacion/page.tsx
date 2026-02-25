@@ -156,7 +156,7 @@ export default function AgendaCapacitacionPage() {
             <p className="font-black text-muted-foreground uppercase tracking-widest opacity-30">No hay actividades agendadas en su jurisdicción</p>
           </Card>
         ) : (
-          <Accordion type="multiple" defaultValue={groupedData.map(d => d.label)} className="space-y-6">
+          <Accordion type="multiple" className="space-y-6">
             {groupedData.map((dept) => (
               <AccordionItem key={dept.label} value={dept.label} className="border-none bg-white rounded-[2rem] shadow-sm overflow-hidden">
                 <AccordionTrigger className="hover:no-underline px-8 py-6 bg-white group">
@@ -167,88 +167,106 @@ export default function AgendaCapacitacionPage() {
                     <div>
                         <h2 className="text-2xl font-black uppercase tracking-tight text-[#1A1A1A]">{dept.code} - {dept.label}</h2>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                            {Object.values(dept.dists).reduce((acc, d) => acc + d.items.length, 0)} ACTIVIDADES PROGRAMADAS
+                            {Object.values(dept.dists).length} DISTRITOS CON ACTIVIDADES
                         </p>
                     </div>
                   </div>
                 </AccordionTrigger>
                 
                 <AccordionContent className="px-8 pb-8 pt-2">
-                  <div className="space-y-4">
+                  <Accordion type="multiple" className="space-y-4">
                     {Object.values(dept.dists).map((dist) => (
-                      <div key={dist.label} className="space-y-4">
-                        <div className="flex items-center gap-3 py-2 border-b border-dashed">
-                            <Building2 className="h-5 w-5 text-[#1A1A1A]" />
-                            <h3 className="font-black uppercase text-sm tracking-tight text-primary/80">
-                                {dist.code} {dist.label}
-                            </h3>
-                        </div>
-                        {dist.items.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => (
-                            <Card key={item.id} className="border-none shadow-sm bg-[#F8F9FA] rounded-2xl hover:shadow-md transition-all">
-                                <CardContent className="p-6">
-                                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
-                                        <div className="space-y-2">
-                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE</p>
-                                            <p className="font-black text-sm uppercase leading-tight">{item.solicitante_entidad || item.otra_entidad}</p>
-                                            <Badge variant="secondary" className="bg-[#F1F5F9] text-[#475569] font-black uppercase text-[8px] tracking-widest px-2 py-0.5">
-                                                {item.tipo_solicitud}
-                                            </Badge>
-                                        </div>
-
-                                        <div className="lg:col-span-1 space-y-3">
-                                            <div className="flex items-center gap-3">
-                                                <MapPin className="h-4 w-4 text-muted-foreground" />
-                                                <p className="font-black text-[11px] uppercase truncate">{item.lugar_local}</p>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                <p className="font-black text-[11px] uppercase">{formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} HS</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR ASIGNADO</p>
-                                            {item.divulgador_nombre ? (
-                                                <div className="flex items-center gap-2 text-[#16A34A]">
-                                                    <UserCheck className="h-4 w-4" />
-                                                    <p className="font-black text-xs uppercase">{item.divulgador_nombre}</p>
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs font-black text-destructive italic uppercase">SIN ASIGNAR</p>
-                                            )}
-                                        </div>
-
-                                        <div className="flex flex-wrap justify-end gap-2">
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                className="h-10 px-4 rounded-xl font-black uppercase text-[10px] border-2 gap-2"
-                                                onClick={() => setAssigningSolicitud(item)}
-                                            >
-                                                <UserPlus className="h-3.5 w-3.5" /> {item.divulgador_nombre ? 'REASIGNAR' : 'ASIGNAR'}
-                                            </Button>
+                      <AccordionItem key={dist.label} value={dist.label} className="border-none">
+                        <AccordionTrigger className="hover:no-underline py-4 bg-[#F8F9FA] rounded-2xl px-6 group border border-dashed">
+                            <div className="flex items-center gap-3">
+                                <Building2 className="h-5 w-5 text-[#1A1A1A]" />
+                                <h3 className="font-black uppercase text-sm tracking-tight text-primary/80">
+                                    {dist.code} {dist.label}
+                                </h3>
+                                <Badge variant="secondary" className="bg-black text-white text-[8px] font-black px-2">
+                                    {dist.items.length}
+                                </Badge>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-6 space-y-4 px-2">
+                            {dist.items.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => (
+                                <Card key={item.id} className="border-none shadow-sm bg-white rounded-2xl hover:shadow-md transition-all border border-muted/20">
+                                    <CardContent className="p-8">
+                                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                                             
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                className="h-10 px-4 rounded-xl font-black uppercase text-[10px] border-2 gap-2"
-                                            >
-                                                <QrCode className="h-3.5 w-3.5" /> QR ENCUESTA
-                                            </Button>
+                                            {/* Columna 1: Solicitante */}
+                                            <div className="lg:col-span-4 space-y-3">
+                                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE</p>
+                                                <p className="font-black text-base uppercase leading-tight text-[#1A1A1A]">{item.solicitante_entidad || item.otra_entidad}</p>
+                                                <Badge variant="secondary" className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[9px] tracking-widest px-3 py-1 rounded-md">
+                                                    {item.tipo_solicitud}
+                                                </Badge>
+                                            </div>
 
-                                            <Link href={`/informe-divulgador?solicitudId=${item.id}`}>
-                                                <Button className="h-10 px-6 rounded-xl font-black uppercase text-[10px] bg-black hover:bg-black/90 shadow-lg">
-                                                    INFORME
+                                            {/* Columna 2: Ubicación y Fecha */}
+                                            <div className="lg:col-span-3 space-y-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center">
+                                                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                                                    </div>
+                                                    <p className="font-black text-[12px] uppercase text-[#1A1A1A]">{item.lugar_local}</p>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center">
+                                                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                    </div>
+                                                    <p className="font-black text-[12px] uppercase text-[#1A1A1A]">{formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} HS</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Columna 3: Divulgador */}
+                                            <div className="lg:col-span-2 space-y-2">
+                                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR ASIGNADO</p>
+                                                {item.divulgador_nombre ? (
+                                                    <div className="flex items-center gap-2 text-[#16A34A]">
+                                                        <UserCheck className="h-5 w-5" />
+                                                        <p className="font-black text-[13px] uppercase">{item.divulgador_nombre}</p>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs font-black text-destructive italic uppercase">SIN ASIGNAR</p>
+                                                )}
+                                            </div>
+
+                                            {/* Columna 4: Acciones */}
+                                            <div className="lg:col-span-3 flex flex-col items-end gap-3">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-11 px-6 rounded-xl font-black uppercase text-[11px] border-2 gap-2 w-full max-w-[180px] bg-white hover:bg-muted/10"
+                                                    onClick={() => setAssigningSolicitud(item)}
+                                                >
+                                                    <UserPlus className="h-4 w-4" /> {item.divulgador_nombre ? 'REASIGNAR' : 'ASIGNAR'}
                                                 </Button>
-                                            </Link>
+                                                
+                                                <div className="flex gap-2 w-full max-w-[180px]">
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2 gap-2 bg-white hover:bg-muted/10"
+                                                    >
+                                                        <QrCode className="h-4 w-4" />
+                                                    </Button>
+
+                                                    <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
+                                                        <Button className="h-11 w-full rounded-xl font-black uppercase text-[11px] bg-black hover:bg-black/90 text-white shadow-lg">
+                                                            INFORME
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                      </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </AccordionContent>
+                      </AccordionItem>
                     ))}
-                  </div>
+                  </Accordion>
                 </AccordionContent>
               </AccordionItem>
             ))}
