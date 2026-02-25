@@ -79,6 +79,10 @@ export default function SolicitudCapacitacionPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  
+  // Refs para inputs de hora
+  const horaDesdeRef = useRef<HTMLInputElement>(null);
+  const horaHastaRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const now = new Date();
@@ -100,7 +104,7 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // Inicialización Robusta del Mapa con ResizeObserver para evitar el cuadro gris
+  // Inicialización Robusta del Mapa con ResizeObserver
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
@@ -136,7 +140,6 @@ export default function SolicitudCapacitacionPage() {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Buscador Geográfico
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -150,7 +153,6 @@ export default function SolicitudCapacitacionPage() {
         });
         map.addControl(searchControl);
 
-        // Captura por búsqueda
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           const coords = `${y.toFixed(6)}, ${x.toFixed(6)}`;
@@ -159,7 +161,6 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([y, x]).addTo(map);
         });
 
-        // Captura por doble clic
         map.on('dblclick', (e: any) => {
           const { lat, lng } = e.latlng;
           const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -168,7 +169,6 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // SOLUCIÓN DEFINITIVA: ResizeObserver para invalidar tamaño cuando el contenedor esté listo
         resizeObserver = new ResizeObserver(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -176,7 +176,6 @@ export default function SolicitudCapacitacionPage() {
         });
         resizeObserver.observe(mapContainerRef.current);
 
-        // Backup delay
         setTimeout(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -269,6 +268,18 @@ export default function SolicitudCapacitacionPage() {
     doc.setFontSize(14); doc.setFont('helvetica', 'bold');
     doc.text("ANEXO V - SOLICITUD DE CAPACITACIÓN", 105, 20, { align: "center" });
     doc.save(`Solicitud-${formData.lugar_local.replace(/\s+/g, '-')}.pdf`);
+  };
+
+  const openPicker = (ref: React.RefObject<HTMLInputElement>) => {
+    if (ref.current && 'showPicker' in ref.current) {
+      try {
+        ref.current.showPicker();
+      } catch (error) {
+        ref.current.focus();
+      }
+    } else {
+      ref.current?.focus();
+    }
   };
 
   const partidosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'partidos-politicos'), orderBy('nombre')) : null, [firestore]);
@@ -399,15 +410,35 @@ export default function SolicitudCapacitacionPage() {
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">DESDE</Label>
                             <div className="relative">
-                                <Clock className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-                                <Input type="time" value={formData.hora_desde} onChange={e => setFormData(p => ({...p, hora_desde: e.target.value}))} className="h-14 font-black text-lg border-2 rounded-xl pr-12" />
+                                <Clock 
+                                  className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer z-10" 
+                                  onClick={() => openPicker(horaDesdeRef)}
+                                />
+                                <Input 
+                                  ref={horaDesdeRef}
+                                  type="time" 
+                                  step="60"
+                                  value={formData.hora_desde} 
+                                  onChange={e => setFormData(p => ({...p, hora_desde: e.target.value}))} 
+                                  className="h-14 font-black text-lg border-2 rounded-xl pr-12 cursor-pointer" 
+                                />
                             </div>
                         </div>
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">HASTA</Label>
                             <div className="relative">
-                                <Clock className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-                                <Input type="time" value={formData.hora_hasta} onChange={e => setFormData(p => ({...p, hora_hasta: e.target.value}))} className="h-14 font-black text-lg border-2 rounded-xl pr-12" />
+                                <Clock 
+                                  className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer z-10" 
+                                  onClick={() => openPicker(horaHastaRef)}
+                                />
+                                <Input 
+                                  ref={horaHastaRef}
+                                  type="time" 
+                                  step="60"
+                                  value={formData.hora_hasta} 
+                                  onChange={e => setFormData(p => ({...p, hora_hasta: e.target.value}))} 
+                                  className="h-14 font-black text-lg border-2 rounded-xl pr-12 cursor-pointer" 
+                                />
                             </div>
                         </div>
                     </div>
