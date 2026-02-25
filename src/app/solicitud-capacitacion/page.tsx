@@ -107,27 +107,28 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // Lógica del Mapa Mejorada
+  // LÓGICA DE MAPA REFORZADA - SOLUCIÓN DEFINITIVA AL CUADRO GRIS
   useEffect(() => {
     if (typeof window === 'undefined' || !mapContainerRef.current) return;
 
     let map: any;
     let observer: ResizeObserver;
+    let mounted = true;
 
     const initMap = async () => {
       try {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        if (!mapContainerRef.current) return;
+        if (!mounted || !mapContainerRef.current) return;
 
-        // Limpiar instancia previa si existe
+        // Limpieza de instancia previa para evitar conflictos
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
         }
 
-        // Configuración de iconos de Leaflet
+        // Configuración de iconos estándar de Leaflet
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
           L.Icon.Default.mergeOptions({
@@ -137,18 +138,21 @@ export default function SolicitudCapacitacionPage() {
           });
         }
 
-        // Inicialización del Mapa (Justicia Electoral Asunción)
+        // Inicialización en Justicia Electoral Asunción
         map = L.map(mapContainerRef.current, { 
           center: [-25.29916, -57.58916], 
           zoom: 15, 
-          doubleClickZoom: false 
+          doubleClickZoom: false,
+          zoomControl: true
         });
+        
         mapInstanceRef.current = map;
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors'
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
+        // Configuración de Buscador
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -160,7 +164,7 @@ export default function SolicitudCapacitacionPage() {
         });
         map.addControl(searchControl);
 
-        // Evento para resultados de búsqueda
+        // Captura de coordenadas por búsqueda
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           const coords = `${y.toFixed(6)}, ${x.toFixed(6)}`;
@@ -169,7 +173,7 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([y, x]).addTo(map);
         });
 
-        // Evento doble clic para captura manual
+        // Captura de coordenadas por doble clic
         map.on('dblclick', (e: any) => {
           const { lat, lng } = e.latlng;
           const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -178,7 +182,11 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // RE-SINCRONIZACIÓN DE TAMAÑO (CRÍTICO PARA EVITAR CUADRO GRIS)
+        // ESTRATEGIA DE RE-SINCRONIZACIÓN DE TAMAÑO (CRÍTICO)
+        // 1. Inmediato tras init
+        map.invalidateSize();
+
+        // 2. Observer para cambios en el DOM
         observer = new ResizeObserver(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -186,21 +194,27 @@ export default function SolicitudCapacitacionPage() {
         });
         observer.observe(mapContainerRef.current);
 
-        // Forzar carga de tiles después de un pequeño delay
-        setTimeout(() => {
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.invalidateSize();
-          }
-        }, 300);
+        // 3. Ciclo de seguridad por tiempos para asegurar renderizado de tiles
+        const sequence = [100, 500, 1000, 2000];
+        sequence.forEach(delay => {
+          setTimeout(() => {
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.invalidateSize();
+            }
+          }, delay);
+        });
 
       } catch (err) { 
-        console.error("Error al inicializar mapa:", err); 
+        console.error("Error crítico al inicializar mapa:", err); 
       }
     };
 
-    initMap();
+    // Ejecutar inicialización con un pequeño respiro para el navegador
+    const timer = setTimeout(initMap, 50);
 
     return () => { 
+      mounted = false;
+      clearTimeout(timer);
       if (observer) observer.disconnect();
       if (mapInstanceRef.current) { 
         mapInstanceRef.current.remove(); 
@@ -688,8 +702,13 @@ export default function SolicitudCapacitacionPage() {
                 <div className="bg-muted/10 p-4 rounded-xl border-2 border-dashed text-center">
                     <p className="text-[10px] font-black uppercase text-muted-foreground leading-tight tracking-wider">DOBLE CLIC EN EL MAPA PARA CAPTURAR COORDENADAS EXACTAS</p>
                 </div>
+                {/* CONTENEDOR DEL MAPA CON ALTURA EXPLÍCITA Y Z-INDEX GARANTIZADO */}
                 <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-[#F0F0F0] z-0">
-                    <div ref={mapContainerRef} className="h-full w-full" style={{ minHeight: '300px' }} />
+                    <div 
+                      ref={mapContainerRef} 
+                      className="h-full w-full leaflet-container" 
+                      style={{ height: '100%', width: '100%', display: 'block' }} 
+                    />
                 </div>
                 <div className="flex items-center gap-5 bg-white p-6 rounded-[1.5rem] border-2 shadow-inner">
                     <div className="h-12 w-12 bg-muted/20 rounded-full flex items-center justify-center shadow-sm">
