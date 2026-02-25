@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -487,7 +488,7 @@ export default function AgendaCapacitacionPage() {
         <DialogContent className="max-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-primary p-8 text-white">
             <DialogTitle className="font-black uppercase text-center tracking-widest text-lg">ENCUESTA DE SATISFACCIÓN</DialogTitle>
-            <DialogDescription className="text-white/60 font-bold text-[10px] text-center uppercase mt-2">Escanee para registrar feedback ciudadano</DialogDescription>
+            <DialogDescription className="text-white/60 font-bold text-[10px] text-center uppercase mt-2">Escanee para registrar feedback ciudadano vinculado a esta actividad</DialogDescription>
           </DialogHeader>
           <div className="p-10 flex flex-col items-center bg-white space-y-8">
             <div className="p-4 bg-white border-4 border-muted/20 rounded-[2rem] shadow-inner relative group">
@@ -505,7 +506,7 @@ export default function AgendaCapacitacionPage() {
             <div className="text-center space-y-2">
                 <p className="font-black uppercase text-sm text-primary">{qrSolicitud?.lugar_local}</p>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                    {qrSolicitud ? formatDateToDDMMYYYY(qrSolicitud.fecha) : ''}
+                    {qrSolicitud ? formatDateToDDMMYYYY(qrSolicitud.fecha) : ''} | {qrSolicitud?.hora_desde} HS.
                 </p>
             </div>
 
