@@ -77,6 +77,7 @@ export default function SolicitudCapacitacionPage() {
   const [isSearchingCedula, setIsSearchingCedula] = useState(false);
   const [padronFound, setPadronFound] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -87,6 +88,7 @@ export default function SolicitudCapacitacionPage() {
   const horaHastaRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setMapReady(true);
     const now = new Date();
     setFormData(prev => ({ ...prev, fecha: now.toISOString().split('T')[0] }));
 
@@ -106,60 +108,50 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // LÓGICA DE MAPA ULTRA-ROBUSTA - SOLUCIÓN AL CUADRO GRIS
+  // INICIALIZACIÓN DE MAPA ULTRA-ROBUSTA
   useEffect(() => {
-    if (typeof window === 'undefined' || !mapContainerRef.current) return;
+    if (!mapReady || typeof window === 'undefined' || !mapContainerRef.current) return;
 
-    let map: any;
-    let observer: ResizeObserver;
     let mounted = true;
 
     const initMap = async () => {
       try {
-        // Retraso inicial para asegurar que el navegador ha terminado el layout
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        if (!mounted || !mapContainerRef.current) return;
-
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
+        if (!mounted || !mapContainerRef.current) return;
+
+        // Limpiar instancia previa
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
         }
 
-        if (L.Icon.Default) {
-          delete (L.Icon.Default.prototype as any)._getIconUrl;
-          L.Icon.Default.mergeOptions({
-            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-          });
-        }
+        // Solución de iconos de Leaflet
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        });
 
         // Crear mapa
-        map = L.map(mapContainerRef.current, { 
+        const map = L.map(mapContainerRef.current, { 
           center: [-25.29916, -57.58916], 
           zoom: 15, 
           doubleClickZoom: false,
           zoomControl: true,
-          fadeAnimation: true
         });
         
         mapInstanceRef.current = map;
 
-        // Añadir capa de tiles
-        const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap',
+        // Capa de mosaicos (Tiles)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
           maxZoom: 19
         }).addTo(map);
 
-        // Forzar carga de tiles cuando la capa esté lista
-        tiles.on('tileload', () => {
-          if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
-        });
-
+        // Control de búsqueda
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -170,6 +162,7 @@ export default function SolicitudCapacitacionPage() {
         });
         map.addControl(searchControl);
 
+        // Eventos
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           setFormData(prev => ({ ...prev, gps: `${y.toFixed(6)}, ${x.toFixed(6)}` }));
@@ -184,33 +177,33 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // CICLO DE SINCRONIZACIÓN REFORZADA
-        const forceRefresh = () => {
+        // RE-SINCRONIZACIÓN DE TAMAÑO (CRÍTICO PARA ELIMINAR EL CUADRO GRIS)
+        const invalidate = () => {
           if (mapInstanceRef.current) {
-            mapInstanceRef.current.invalidateSize({ animate: true });
+            mapInstanceRef.current.invalidateSize();
           }
         };
 
-        // Ejecutar múltiples veces en intervalos para asegurar que los tiles se carguen
-        [100, 500, 1000, 2000].forEach(delay => setTimeout(forceRefresh, delay));
+        // Ejecutar en intervalos para asegurar carga de tiles
+        setTimeout(invalidate, 100);
+        setTimeout(invalidate, 500);
+        setTimeout(invalidate, 1500);
 
-        observer = new ResizeObserver(forceRefresh);
-        observer.observe(mapContainerRef.current);
-
-      } catch (err) { console.error("Error Map:", err); }
+      } catch (err) { 
+        console.error("Error al inicializar el mapa:", err); 
+      }
     };
 
     initMap();
 
     return () => { 
       mounted = false;
-      if (observer) observer.disconnect();
       if (mapInstanceRef.current) { 
         mapInstanceRef.current.remove(); 
         mapInstanceRef.current = null; 
       } 
     };
-  }, []);
+  }, [mapReady]);
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
     const cleanTerm = (cedulaInput || '').trim().replace(/\D/g, ''); 
@@ -694,8 +687,7 @@ export default function SolicitudCapacitacionPage() {
                 <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-[#F0F0F0] z-0">
                     <div 
                       ref={mapContainerRef} 
-                      className="h-full w-full leaflet-container" 
-                      style={{ height: '400px', width: '100%', display: 'block', backgroundColor: '#e5e7eb' }} 
+                      className="map-view-container" 
                     />
                 </div>
                 <div className="flex items-center gap-5 bg-white p-6 rounded-[1.5rem] border-2 shadow-inner">
