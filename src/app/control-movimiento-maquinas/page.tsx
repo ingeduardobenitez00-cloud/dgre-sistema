@@ -12,23 +12,18 @@ import {
   Loader2, 
   ArrowLeftRight, 
   CheckCircle2, 
-  FileDown, 
-  CalendarDays, 
   Truck, 
   Undo2, 
-  Camera, 
-  Trash2, 
-  Clock,
+  CalendarDays, 
   Lock,
-  FileText,
   Printer,
   ShieldAlert,
-  AlertTriangle,
   FileWarning,
-  ExternalLink
+  Plus,
+  Check
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, query, where, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, query, where, doc, updateDoc } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import { type SolicitudCapacitacion, type MovimientoMaquina } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -37,7 +32,6 @@ import Image from 'next/image';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 
 export default function ControlMovimientoMaquinasPage() {
@@ -49,17 +43,27 @@ export default function ControlMovimientoMaquinasPage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<string | null>(null);
   
+  // States para Kits
   const [salidaData, setSalidaData] = useState({
     codigo_maquina: '',
     fecha: '',
     hora: '',
-    lacre_estado: 'correcto' as 'correcto' | 'violentado',
+    pendrive_serie: '',
+    credencial: false,
+    auricular: false,
+    acrilico: false,
+    boletas: false,
   });
 
   const [devolucionData, setDevolucionData] = useState({
     fecha: '',
     hora: '',
     lacre_estado: 'correcto' as 'correcto' | 'violentado',
+    pendrive_serie: '',
+    credencial: false,
+    auricular: false,
+    acrilico: false,
+    boletas: false,
   });
 
   useEffect(() => {
@@ -95,21 +99,15 @@ export default function ControlMovimientoMaquinasPage() {
     if (!firestore || isUserLoading || !user?.profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
     const profile = user.profile;
-    
     const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
     const hasDeptFilter = !hasAdminFilter && profile.permissions?.includes('department_filter');
     const hasDistFilter = !hasAdminFilter && !hasDeptFilter && (profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario');
 
     if (hasAdminFilter) return colRef;
-    
-    if (hasDeptFilter && profile.departamento) {
-        return query(colRef, where('departamento', '==', profile.departamento));
-    }
-
+    if (hasDeptFilter && profile.departamento) return query(colRef, where('departamento', '==', profile.departamento));
     if (hasDistFilter && profile.departamento && profile.distrito) {
         return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
     }
-    
     return null;
   }, [firestore, user, isUserLoading]);
 
@@ -132,31 +130,39 @@ export default function ControlMovimientoMaquinasPage() {
     return agendaItems?.find(item => item.id === selectedSolicitudId);
   }, [agendaItems, selectedSolicitudId]);
 
-  const isDevolucionEnabled = useMemo(() => {
-    return !!(selectedSolicitud && currentMovimiento);
-  }, [selectedSolicitud, currentMovimiento]);
+  useEffect(() => {
+    if (currentMovimiento?.salida) {
+        setSalidaData({
+            codigo_maquina: currentMovimiento.salida.codigo_maquina || '',
+            fecha: currentMovimiento.salida.fecha || '',
+            hora: currentMovimiento.salida.hora || '',
+            pendrive_serie: (currentMovimiento.salida as any).pendrive_serie || '',
+            credencial: (currentMovimiento.salida as any).credencial || false,
+            auricular: (currentMovimiento.salida as any).auricular || false,
+            acrilico: (currentMovimiento.salida as any).acrilico || false,
+            boletas: (currentMovimiento.salida as any).boletas || false,
+        });
+    }
+  }, [currentMovimiento]);
 
   const handleSaveSalida = () => {
     if (!firestore || !user || !selectedSolicitud) return;
     if (!salidaData.codigo_maquina) {
-      toast({ variant: 'destructive', title: 'Código faltante' });
+      toast({ variant: 'destructive', title: 'Nº de Serie requerido' });
       return;
     }
 
     setIsSubmitting(true);
     const docData = {
       solicitud_id: selectedSolicitudId!,
-      departamento: selectedSolicitud.departamento || user.profile?.departamento || '',
-      distrito: selectedSolicitud.distrito || user.profile?.distrito || '',
+      departamento: selectedSolicitud.departamento || '',
+      distrito: selectedSolicitud.distrito || '',
       salida: {
-        nombre: selectedSolicitud.divulgador_nombre || user.profile?.username || '',
-        cedula: selectedSolicitud.divulgador_cedula || user.profile?.cedula || '',
-        vinculo: selectedSolicitud.divulgador_vinculo || user.profile?.vinculo || '',
-        fecha: salidaData.fecha,
-        hora: salidaData.hora,
-        codigo_maquina: salidaData.codigo_maquina,
+        ...salidaData,
+        nombre: selectedSolicitud.divulgador_nombre || '',
+        cedula: selectedSolicitud.divulgador_cedula || '',
+        vinculo: selectedSolicitud.divulgador_vinculo || '',
         lugar: selectedSolicitud.lugar_local,
-        lacre_estado: 'correcto'
       },
       fecha_creacion: new Date().toISOString(),
     };
@@ -167,11 +173,7 @@ export default function ControlMovimientoMaquinasPage() {
         setIsSubmitting(false);
       })
       .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
-          path: 'movimientos-maquinas', 
-          operation: 'create', 
-          requestResourceData: docData 
-        }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'movimientos-maquinas', operation: 'create', requestResourceData: docData }));
         setIsSubmitting(false);
       });
   };
@@ -181,14 +183,12 @@ export default function ControlMovimientoMaquinasPage() {
     setIsSubmitting(true);
     const updateData = {
       devolucion: {
-        nombre: selectedSolicitud.divulgador_nombre || user.profile?.username || '',
-        cedula: selectedSolicitud.divulgador_cedula || user.profile?.cedula || '',
-        vinculo: selectedSolicitud.divulgador_vinculo || user.profile?.vinculo || '',
-        fecha: devolucionData.fecha,
-        hora: devolucionData.hora,
-        codigo_maquina: currentMovimiento.salida?.codigo_maquina || '',
+        ...devolucionData,
+        nombre: selectedSolicitud.divulgador_nombre || '',
+        cedula: selectedSolicitud.divulgador_cedula || '',
+        vinculo: selectedSolicitud.divulgador_vinculo || '',
+        codigo_maquina: salidaData.codigo_maquina,
         lugar: selectedSolicitud.lugar_local,
-        lacre_estado: devolucionData.lacre_estado,
       }
     };
 
@@ -199,11 +199,7 @@ export default function ControlMovimientoMaquinasPage() {
         setIsSubmitting(false);
       })
       .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
-          path: docRef.path, 
-          operation: 'update', 
-          requestResourceData: updateData 
-        }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
         setIsSubmitting(false);
       });
   };
@@ -216,13 +212,19 @@ export default function ControlMovimientoMaquinasPage() {
     
     doc.addImage(logoBase64, 'PNG', margin, 10, 20, 20);
     doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    const title = type === 'salida' ? "FORMULARIO 01 – SALIDA DE MÁQUINA DE VOTACIÓN" : "FORMULARIO 02 – DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN";
-    doc.text(title, 105, 20, { align: "center" });
+    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MÁQUINAS", 105, 20, { align: "center" });
+    doc.text("DE VOTACIÓN PARA DIVULGACIÓN", 105, 26, { align: "center" });
 
     let y = 45;
     const data = type === 'salida' ? (currentMovimiento?.salida || salidaData) : (currentMovimiento?.devolucion || devolucionData);
     
-    doc.setFontSize(11);
+    // Header Seccion
+    doc.circle(margin + 5, y, 4);
+    doc.text(type === 'salida' ? "A" : "B", margin + 5, y + 1.5, { align: 'center' });
+    doc.text(type === 'salida' ? "SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN" : "DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 15, y + 1);
+    
+    y += 10;
+    doc.setFontSize(9);
     doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin, y);
     y += 4; doc.roundedRect(margin, y, 170, 8, 2, 2);
     doc.setFont('helvetica', 'normal'); doc.text(String(selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 5, y + 6);
@@ -232,51 +234,71 @@ export default function ControlMovimientoMaquinasPage() {
     doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.divulgador_cedula || '', margin + 20, y - 1);
 
     y += 12; doc.setFont('helvetica', 'bold'); doc.text("VÍNCULO:", margin, y);
-    const vinculo = (selectedSolicitud.divulgador_vinculo || '').toUpperCase();
-    doc.rect(margin + 25, y - 5, 5, 5); doc.text("PERMANENTE", margin + 32, y); if(vinculo === 'PERMANENTE') doc.text("X", margin + 26, y-1);
-    doc.rect(margin + 75, y - 5, 5, 5); doc.text("CONTRATADO", margin + 82, y); if(vinculo === 'CONTRATADO') doc.text("X", margin + 76, y-1);
-    doc.rect(margin + 125, y - 5, 5, 5); doc.text("COMISIONADO", margin + 132, y); if(vinculo === 'COMISIONADO') doc.text("X", margin + 126, y-1);
+    const v = (selectedSolicitud.divulgador_vinculo || '').toUpperCase();
+    const drawCheck = (lbl: string, checked: boolean, x: number) => {
+        doc.rect(x, y - 5, 5, 5); doc.text(lbl, x + 7, y); if(checked) doc.text("X", x + 1, y - 1);
+    }
+    drawCheck("PERMANENTE", v === 'PERMANENTE', margin + 25);
+    drawCheck("CONTRATADO", v === 'CONTRATADO', margin + 75);
+    drawCheck("COMISIONADO", v === 'COMISIONADO', margin + 125);
 
-    y += 15; doc.setFont('helvetica', 'bold'); doc.text(type === 'salida' ? "HORA DE SALIDA:" : "HORA DE DEVOLUCIÓN:", margin, y);
+    y += 15; doc.setFont('helvetica', 'bold'); 
+    doc.text(type === 'salida' ? "HORA DE SALIDA:" : "HORA DE DEVOLUCION:", margin, y);
     doc.roundedRect(margin + 45, y - 6, 30, 8, 2, 2); doc.setFont('helvetica', 'normal'); doc.text(`${data.hora} HS`, margin + 48, y - 1);
     doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 90, y); doc.text(`${formatDateToDDMMYYYY(data.fecha)}`, margin + 110, y);
 
     y += 15; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin, y);
-    y += 4; doc.roundedRect(margin, y, 80, 8, 2, 2); doc.setFont('helvetica', 'normal'); doc.text(String(currentMovimiento?.salida?.codigo_maquina || salidaData.codigo_maquina).toUpperCase(), margin + 5, y + 6);
+    y += 4; doc.roundedRect(margin, y, 80, 8, 2, 2); doc.setFont('helvetica', 'normal'); doc.text(String(data.codigo_maquina).toUpperCase(), margin + 5, y + 6);
 
     if (type === 'devolucion') {
         const boxX = margin + 100;
         doc.roundedRect(boxX, y - 10, 70, 25, 2, 2); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-        doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 4, { maxWidth: 60 });
+        doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 4);
         doc.circle(boxX + 10, y + 8, 3); doc.text("CORRECTO", boxX + 15, y + 9); if(data.lacre_estado === 'correcto') doc.text("X", boxX + 9, y+9);
         doc.circle(boxX + 40, y + 8, 3); doc.text("VIOLENTADO", boxX + 45, y + 9); if(data.lacre_estado === 'violentado') doc.text("X", boxX + 39, y+9);
+    } else {
+        y += 15; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin, y);
+        y += 4; doc.roundedRect(margin, y, 170, 8, 2, 2); doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 5, y + 6);
     }
 
-    y += 20; doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin, y);
-    y += 4; doc.roundedRect(margin, y, 170, 8, 2, 2); doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 5, y + 6);
+    y += 20; doc.setFont('helvetica', 'bold'); doc.text("KITS DE LA MÁQUINA DE VOTACIÓN", margin, y);
+    y += 8; doc.text("- Nº DE SERIE DEL PENDRIVE", margin + 10, y); 
+    doc.roundedRect(margin + 60, y - 5, 80, 7, 1, 1); doc.setFont('helvetica', 'normal'); doc.text((data as any).pendrive_serie || '', margin + 65, y);
+    
+    const kitLabels = [
+        { key: 'credencial', label: 'CREDENCIAL GENERICA' },
+        { key: 'auricular', label: 'AURICULAR GENERICO' },
+        { key: 'acrilico', label: 'ACRILICO GENERICO' },
+        { key: 'boletas', label: '5 BOLETAS DE CAPACITACION' }
+    ];
+    kitLabels.forEach((k, i) => {
+        y += 7; doc.setFont('helvetica', 'bold'); doc.text(`- ${k.label}`, margin + 10, y);
+        doc.circle(margin + 65, y - 1, 2); if((data as any)[k.key]) doc.text("X", margin + 64, y);
+    });
 
-    y += 40; doc.line(margin, y, margin + 60, y); doc.text("FIRMA JEFE", margin, y + 5);
-    doc.line(pageWidth - margin - 60, y, pageWidth - margin, y); doc.text("FIRMA JEFE", pageWidth - margin - 60, y + 5);
-    y += 20; doc.line(105 - 30, y, 105 + 30, y); doc.text("FIRMA DEL DIVULGADOR", 105, y + 5, { align: 'center' });
+    y += 30; doc.line(margin, y, margin + 50, y); doc.text("FIRMA JEFE", margin, y + 5);
+    doc.line(105 - 25, y, 105 + 25, y); doc.text("FIRMA JEFE", 105, y + 5, { align: 'center' });
+    doc.line(pageWidth - margin - 50, y, pageWidth - margin, y); doc.text("FIRMA DEL DIVULGADOR", pageWidth - margin - 50, y + 5);
 
-    doc.save(`F-${type === 'salida' ? '01' : '02'}-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
+    doc.save(`Formulario-${type === 'salida' ? '01' : '02'}-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
 
   if (isUserLoading || isLoadingAgenda) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/20">
-      <Header title="Control de Movimiento de Máquinas" />
-      <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
-        <Card className="mb-8 border-primary/20 shadow-lg">
-          <CardHeader className="bg-primary/5">
-            <CardTitle className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-primary">
-              <CalendarDays className="h-4 w-4" /> VINCULAR ACTIVIDAD
+    <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
+      <Header title="Movimiento de Máquinas" />
+      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-8">
+        
+        <Card className="border-primary/20 shadow-md">
+          <CardHeader className="py-4 bg-primary/5">
+            <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest text-primary">
+              <CalendarDays className="h-4 w-4" /> VINCULAR ACTIVIDAD DE AGENDA
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
             <Select onValueChange={setSelectedSolicitudId} value={selectedSolicitudId || undefined}>
-              <SelectTrigger className="h-12 border-2"><SelectValue placeholder="Seleccione actividad agendada..." /></SelectTrigger>
+              <SelectTrigger className="h-12 border-2 font-bold"><SelectValue placeholder="Seleccione actividad..." /></SelectTrigger>
               <SelectContent>
                 {agendaItems?.map(item => (
                   <SelectItem key={item.id} value={item.id}>{formatDateToDDMMYYYY(item.fecha)} | {item.lugar_local}</SelectItem>
@@ -287,149 +309,218 @@ export default function ControlMovimientoMaquinasPage() {
         </Card>
 
         {selectedSolicitudId && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            <Card className={cn("border-t-8 shadow-xl", currentMovimiento ? "border-t-green-500" : "border-t-primary")}>
-              <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/10">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center font-black">A</span>
-                    <CardTitle className="uppercase font-black text-xl">Salida de Máquina</CardTitle>
-                  </div>
-                  <CardDescription className="font-bold text-[10px] uppercase ml-11">Formulario 01 - Registro de Retiro</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="font-black uppercase text-[10px]" onClick={() => generatePDF('salida')}>
-                        <Printer className="mr-1.5 h-3.5 w-3.5" /> Proforma 01
-                    </Button>
-                    {currentMovimiento && <CheckCircle2 className="h-8 w-8 text-green-600" />}
-                </div>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Funcionario Responsable</Label>
-                        <Input value={selectedSolicitud?.divulgador_nombre || ''} readOnly className="font-bold uppercase bg-muted/30" />
+          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+            
+            {/* SECCION A: SALIDA */}
+            <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white">
+              <CardHeader className="p-8 border-b bg-[#F8F9FA] flex flex-row items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full border-4 border-black flex items-center justify-center font-black text-xl">A</div>
+                    <div>
+                        <CardTitle className="uppercase font-black text-xl leading-none">SALIDA DE MÁQUINA DE VOTACIÓN</CardTitle>
+                        <CardDescription className="text-[10px] font-bold uppercase mt-1">PARA DIVULGACIÓN (FORMULARIO 01)</CardDescription>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                </div>
+                {currentMovimiento && (
+                    <Button variant="outline" size="sm" className="font-black uppercase text-[10px] border-2" onClick={() => generatePDF('salida')}>
+                        <Printer className="mr-2 h-4 w-4" /> REIMPRIMIR F01
+                    </Button>
+                )}
+              </CardHeader>
+              <CardContent className="p-10 space-y-8">
+                <div className="space-y-6">
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Funcionario Responsable de la Divulgación</Label>
+                        <Input value={selectedSolicitud?.divulgador_nombre || ''} readOnly className="h-12 font-black uppercase border-2 rounded-2xl bg-muted/20" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground">Nº C.I.</Label>
-                            <Input value={selectedSolicitud?.divulgador_cedula || ''} readOnly className="font-black bg-muted/30" />
+                            <Input value={selectedSolicitud?.divulgador_cedula || ''} readOnly className="h-12 font-black border-2 rounded-2xl bg-muted/20" />
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Vínculo</Label>
-                            <Input value={selectedSolicitud?.divulgador_vinculo || ''} readOnly className="font-bold uppercase bg-muted/30" />
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Vínculo Institucional</Label>
+                            <Input value={selectedSolicitud?.divulgador_vinculo || ''} readOnly className="h-12 font-black uppercase border-2 rounded-2xl bg-muted/20" />
                         </div>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-primary">Hora de Salida</Label>
+                            <Input type="time" value={salidaData.hora} onChange={e => setSalidaData(p => ({...p, hora: e.target.value}))} disabled={!!currentMovimiento} className="h-12 font-black text-lg border-2 rounded-2xl" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-primary">Fecha</Label>
+                            <Input type="date" value={salidaData.fecha} onChange={e => setSalidaData(p => ({...p, fecha: e.target.value}))} disabled={!!currentMovimiento} className="h-12 font-black text-lg border-2 rounded-2xl" />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-primary">Número de Serie de la Máquina de Votación</Label>
+                        <Input value={salidaData.codigo_maquina} onChange={e => setSalidaData(p => ({...p, codigo_maquina: e.target.value.toUpperCase()}))} disabled={!!currentMovimiento} placeholder="EJ: MV-2026-XXXX" className="h-14 font-black text-xl border-2 rounded-2xl" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Lugar de la Divulgación</Label>
+                        <Input value={selectedSolicitud?.lugar_local || ''} readOnly className="h-12 font-black uppercase border-2 rounded-2xl bg-muted/20" />
+                    </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-primary">Nº Serie Máquina de Votación</Label>
-                        <Input 
-                            value={currentMovimiento?.salida?.codigo_maquina || salidaData.codigo_maquina} 
-                            onChange={(e) => setSalidaData(p => ({...p, codigo_maquina: e.target.value}))}
-                            disabled={!!currentMovimiento}
-                            placeholder="Ingrese código..."
-                            className="font-black text-lg border-2 uppercase"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Fecha Salida</Label>
-                        <Input value={formatDateToDDMMYYYY(currentMovimiento?.salida?.fecha || salidaData.fecha)} readOnly className="bg-muted/30 font-bold" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Hora Salida</Label>
-                        <Input value={currentMovimiento?.salida?.hora || salidaData.hora} readOnly className="bg-muted/30 font-bold" />
+
+                <div className="p-8 border-2 border-black rounded-3xl space-y-6">
+                    <Label className="font-black uppercase text-xs text-primary">KITS DE LA MÁQUINA DE VOTACIÓN (SALIDA)</Label>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-bold uppercase shrink-0">• Nº DE SERIE DEL PENDRIVE:</span>
+                            <Input value={salidaData.pendrive_serie} onChange={e => setSalidaData(p => ({...p, pendrive_serie: e.target.value}))} disabled={!!currentMovimiento} className="h-10 font-bold border-0 border-b-2 border-black rounded-none px-0" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {[
+                                { key: 'credencial', label: 'CREDENCIAL GENERICA' },
+                                { key: 'auricular', label: 'AURICULAR GENERICO' },
+                                { key: 'acrilico', label: 'ACRILICO GENERICO' },
+                                { key: 'boletas', label: '5 BOLETAS DE CAPACITACION' }
+                            ].map(k => (
+                                <div key={k.key} className="flex items-center gap-3 cursor-pointer" onClick={() => !currentMovimiento && setSalidaData(p => ({...p, [k.key]: !(p as any)[k.key]}))}>
+                                    <div className={cn("h-6 w-6 rounded-full border-2 border-black flex items-center justify-center transition-colors", (salidaData as any)[k.key] ? "bg-black text-white" : "bg-white")}>
+                                        {(salidaData as any)[k.key] && <Check className="h-4 w-4 stroke-[4]" />}
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase">{k.label}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
               </CardContent>
               {!currentMovimiento && (
-                <CardFooter className="bg-muted/30 p-6 border-t">
-                    <Button onClick={handleSaveSalida} disabled={isSubmitting || !salidaData.codigo_maquina} className="w-full h-14 text-lg font-black uppercase shadow-xl">
-                        {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Truck className="mr-2" />}
-                        REGISTRAR SALIDA (F01)
+                <CardFooter className="p-0 border-t">
+                    <Button onClick={handleSaveSalida} disabled={isSubmitting || !salidaData.codigo_maquina} className="w-full h-20 text-xl font-black uppercase bg-black hover:bg-black/90 rounded-none tracking-widest">
+                        {isSubmitting ? <Loader2 className="animate-spin mr-3" /> : <Truck className="mr-3" />}
+                        REGISTRAR SALIDA Y GENERAR F01
                     </Button>
                 </CardFooter>
               )}
             </Card>
 
-            <Card className={cn("border-t-8 shadow-xl transition-all", !isDevolucionEnabled && "opacity-50 grayscale", currentMovimiento?.devolucion ? "border-t-green-500" : "border-t-orange-500")}>
-              <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/10">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="h-8 w-8 rounded-full bg-orange-600 text-white flex items-center justify-center font-black">B</span>
-                    <CardTitle className="uppercase font-black text-xl">Devolución de Máquina</CardTitle>
-                  </div>
-                  <CardDescription className="font-bold text-[10px] uppercase ml-11">Formulario 02 - Registro de Retorno</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="font-black uppercase text-[10px] border-orange-200 text-orange-700" onClick={() => generatePDF('devolucion')}>
-                        <Printer className="mr-1.5 h-3.5 w-3.5" /> Proforma 02
-                    </Button>
-                    {currentMovimiento?.devolucion && <CheckCircle2 className="h-8 w-8 text-green-600" />}
-                </div>
-              </CardHeader>
-              <CardContent className="p-8 space-y-8">
-                {!isDevolucionEnabled ? (
-                    <div className="flex flex-col items-center py-10 gap-4 text-center">
-                        <Lock className="h-12 w-12 text-muted-foreground opacity-30" />
-                        <p className="font-black uppercase text-muted-foreground text-sm">Se habilitará tras registrar la salida.</p>
+            <div className="flex justify-center">
+                <p className="text-[10px] font-black uppercase text-muted-foreground italic bg-white px-6 py-2 rounded-full border-2 border-dashed">
+                    OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO Y ANEXO V PROFORMA
+                </p>
+            </div>
+
+            {/* SECCION B: DEVOLUCIÓN */}
+            <Card className={cn("border-none shadow-2xl rounded-[2.5rem] overflow-hidden transition-all duration-500", !currentMovimiento ? "opacity-40 grayscale pointer-events-none" : "bg-white")}>
+              <CardHeader className="p-8 border-b bg-muted/10 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full border-4 border-black flex items-center justify-center font-black text-xl">B</div>
+                    <div>
+                        <CardTitle className="uppercase font-black text-xl leading-none">DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN</CardTitle>
+                        <CardDescription className="text-[10px] font-bold uppercase mt-1">REINGRESO A OFICINA (FORMULARIO 02)</CardDescription>
                     </div>
-                ) : (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                </div>
+                {currentMovimiento?.devolucion && (
+                    <Button variant="outline" size="sm" className="font-black uppercase text-[10px] border-2" onClick={() => generatePDF('devolucion')}>
+                        <Printer className="mr-2 h-4 w-4" /> REIMPRIMIR F02
+                    </Button>
+                )}
+              </CardHeader>
+              <CardContent className="p-10 space-y-10">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Fecha Retorno</Label>
-                                <Input value={formatDateToDDMMYYYY(currentMovimiento?.devolucion?.fecha || devolucionData.fecha)} readOnly className="bg-muted/30 font-bold" />
+                                <Label className="text-[10px] font-black uppercase text-primary">Fecha de Devolución</Label>
+                                <Input type="date" value={devolucionData.fecha} onChange={e => setDevolucionData(p => ({...p, fecha: e.target.value}))} disabled={!!currentMovimiento?.devolucion} className="h-12 font-black border-2 rounded-2xl" />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Hora Retorno</Label>
-                                <Input value={currentMovimiento?.devolucion?.hora || devolucionData.hora} readOnly className="bg-muted/30 font-bold" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-orange-600">Estado de los Lacres</Label>
-                                <RadioGroup 
-                                    value={currentMovimiento?.devolucion?.lacre_estado || devolucionData.lacre_estado} 
-                                    onValueChange={(v: any) => setDevolucionData(p => ({...p, lacre_estado: v}))}
-                                    disabled={!!currentMovimiento?.devolucion}
-                                    className="flex gap-4 mt-2"
-                                >
-                                    <div className="flex items-center space-x-2 p-2 px-4 border-2 rounded-lg bg-white">
-                                        <RadioGroupItem value="correcto" id="l-correcto" />
-                                        <Label htmlFor="l-correcto" className="font-black text-[10px] cursor-pointer">CORRECTO</Label>
-                                    </div>
-                                    <div className="flex items-center space-x-2 p-2 px-4 border-2 rounded-lg bg-white border-destructive/20">
-                                        <RadioGroupItem value="violentado" id="l-violentado" />
-                                        <Label htmlFor="l-violentado" className="font-black text-[10px] cursor-pointer text-destructive">VIOLENTADO</Label>
-                                    </div>
-                                </RadioGroup>
+                                <Label className="text-[10px] font-black uppercase text-primary">Hora de Devolución</Label>
+                                <Input type="time" value={devolucionData.hora} onChange={e => setDevolucionData(p => ({...p, hora: e.target.value}))} disabled={!!currentMovimiento?.devolucion} className="h-12 font-black border-2 rounded-2xl" />
                             </div>
                         </div>
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Número de Serie de la Máquina</Label>
+                            <Input value={salidaData.codigo_maquina} readOnly className="h-12 font-black border-2 rounded-2xl bg-muted/20" />
+                        </div>
+                    </div>
 
-                        {(devolucionData.lacre_estado === 'violentado' || currentMovimiento?.devolucion?.lacre_estado === 'violentado') && (
-                            <Card className="border-4 border-destructive/20 bg-destructive/5 animate-in slide-in-from-bottom-4">
-                                <CardHeader className="bg-destructive/10 border-b border-destructive/20">
-                                    <CardTitle className="text-destructive font-black uppercase text-sm flex items-center gap-2">
-                                        <FileWarning className="h-5 w-5" /> LACRES VIOLENTADOS DETECTADOS
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-6 text-center space-y-4">
-                                    <p className="text-xs font-bold uppercase text-destructive">Se ha detectado una irregularidad en los lacres de seguridad. Es obligatorio completar el formulario de denuncia.</p>
-                                    <Link href={`/denuncia-lacres?solicitudId=${selectedSolicitudId}`}>
-                                        <Button className="bg-destructive hover:bg-destructive/90 text-white font-black uppercase text-xs h-12 px-8 shadow-lg">
-                                            <ShieldAlert className="mr-2 h-4 w-4" /> IR AL MÓDULO DE DENUNCIA
-                                        </Button>
-                                    </Link>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </>
+                    <div className="p-6 border-2 border-black rounded-3xl flex flex-col justify-center items-center gap-4 bg-[#F8F9FA]">
+                        <Label className="font-black uppercase text-xs text-primary text-center">ESTADO DE LOS LACRES A LA DEVOLUCIÓN</Label>
+                        <RadioGroup 
+                            value={currentMovimiento?.devolucion?.lacre_estado || devolucionData.lacre_estado} 
+                            onValueChange={(v: any) => setDevolucionData(p => ({...p, lacre_estado: v}))}
+                            disabled={!!currentMovimiento?.devolucion}
+                            className="flex gap-10"
+                        >
+                            <div className="flex flex-col items-center gap-2 cursor-pointer">
+                                <div className={cn("h-10 w-10 rounded-full border-4 flex items-center justify-center transition-all", (devolucionData.lacre_estado === 'correcto' || currentMovimiento?.devolucion?.lacre_estado === 'correcto') ? "border-black bg-black text-white" : "border-muted")}>
+                                    <RadioGroupItem value="correcto" className="hidden" />
+                                    <Check className="h-6 w-6 stroke-[4]" />
+                                </div>
+                                <span className="text-[9px] font-black uppercase">CORRECTO</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-2 cursor-pointer">
+                                <div className={cn("h-10 w-10 rounded-full border-4 flex items-center justify-center transition-all", (devolucionData.lacre_estado === 'violentado' || currentMovimiento?.devolucion?.lacre_estado === 'violentado') ? "border-destructive bg-destructive text-white" : "border-muted")}>
+                                    <RadioGroupItem value="violentado" className="hidden" />
+                                    <ShieldAlert className="h-6 w-6" />
+                                </div>
+                                <span className="text-[9px] font-black uppercase text-destructive">VIOLENTADO</span>
+                            </div>
+                        </RadioGroup>
+                    </div>
+                </div>
+
+                <div className="p-8 border-2 border-black rounded-3xl space-y-6">
+                    <Label className="font-black uppercase text-xs text-primary">KITS DE LA MÁQUINA DE VOTACIÓN (DEVOLUCIÓN)</Label>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-bold uppercase shrink-0">• Nº DE SERIE DEL PENDRIVE:</span>
+                            <Input value={devolucionData.pendrive_serie} onChange={e => setDevolucionData(p => ({...p, pendrive_serie: e.target.value}))} disabled={!!currentMovimiento?.devolucion} className="h-10 font-bold border-0 border-b-2 border-black rounded-none px-0" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {[
+                                { key: 'credencial', label: 'CREDENCIAL GENERICA' },
+                                { key: 'auricular', label: 'AURICULAR GENERICO' },
+                                { key: 'acrilico', label: 'ACRILICO GENERICO' },
+                                { key: 'boletas', label: '5 BOLETAS DE CAPACITACION' }
+                            ].map(k => (
+                                <div key={k.key} className="flex items-center gap-3 cursor-pointer" onClick={() => !currentMovimiento?.devolucion && setDevolucionData(p => ({...p, [k.key]: !(p as any)[k.key]}))}>
+                                    <div className={cn("h-6 w-6 rounded-full border-2 border-black flex items-center justify-center transition-colors", (devolucionData as any)[k.key] ? "bg-black text-white" : "bg-white")}>
+                                        {(devolucionData as any)[k.key] && <Check className="h-4 w-4 stroke-[4]" />}
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase">{k.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {(devolucionData.lacre_estado === 'violentado' || currentMovimiento?.devolucion?.lacre_estado === 'violentado') && (
+                    <Card className="border-4 border-destructive bg-destructive/5 animate-in shake duration-500">
+                        <CardHeader className="bg-destructive text-white py-4">
+                            <CardTitle className="text-sm font-black uppercase flex items-center gap-3">
+                                <FileWarning className="h-6 w-6" /> IRREGULARIDAD DETECTADA: LACRE VIOLENTADO
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-8 text-center space-y-6">
+                            <p className="font-bold text-sm uppercase text-destructive">EL SISTEMA HA DETECTADO QUE LOS LACRES HAN SIDO ADULTERADOS. ES OBLIGATORIO REGISTRAR LA DENUNCIA OFICIAL PARA CERRAR ESTE CICLO.</p>
+                            <Link href={`/denuncia-lacres?solicitudId=${selectedSolicitudId}`} className="block">
+                                <Button className="bg-destructive hover:bg-destructive/90 text-white font-black uppercase text-lg h-16 px-12 shadow-2xl rounded-2xl w-full max-w-md">
+                                    <ShieldAlert className="mr-3 h-6 w-6" /> IR AL FORMULARIO DE DENUNCIA
+                                </Button>
+                            </Link>
+                        </CardContent>
+                    </Card>
                 )}
               </CardContent>
-              {isDevolucionEnabled && !currentMovimiento?.devolucion && (
-                <CardFooter className="bg-muted/30 p-6 border-t">
-                    <Button onClick={handleSaveDevolucion} disabled={isSubmitting} className="w-full h-14 text-lg font-black uppercase shadow-xl bg-orange-600 hover:bg-orange-700">
-                        {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Undo2 className="mr-2" />}
-                        REGISTRAR DEVOLUCIÓN (F02)
+              {currentMovimiento && !currentMovimiento.devolucion && (
+                <CardFooter className="p-0 border-t">
+                    <Button 
+                        onClick={handleSaveDevolucion} 
+                        disabled={isSubmitting || devolucionData.lacre_estado === 'violentado'} 
+                        className={cn(
+                            "w-full h-20 text-xl font-black uppercase rounded-none tracking-widest",
+                            devolucionData.lacre_estado === 'violentado' ? "bg-muted text-muted-foreground" : "bg-primary hover:bg-primary/90"
+                        )}
+                    >
+                        {isSubmitting ? <Loader2 className="animate-spin mr-3" /> : <Undo2 className="mr-3" />}
+                        {devolucionData.lacre_estado === 'violentado' ? 'BLOQUEADO POR ADULTERACIÓN' : 'REGISTRAR DEVOLUCIÓN Y GENERAR F02'}
                     </Button>
                 </CardFooter>
               )}
@@ -438,9 +529,9 @@ export default function ControlMovimientoMaquinasPage() {
         )}
 
         {!selectedSolicitudId && (
-          <div className="flex flex-col items-center justify-center py-32 border-4 border-dashed rounded-[3rem] bg-white/50 text-muted-foreground">
-            <ArrowLeftRight className="h-20 w-20 mb-6 opacity-10" />
-            <p className="text-xl font-black uppercase tracking-widest opacity-40">Seleccione una actividad para comenzar</p>
+          <div className="flex flex-col items-center justify-center py-32 border-4 border-dashed rounded-[3rem] bg-white text-muted-foreground opacity-40">
+            <ArrowLeftRight className="h-20 w-20 mb-6" />
+            <p className="text-xl font-black uppercase tracking-widest">Seleccione una actividad para comenzar el control</p>
           </div>
         )}
       </main>

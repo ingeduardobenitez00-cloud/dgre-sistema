@@ -178,7 +178,11 @@ export type MovimientoMaquinaRegistro = {
   hora: string;
   codigo_maquina: string;
   lugar: string;
-  firma: string;
+  pendrive_serie?: string;
+  credencial?: boolean;
+  auricular?: boolean;
+  acrilico?: boolean;
+  boletas?: boolean;
   lacre_estado?: 'correcto' | 'violentado';
 }
 
