@@ -90,7 +90,6 @@ function DenunciaContent() {
     return agendaItems?.find(item => item.id === selectedAgendaId);
   }, [agendaItems, selectedAgendaId]);
 
-  // Buscar el movimiento para obtener el número de serie de la máquina
   const movQuery = useMemoFirebase(() => {
     if (!firestore || !selectedAgendaId) return null;
     return query(collection(firestore, 'movimientos-maquinas'), where('solicitud_id', '==', selectedAgendaId));
@@ -208,7 +207,7 @@ function DenunciaContent() {
     y += 4;
     doc.roundedRect(margin, y, pageWidth - (margin * 2), 10, 5, 5);
     doc.setFont('helvetica', 'normal');
-    // USAR DATOS DEL DIVULGADOR ASIGNADO
+    // USAR DATOS DEL DIVULGADOR ASIGNADO COMO RESPONSABLE SEGÚN SOLICITUD
     doc.text((selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 5, y + 6.5);
 
     y += 18;
@@ -216,13 +215,11 @@ function DenunciaContent() {
     doc.text("Nº C.I:", margin, y);
     doc.roundedRect(margin + 12, y - 6, 50, 10, 5, 5);
     doc.setFont('helvetica', 'normal');
-    // USAR CÉDULA DEL DIVULGADOR
     doc.text(selectedSolicitud.divulgador_cedula || '', margin + 18, y + 0.5);
 
     y += 15;
     doc.setFont('helvetica', 'bold');
     doc.text("VÍNCULO:", margin, y);
-    // USAR VÍNCULO DEL DIVULGADOR
     const v = (selectedSolicitud.divulgador_vinculo || '').toUpperCase();
     doc.rect(margin + 20, y - 4, 5, 5); doc.text("PERMANENTE", margin + 28, y); if(v === 'PERMANENTE') doc.text("X", margin + 21, y - 0.5);
     doc.rect(margin + 65, y - 4, 5, 5); doc.text("CONTRATADO", margin + 73, y); if(v === 'CONTRATADO' || v === 'COMISIONADO') doc.text("X", margin + 66, y - 0.5);
@@ -243,6 +240,7 @@ function DenunciaContent() {
     doc.roundedRect(margin, y, pageWidth - (margin * 2), 15, 5, 5);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
+    // USAR EL DETALLE DE LA ADULTERACIÓN ESCRITO EN EL FORMULARIO
     const splitDetalles = doc.splitTextToSize(formData.detalles.toUpperCase(), pageWidth - (margin * 2) - 10);
     doc.text(splitDetalles, margin + 5, y + 6);
 
