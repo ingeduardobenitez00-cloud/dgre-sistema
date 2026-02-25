@@ -32,9 +32,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-geosearch/dist/geosearch.css';
-
 export default function SolicitudCapacitacionPage() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
@@ -89,12 +86,15 @@ export default function SolicitudCapacitacionPage() {
   const profile = user?.profile;
 
   useEffect(() => {
+    let map: any;
     const initMap = async () => {
       if (typeof window === 'undefined' || !mapContainerRef.current || mapInstanceRef.current) return;
+      
       try {
-        const LeafletModule = await import('leaflet');
-        const L = LeafletModule.default || LeafletModule;
+        const L = (await import('leaflet')).default;
+        await import('leaflet/dist/leaflet.css');
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
+        await import('leaflet-geosearch/dist/geosearch.css');
 
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -106,10 +106,18 @@ export default function SolicitudCapacitacionPage() {
         }
 
         const initialPos: [number, number] = [-25.311549, -57.653496];
-        const map = L.map(mapContainerRef.current, { center: initialPos, zoom: 13, doubleClickZoom: false });
+        map = L.map(mapContainerRef.current, { 
+          center: initialPos, 
+          zoom: 13, 
+          doubleClickZoom: false 
+        });
         mapInstanceRef.current = map;
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Geosearch Control
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -118,28 +126,48 @@ export default function SolicitudCapacitacionPage() {
             searchLabel: 'Buscar dirección...',
             placeholder: 'Buscar dirección...',
             autoClose: true,
-            keepResult: true
+            keepResult: true,
+            retainZoomLevel: false,
+            animateZoom: true,
         });
         map.addControl(searchControl);
 
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
-          setFormData(prev => ({ ...prev, gps: `${y.toFixed(6)}, ${x.toFixed(6)}` }));
+          const coords = `${y.toFixed(6)}, ${x.toFixed(6)}`;
+          setFormData(prev => ({ ...prev, gps: coords }));
+          
           if (markerRef.current) map.removeLayer(markerRef.current);
           markerRef.current = L.marker([y, x]).addTo(map);
         });
 
         map.on('dblclick', (e: any) => {
           const { lat, lng } = e.latlng;
-          setFormData(prev => ({ ...prev, gps: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }));
+          const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          setFormData(prev => ({ ...prev, gps: coords }));
+          
           if (markerRef.current) map.removeLayer(markerRef.current);
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
-        setTimeout(() => map.invalidateSize(), 500);
-      } catch (err) { console.error(err); }
+
+        // Ensure tiles load correctly
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 200);
+
+      } catch (err) { 
+        console.error("Leaflet initialization failed:", err); 
+      }
     };
+
     initMap();
-    return () => { if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
+
+    return () => { 
+      if (mapInstanceRef.current) { 
+        mapInstanceRef.current.remove(); 
+        mapInstanceRef.current = null; 
+      } 
+    };
   }, []);
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
@@ -432,8 +460,8 @@ export default function SolicitudCapacitacionPage() {
                 <div className="bg-muted/10 p-4 rounded-xl border-2 border-dashed text-center">
                     <p className="text-[10px] font-black uppercase text-muted-foreground leading-tight">Doble clic en el mapa para capturar coordenadas exactas</p>
                 </div>
-                <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-4 border-white shadow-xl">
-                    <div ref={mapContainerRef} className="h-full w-full bg-muted z-0" />
+                <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-muted">
+                    <div ref={mapContainerRef} className="h-full w-full z-0" />
                 </div>
                 <div className="flex items-center gap-5 bg-muted/20 p-6 rounded-2xl border-2">
                     <div className="h-12 w-12 bg-white rounded-full flex items-center justify-center shadow-md">
