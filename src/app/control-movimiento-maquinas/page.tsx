@@ -120,14 +120,13 @@ export default function ControlMovimientoMaquinasPage() {
   const agendaItems = useMemo(() => {
     if (!rawAgendaItems) return null;
     
-    const today = new Date().toISOString().split('T')[0];
-
-    // FILTRADO: Solo mostrar actividades que NO estén finalizadas (devueltas y pasadas)
+    // FILTRADO: Si ya se cumplió con la devolución, no mostrar en el vinculador
     return [...rawAgendaItems]
       .filter(item => {
         const mov = allMovimientos?.find(m => m.solicitud_id === item.id);
-        const isFinished = mov?.devolucion && item.fecha < today;
-        return !isFinished || item.id === selectedSolicitudId; // Permitir la actual seleccionada
+        const hasReturn = !!mov?.devolucion;
+        // Solo mostrar si NO tiene devolución O si es la que está seleccionada actualmente (para ver o imprimir)
+        return !hasReturn || item.id === selectedSolicitudId;
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
   }, [rawAgendaItems, allMovimientos, selectedSolicitudId]);
@@ -314,9 +313,13 @@ export default function ControlMovimientoMaquinasPage() {
             <Select onValueChange={setSelectedSolicitudId} value={selectedSolicitudId || undefined}>
               <SelectTrigger className="h-12 border-2 font-bold"><SelectValue placeholder="Seleccione actividad..." /></SelectTrigger>
               <SelectContent>
-                {agendaItems?.map(item => (
-                  <SelectItem key={item.id} value={item.id}>{formatDateToDDMMYYYY(item.fecha)} | {item.lugar_local}</SelectItem>
-                ))}
+                {agendaItems?.length === 0 ? (
+                  <div className="p-4 text-center text-xs font-bold text-muted-foreground uppercase">No hay actividades para vincular</div>
+                ) : (
+                  agendaItems?.map(item => (
+                    <SelectItem key={item.id} value={item.id}>{formatDateToDDMMYYYY(item.fecha)} | {item.lugar_local}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </CardContent>
