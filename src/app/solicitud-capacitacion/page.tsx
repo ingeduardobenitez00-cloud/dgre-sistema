@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -101,15 +100,19 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
+  // Inicialización Robusta del Mapa
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     let map: any;
     const initMap = async () => {
-      if (typeof window === 'undefined' || !mapContainerRef.current || mapInstanceRef.current) return;
+      if (!mapContainerRef.current || mapInstanceRef.current) return;
       
       try {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
+        // Fix de iconos Leaflet para evitar pins rotos
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
           L.Icon.Default.mergeOptions({
@@ -131,6 +134,7 @@ export default function SolicitudCapacitacionPage() {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
+        // Buscador Geográfico
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -144,6 +148,7 @@ export default function SolicitudCapacitacionPage() {
         });
         map.addControl(searchControl);
 
+        // Evento de búsqueda exitosa
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           const coords = `${y.toFixed(6)}, ${x.toFixed(6)}`;
@@ -152,6 +157,7 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([y, x]).addTo(map);
         });
 
+        // Evento de doble clic para capturar
         map.on('dblclick', (e: any) => {
           const { lat, lng } = e.latlng;
           const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -160,11 +166,12 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
+        // SOLUCIÓN AL CUADRO GRIS: Forzar redimensionado después de un breve delay
         setTimeout(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
           }
-        }, 250);
+        }, 500);
 
       } catch (err) { 
         console.error("Leaflet initialization failed:", err); 
