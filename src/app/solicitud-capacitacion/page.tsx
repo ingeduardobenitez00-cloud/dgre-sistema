@@ -158,12 +158,14 @@ export default function SolicitudCapacitacionPage() {
   const [isSearchingCedula, setIsSearchingCedula] = useState(false);
   const [padronFound, setPadronFound] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [isClientReady, setIsClientReady] = useState(false);
   
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
 
   useEffect(() => {
+    setIsClientReady(true);
     const now = new Date();
     setFormData(prev => ({ ...prev, fecha: now.toISOString().split('T')[0] }));
 
@@ -183,11 +185,12 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // LÓGICA DE INICIALIZACIÓN DE MAPA ULTRA-ROBUSTA
+  // LÓGICA DE MAPA REFORZADA: ELIMINA EL CUADRO GRIS
   useEffect(() => {
-    if (typeof window === 'undefined' || !mapContainerRef.current) return;
+    if (!isClientReady || !mapContainerRef.current) return;
 
     let mounted = true;
+    let intervals: NodeJS.Timeout[] = [];
 
     const initMap = async () => {
       try {
@@ -196,13 +199,12 @@ export default function SolicitudCapacitacionPage() {
 
         if (!mounted || !mapContainerRef.current) return;
 
-        // Limpiar instancia previa para evitar errores de contenedor
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
         }
 
-        // Configuración de iconos de Leaflet
+        // Configuración de iconos
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -210,12 +212,10 @@ export default function SolicitudCapacitacionPage() {
           shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
 
-        // Crear el mapa con opciones de redibujado
         const map = L.map(mapContainerRef.current, { 
           center: [-25.29916, -57.58916], 
           zoom: 15, 
           doubleClickZoom: false,
-          zoomControl: true,
           fadeAnimation: true,
         });
         
@@ -250,39 +250,38 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // CICLO DE RE-SINCRONIZACIÓN CRÍTICO PARA EVITAR CUADROS GRISES
-        const invalidate = () => {
+        // CICLO DE SINCRONIZACIÓN AGRESIVO PARA ELIMINAR EL GRIS
+        const forceRedraw = () => {
           if (mapInstanceRef.current && mounted) {
-            mapInstanceRef.current.invalidateSize();
+            mapInstanceRef.current.invalidateSize({ animate: true });
           }
         };
 
-        // Forzar múltiples recalculos para asegurar que el mapa se pinte tras las animaciones de NextJS
-        setTimeout(invalidate, 100);
-        setTimeout(invalidate, 500);
-        setTimeout(invalidate, 1000);
-        setTimeout(invalidate, 2000);
-
-        if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
-            const observer = new ResizeObserver(() => invalidate());
-            observer.observe(mapContainerRef.current);
-        }
+        // Ejecutar inmediatamente y en ráfagas para asegurar carga de tiles
+        forceRedraw();
+        intervals.push(setTimeout(forceRedraw, 100));
+        intervals.push(setTimeout(forceRedraw, 500));
+        intervals.push(setTimeout(forceRedraw, 1000));
+        intervals.push(setTimeout(forceRedraw, 2500));
 
       } catch (err) { 
-        console.error("Error al inicializar el mapa:", err); 
+        console.error("Error Map:", err); 
       }
     };
 
-    initMap();
+    // Pequeño delay inicial para asegurar que el contenedor tiene tamaño real
+    const initialDelay = setTimeout(initMap, 300);
 
     return () => { 
       mounted = false;
+      clearTimeout(initialDelay);
+      intervals.forEach(i => clearTimeout(i));
       if (mapInstanceRef.current) { 
         mapInstanceRef.current.remove(); 
         mapInstanceRef.current = null; 
       } 
     };
-  }, []);
+  }, [isClientReady]);
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
     const cleanTerm = (cedulaInput || '').trim().replace(/\D/g, ''); 
@@ -729,11 +728,11 @@ export default function SolicitudCapacitacionPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
-                <div className="bg-[#F3F4F6] p-4 rounded-xl border border-gray-200 text-center">
+                <div className="bg-[#F3F4F6] p-4 rounded-xl border border-gray-200 text-center border-dashed">
                     <p className="text-[11px] font-black uppercase text-black leading-tight tracking-tighter">DOBLE CLIC EN EL MAPA PARA CAPTURAR COORDENADAS EXACTAS</p>
                 </div>
                 
-                <div className="relative w-full rounded-3xl overflow-hidden border border-gray-200 shadow-md bg-[#f3f4f6] z-0">
+                <div className="relative w-full rounded-3xl overflow-hidden border border-gray-200 shadow-md z-0 bg-white">
                     <div 
                       ref={mapContainerRef} 
                       className="map-view-container" 
@@ -748,8 +747,8 @@ export default function SolicitudCapacitacionPage() {
                         </div>
                         <div>
                             <p className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">COORDENADAS GPS</p>
-                            <p className="text-base font-black uppercase text-black tracking-tight">
-                                {formData.gps || '-25.308339, -57.622344'}
+                            <p className={cn("text-base font-black uppercase tracking-tight", !formData.gps && "text-muted-foreground")}>
+                                {formData.gps || 'PENDIENTE DE CAPTURA'}
                             </p>
                         </div>
                     </div>
