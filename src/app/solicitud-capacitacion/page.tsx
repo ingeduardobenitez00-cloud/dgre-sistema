@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -104,12 +105,11 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // INICIALIZACIÓN ROBUSTA DEL MAPA CON AUTO-REPARACIÓN
+  // INICIALIZACIÓN DEL MAPA CON SOLUCIÓN AL CUADRO GRIS
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
     let map: any;
-    let resizeObserver: ResizeObserver | null = null;
 
     const initMap = async () => {
       if (!mapContainerRef.current || mapInstanceRef.current) return;
@@ -118,7 +118,7 @@ export default function SolicitudCapacitacionPage() {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        // Corregir iconos de Leaflet que a veces no cargan en NextJS
+        // Configuración de iconos
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
           L.Icon.Default.mergeOptions({
@@ -140,21 +140,18 @@ export default function SolicitudCapacitacionPage() {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Configuración del buscador geográfico (Leaflet GeoSearch)
+        // Buscador de direcciones
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
             style: 'bar', 
             showMarker: true,
-            searchLabel: 'Buscar dirección...',
-            placeholder: 'Buscar dirección...',
             autoClose: true,
             keepResult: true,
-            animateZoom: true,
         });
         map.addControl(searchControl);
 
-        // Escuchar cuando el buscador encuentra una ubicación
+        // Captura de coordenadas por buscador
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           const coords = `${y.toFixed(6)}, ${x.toFixed(6)}`;
@@ -172,31 +169,19 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // SOLUCIÓN DEFINITIVA AL CUADRO GRIS: ResizeObserver
-        // Este observador fuerza al mapa a recalcular su tamaño apenas el contenedor cambia
-        resizeObserver = new ResizeObserver(() => {
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.invalidateSize();
-          }
-        });
-        resizeObserver.observe(mapContainerRef.current);
-
-        // Forzar un segundo recalculo tras el montaje inicial para asegurar carga de azulejos
+        // SOLUCIÓN AL CUADRO GRIS: Forzar recalculo de tamaño tras carga
         setTimeout(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
           }
         }, 500);
 
-      } catch (err) { 
-        console.error("Fallo al inicializar mapa:", err); 
-      }
+      } catch (err) { console.error(err); }
     };
 
     initMap();
 
     return () => { 
-      if (resizeObserver) resizeObserver.disconnect();
       if (mapInstanceRef.current) { 
         mapInstanceRef.current.remove(); 
         mapInstanceRef.current = null; 
