@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileText, Search, Building, Camera, Trash2, FileUp, X, Landmark, Navigation, MapPin, CheckCircle2, Globe, Clock, Calendar as CalendarIcon, Printer, Image as ImageIcon } from 'lucide-react';
+import { Loader2, FileText, Search, Building, Camera, Trash2, FileUp, X, Landmark, Navigation, MapPin, CheckCircle2, Globe, Clock, Calendar as CalendarIcon, Printer, Image as ImageIcon, Check } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, limit } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
@@ -71,7 +71,6 @@ export default function SolicitudCapacitacionPage() {
   const markerRef = useRef<any>(null);
 
   useEffect(() => {
-    // Evitar errores de hidratación inicializando la fecha en el cliente
     const now = new Date();
     setFormData(prev => ({ ...prev, fecha: now.toISOString().split('T')[0] }));
 
@@ -299,42 +298,65 @@ export default function SolicitudCapacitacionPage() {
                 </div>
               </div>
 
+              {/* MEJORADO: Sección de Tipo de Solicitud y Fecha/Hora según imagen */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="p-6 border-2 border-dashed rounded-2xl space-y-4">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Tipo de Solicitud (Selección Exclusiva)</Label>
-                    <div className="space-y-3">
-                        <div className={cn("flex items-center space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer", formData.tipo_solicitud === 'divulgacion' ? "bg-primary/5 border-primary" : "bg-white")} onClick={() => setFormData(p => ({...p, tipo_solicitud: 'divulgacion'}))}>
-                            <Checkbox checked={formData.tipo_solicitud === 'divulgacion'} />
-                            <Label className="font-black uppercase text-xs cursor-pointer">Divulgación (Máquina)</Label>
+                <div className="p-8 border-2 border-dashed rounded-[2rem] bg-white space-y-6">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">TIPO DE SOLICITUD (SELECCIÓN EXCLUSIVA)</Label>
+                    <div className="space-y-4">
+                        <div 
+                          className={cn(
+                            "flex items-center space-x-4 p-5 rounded-2xl border-2 transition-all cursor-pointer group",
+                            formData.tipo_solicitud === 'divulgacion' ? "bg-muted/5 border-black ring-1 ring-black" : "bg-white border-muted"
+                          )} 
+                          onClick={() => setFormData(p => ({...p, tipo_solicitud: 'divulgacion'}))}
+                        >
+                            <div className={cn(
+                              "h-6 w-6 rounded-md border-2 flex items-center justify-center transition-colors",
+                              formData.tipo_solicitud === 'divulgacion' ? "bg-black border-black text-white" : "border-muted-foreground/30"
+                            )}>
+                              {formData.tipo_solicitud === 'divulgacion' && <Check className="h-4 w-4 stroke-[4]" />}
+                            </div>
+                            <Label className="font-black uppercase text-sm cursor-pointer tracking-tight">DIVULGACIÓN (MÁQUINA)</Label>
                         </div>
-                        <div className={cn("flex items-center space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer", formData.tipo_solicitud === 'capacitacion' ? "bg-primary/5 border-primary" : "bg-white")} onClick={() => setFormData(p => ({...p, tipo_solicitud: 'capacitacion'}))}>
-                            <Checkbox checked={formData.tipo_solicitud === 'capacitacion'} />
-                            <Label className="font-black uppercase text-xs cursor-pointer">Capacitación (Mesa)</Label>
+                        <div 
+                          className={cn(
+                            "flex items-center space-x-4 p-5 rounded-2xl border-2 transition-all cursor-pointer group",
+                            formData.tipo_solicitud === 'capacitacion' ? "bg-muted/5 border-black ring-1 ring-black" : "bg-white border-muted"
+                          )} 
+                          onClick={() => setFormData(p => ({...p, tipo_solicitud: 'capacitacion'}))}
+                        >
+                            <div className={cn(
+                              "h-6 w-6 rounded-md border-2 flex items-center justify-center transition-colors",
+                              formData.tipo_solicitud === 'capacitacion' ? "bg-black border-black text-white" : "border-muted-foreground/30"
+                            )}>
+                              {formData.tipo_solicitud === 'capacitacion' && <Check className="h-4 w-4 stroke-[4]" />}
+                            </div>
+                            <Label className="font-black uppercase text-sm cursor-pointer tracking-tight">CAPACITACIÓN (MESA)</Label>
                         </div>
                     </div>
                 </div>
 
-                <div className="space-y-6">
+                <div className="flex flex-col justify-center space-y-8">
                     <div className="space-y-2">
-                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Fecha Propuesta</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">FECHA PROPUESTA</Label>
                         <div className="relative">
-                            <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type="date" value={formData.fecha} onChange={e => setFormData(p => ({...p, fecha: e.target.value}))} className="h-11 font-black border-2" />
+                            <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+                            <Input type="date" value={formData.fecha} onChange={e => setFormData(p => ({...p, fecha: e.target.value}))} className="h-14 font-black text-lg border-2 rounded-xl pr-12" />
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase text-muted-foreground">Desde</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">DESDE</Label>
                             <div className="relative">
-                                <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input type="time" value={formData.hora_desde} onChange={e => setFormData(p => ({...p, hora_desde: e.target.value}))} className="h-11 font-black border-2" />
+                                <Clock className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+                                <Input type="time" value={formData.hora_desde} onChange={e => setFormData(p => ({...p, hora_desde: e.target.value}))} className="h-14 font-black text-lg border-2 rounded-xl pr-12" />
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase text-muted-foreground">Hasta</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">HASTA</Label>
                             <div className="relative">
-                                <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input type="time" value={formData.hora_hasta} onChange={e => setFormData(p => ({...p, hora_hasta: e.target.value}))} className="h-11 font-black border-2" />
+                                <Clock className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+                                <Input type="time" value={formData.hora_hasta} onChange={e => setFormData(p => ({...p, hora_hasta: e.target.value}))} className="h-14 font-black text-lg border-2 rounded-xl pr-12" />
                             </div>
                         </div>
                     </div>
