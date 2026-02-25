@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -22,7 +23,8 @@ import {
   Calendar as CalendarIcon, 
   Printer, 
   Check,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, limit } from 'firebase/firestore';
@@ -491,30 +493,51 @@ export default function SolicitudCapacitacionPage() {
               <div className="space-y-6">
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Grupo Político Solicitante</Label>
-                    <Popover open={isPartyPopoverOpen} onOpenChange={setIsPartyPopoverOpen}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between h-12 font-bold text-lg border-2">
-                                {selectedParty ? selectedParty.nombre : "Seleccionar de la lista..."}
-                                <Search className="ml-2 h-5 w-5 opacity-30" />
+                    <div className="flex gap-2">
+                        <Popover open={isPartyPopoverOpen} onOpenChange={isPartyPopoverOpen ? setIsPartyPopoverOpen : undefined}>
+                            <PopoverTrigger asChild>
+                                <Button 
+                                    variant="outline" 
+                                    className="flex-1 justify-between h-12 font-bold text-lg border-2 overflow-hidden"
+                                    onClick={() => setIsPartyPopoverOpen(!isPartyPopoverOpen)}
+                                >
+                                    <span className="truncate">
+                                        {selectedParty ? `${selectedParty.nombre} (${selectedParty.siglas})` : "Seleccionar de la lista..."}
+                                    </span>
+                                    <Search className="ml-2 h-5 w-5 opacity-30 shrink-0" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 shadow-2xl">
+                                <Command>
+                                    <CommandInput placeholder="Buscar partido..." />
+                                    <CommandList>
+                                        <CommandEmpty>No encontrado.</CommandEmpty>
+                                        <CommandGroup>
+                                            {partidosData?.map(p => (
+                                                <CommandItem key={p.id} value={p.nombre} onSelect={() => { 
+                                                    setFormData(prev => ({...prev, solicitante_entidad: p.nombre, otra_entidad: ''})); 
+                                                    setIsPartyPopoverOpen(false); 
+                                                }} className="flex flex-col items-start gap-1 p-3 cursor-pointer">
+                                                    <span className="font-black text-xs uppercase text-left">{p.nombre}</span>
+                                                    <span className="text-[10px] font-black text-primary uppercase">{p.siglas}</span>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {formData.solicitante_entidad && (
+                            <Button 
+                                variant="outline" 
+                                size="icon" 
+                                className="h-12 w-12 border-2 border-destructive text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm"
+                                onClick={() => setFormData(prev => ({...prev, solicitante_entidad: ''}))}
+                            >
+                                <X className="h-5 w-5" />
                             </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 shadow-2xl">
-                            <Command>
-                                <CommandInput placeholder="Buscar partido..." />
-                                <CommandList>
-                                    <CommandEmpty>No encontrado.</CommandEmpty>
-                                    <CommandGroup>
-                                        {partidosData?.map(p => (
-                                            <CommandItem key={p.id} value={p.nombre} onSelect={() => { 
-                                                setFormData(prev => ({...prev, solicitante_entidad: p.nombre, otra_entidad: ''})); 
-                                                setIsPartyPopoverOpen(false); 
-                                            }} className="font-bold text-sm uppercase">{p.nombre}</CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
+                        )}
+                    </div>
                 </div>
 
                 <div className="space-y-2">
