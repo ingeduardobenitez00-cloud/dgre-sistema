@@ -129,6 +129,8 @@ function DenunciaContent() {
       foto_evidencia: denunciaFoto || '',
       usuario_id: user.uid,
       username: user.profile?.username || '',
+      divulgador_nombre: selectedSolicitud.divulgador_nombre || '',
+      divulgador_cedula: selectedSolicitud.divulgador_cedula || '',
       fecha_creacion: new Date().toISOString(),
       server_timestamp: serverTimestamp(),
     };
@@ -206,21 +208,24 @@ function DenunciaContent() {
     y += 4;
     doc.roundedRect(margin, y, pageWidth - (margin * 2), 10, 5, 5);
     doc.setFont('helvetica', 'normal');
-    doc.text((user?.profile?.username || '').toUpperCase(), margin + 5, y + 6.5);
+    // USAR DATOS DEL DIVULGADOR ASIGNADO
+    doc.text((selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 5, y + 6.5);
 
     y += 18;
     doc.setFont('helvetica', 'bold');
     doc.text("Nº C.I:", margin, y);
     doc.roundedRect(margin + 12, y - 6, 50, 10, 5, 5);
     doc.setFont('helvetica', 'normal');
-    doc.text(user?.profile?.cedula || '', margin + 18, y + 0.5);
+    // USAR CÉDULA DEL DIVULGADOR
+    doc.text(selectedSolicitud.divulgador_cedula || '', margin + 18, y + 0.5);
 
     y += 15;
     doc.setFont('helvetica', 'bold');
     doc.text("VÍNCULO:", margin, y);
-    const v = (user?.profile?.vinculo || '').toUpperCase();
+    // USAR VÍNCULO DEL DIVULGADOR
+    const v = (selectedSolicitud.divulgador_vinculo || '').toUpperCase();
     doc.rect(margin + 20, y - 4, 5, 5); doc.text("PERMANENTE", margin + 28, y); if(v === 'PERMANENTE') doc.text("X", margin + 21, y - 0.5);
-    doc.rect(margin + 65, y - 4, 5, 5); doc.text("CONTRATADO", margin + 73, y); if(v === 'CONTRATADO') doc.text("X", margin + 66, y - 0.5);
+    doc.rect(margin + 65, y - 4, 5, 5); doc.text("CONTRATADO", margin + 73, y); if(v === 'CONTRATADO' || v === 'COMISIONADO') doc.text("X", margin + 66, y - 0.5);
 
     y += 15;
     doc.setFont('helvetica', 'bold');
