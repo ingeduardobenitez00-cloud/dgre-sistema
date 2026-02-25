@@ -110,6 +110,10 @@ function InformeContent() {
         // Valores por defecto si no hay selección
         setFormData(prev => ({
             ...prev,
+            lugar_divulgacion: '',
+            fecha: '',
+            hora_desde: '',
+            hora_hasta: '',
             nombre_divulgador: user.profile?.username || '',
             cedula_divulgador: user.profile?.cedula || '',
             vinculo: user.profile?.vinculo || '',
@@ -146,8 +150,10 @@ function InformeContent() {
     drawBox(18);
     doc.setFontSize(10);
     doc.text(`LUGAR DE DIVULGACIÓN: ${formData.lugar_divulgacion.toUpperCase()}`, margin + 3, y + 7);
-    const dateObj = new Date(formData.fecha || new Date());
-    doc.text(`FECHA:   ${dateObj.getDate()}   /   ${dateObj.getMonth() + 1}   / 2026`, margin + 3, y + 14);
+    const dateParts = (formData.fecha || '').split('-');
+    const day = dateParts[2] || '';
+    const month = dateParts[1] || '';
+    doc.text(`FECHA:   ${day}   /   ${month}   / 2026`, margin + 3, y + 14);
     doc.text(`HORARIO DE:   ${formData.hora_desde}   A   ${formData.hora_hasta}   HS.`, margin + 100, y + 14);
     
     y += 22;
@@ -204,7 +210,7 @@ function InformeContent() {
     doc.text("Control individual del divulgador con cantidad de ciudadanos que practicaron con la MV para", margin + 5, y);
     doc.text("informe semanal de divulgación de la oficina.", margin + 5, y + 4);
 
-    doc.save(`AnexoIII-${formData.oficina || 'Informe'}.pdf`);
+    doc.save(`AnexoIII-${formData.oficina.replace(/\s+/g, '-') || 'Informe'}.pdf`);
   };
 
   const handleSubmit = () => {
@@ -247,7 +253,7 @@ function InformeContent() {
       <Header title="Carga de Anexo III" />
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6">
         
-        {/* Panel de Vinculación con Agenda */}
+        {/* PANEL DE VINCULACIÓN (SELECTOR) - AGREGADO SIN TOCAR FORMATO ANTERIOR */}
         <Card className="border-primary/20 shadow-md">
             <CardHeader className="py-4 bg-primary/5">
                 <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest text-primary">
@@ -277,6 +283,7 @@ function InformeContent() {
             </CardContent>
         </Card>
 
+        {/* CABECERA VISUAL DEL ANEXO */}
         <div className="flex justify-between items-center px-2">
             <div className="flex items-center gap-4">
                 <Image src="/logo.png" alt="Logo" width={50} height={50} className="object-contain" />
@@ -290,6 +297,7 @@ function InformeContent() {
             </Button>
         </div>
 
+        {/* FORMATO ANTERIOR PRESERVADO (CAJAS Y GRID) */}
         <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
           <CardContent className="p-8 space-y-6">
             
@@ -390,7 +398,7 @@ function InformeContent() {
                 </div>
             </div>
 
-            {/* Grid de Marcaciones */}
+            {/* Grid de Marcaciones (13 columnas x 8 filas) */}
             <div className="border-2 border-black rounded-sm overflow-hidden">
                 <div className="bg-[#F8F9FA] border-b-2 border-black p-2 text-center">
                     <p className="font-black uppercase text-sm tracking-tight">MARCA CON UNA "X" POR CADA CIUDADANO QUE PRACTICÓ</p>
