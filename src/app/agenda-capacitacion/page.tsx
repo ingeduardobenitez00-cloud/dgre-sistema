@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
-import { type SolicitudCapacitacion, type Dato, type Divulgador } from '@/lib/data';
+import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador } from '@/lib/data';
 import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -64,6 +65,13 @@ export default function AgendaCapacitacionPage() {
 
   const { data: rawSolicitudes, isLoading: isLoadingSolicitudes } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
 
+  // Carga de movimientos e informes para filtrar ARCHIVADOS
+  const movimientosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'movimientos-maquinas') : null, [firestore]);
+  const { data: movimientosData } = useCollection<MovimientoMaquina>(movimientosQuery);
+
+  const informesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'informes-divulgador') : null, [firestore]);
+  const { data: informesData } = useCollection<InformeDivulgador>(informesQuery);
+
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData } = useCollection<Dato>(datosQuery);
 
@@ -80,13 +88,24 @@ export default function AgendaCapacitacionPage() {
 
   const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
-  // Agrupación jerárquica
+  // Agrupación jerárquica con FILTRADO DE ARCHIVO
   const groupedData = useMemo(() => {
     if (!rawSolicitudes || !datosData) return [];
 
+    const today = new Date().toISOString().split('T')[0];
+
+    // Filtrar solicitudes activas: No terminadas O fecha futura
+    const activeSolicitudes = rawSolicitudes.filter(sol => {
+        const mov = movimientosData?.find(m => m.solicitud_id === sol.id);
+        const inf = informesData?.find(i => i.solicitud_id === sol.id);
+        const isFinished = mov?.devolucion && inf;
+        const isPast = sol.fecha < today;
+        return !(isFinished && isPast); // Solo mostrar si NO está archivado
+    });
+
     const depts: Record<string, { label: string, code: string, dists: Record<string, { label: string, code: string, items: SolicitudCapacitacion[] }> }> = {};
 
-    rawSolicitudes.forEach(sol => {
+    activeSolicitudes.forEach(sol => {
       const deptName = sol.departamento;
       const distName = sol.distrito;
       const dato = datosData.find(d => d.departamento === deptName && d.distrito === distName);
@@ -104,7 +123,7 @@ export default function AgendaCapacitacionPage() {
     });
 
     return Object.values(depts).sort((a, b) => a.code.localeCompare(b.code));
-  }, [rawSolicitudes, datosData]);
+  }, [rawSolicitudes, datosData, movimientosData, informesData]);
 
   const filteredDivul = useMemo(() => {
     if (!rawDivulgadores) return [];
@@ -374,7 +393,7 @@ export default function AgendaCapacitacionPage() {
                     onClick={copyToClipboard}
                 >
                     {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                    {copied ? "COPIADO" : "COPIAR ENLACE MANUAL"}
+                    {copied ? "COPIADOO" : "COPIAR ENLACE MANUAL"}
                 </Button>
                 <Button 
                     className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white hover:bg-black/90"

@@ -113,10 +113,24 @@ export default function ControlMovimientoMaquinasPage() {
 
   const { data: rawAgendaItems, isLoading: isLoadingAgenda } = useCollection<SolicitudCapacitacion>(agendaQuery);
 
+  // Carga de movimientos para filtrar el selector
+  const movimientosQueryAll = useMemoFirebase(() => firestore ? collection(firestore, 'movimientos-maquinas') : null, [firestore]);
+  const { data: allMovimientos } = useCollection<MovimientoMaquina>(movimientosQueryAll);
+
   const agendaItems = useMemo(() => {
     if (!rawAgendaItems) return null;
-    return [...rawAgendaItems].sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [rawAgendaItems]);
+    
+    const today = new Date().toISOString().split('T')[0];
+
+    // FILTRADO: Solo mostrar actividades que NO estén finalizadas (devueltas y pasadas)
+    return [...rawAgendaItems]
+      .filter(item => {
+        const mov = allMovimientos?.find(m => m.solicitud_id === item.id);
+        const isFinished = mov?.devolucion && item.fecha < today;
+        return !isFinished || item.id === selectedSolicitudId; // Permitir la actual seleccionada
+      })
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [rawAgendaItems, allMovimientos, selectedSolicitudId]);
 
   const movimientosQuery = useMemoFirebase(() => {
     if (!firestore || !user || !selectedSolicitudId) return null;

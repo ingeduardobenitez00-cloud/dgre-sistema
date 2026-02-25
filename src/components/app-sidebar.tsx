@@ -36,7 +36,8 @@ import {
   BookOpen,
   ShieldAlert,
   LayoutGrid,
-  FileArchive
+  FileArchive,
+  History
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -62,6 +63,7 @@ export default function AppSidebar() {
         { href: "/denuncia-lacres", label: "Denuncia de Lacres", icon: ShieldAlert },
         { href: "/informe-divulgador", label: "Informe del Divulgador", icon: UserCheck },
         { href: "/informe-semanal-puntos-fijos", label: "Informe Semanal (Anexo IV)", icon: TableProperties },
+        { href: "/archivo-capacitaciones", label: "Archivo / Historial", icon: History },
         { href: "/divulgadores", label: "Directorio Divulgadores", icon: UserCircle },
         { href: "/estadisticas-capacitacion", label: "Estadísticas", icon: PieChart },
         { href: "/encuesta-satisfaccion", label: "Encuesta Satisfacción", icon: MessageSquareHeart },

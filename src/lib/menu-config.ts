@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -37,6 +37,12 @@ export const dashboardMenuItems = [
     label: 'Informe Semanal (Anexo IV)',
     icon: TableProperties,
     description: 'Resumen semanal de puntos fijos de divulgación.',
+  },
+  {
+    href: '/archivo-capacitaciones',
+    label: 'Historial / Archivo',
+    icon: History,
+    description: 'Consulta de actividades finalizadas y archivadas.',
   },
   {
     href: '/divulgadores',
