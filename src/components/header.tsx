@@ -20,7 +20,6 @@ export default function Header({ title }: { title?: string }) {
     if (!auth) return;
     try {
       await auth.signOut();
-      // Redirección directa al login sin toast según solicitud del usuario
       router.replace('/login');
     } catch (error) {
       toast({ variant: 'destructive', title: "Error al cerrar sesión" });
@@ -29,7 +28,7 @@ export default function Header({ title }: { title?: string }) {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-      <div className="container flex h-16 items-center justify-between px-4">
+      <div className="flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="flex h-10 w-10 rounded-full border border-muted-foreground/20 hover:bg-muted transition-all text-muted-foreground">
             <Menu className="h-5 w-5" />
@@ -61,20 +60,26 @@ export default function Header({ title }: { title?: string }) {
         </div>
 
         {user && (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-muted/50 border">
-              <Avatar className="h-7 w-7">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border shadow-sm">
+              <Avatar className="h-7 w-7 border-2 border-background">
                 <AvatarImage src={user.photoURL ?? undefined} />
                 <AvatarFallback className="bg-primary text-white text-[10px]">
                   <User className="h-3 w-3"/>
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col text-left hidden md:flex pr-1">
-                <span className="text-[10px] font-bold leading-none">{user.profile?.username || 'Usuario'}</span>
+              <div className="flex flex-col text-left hidden sm:flex pr-1">
+                <span className="text-[10px] font-black leading-none uppercase">{user.profile?.username || 'Usuario'}</span>
                 <span className="text-[8px] text-muted-foreground uppercase font-bold mt-0.5">{user.profile?.role}</span>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Cerrar Sesión" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleLogout} 
+              title="Cerrar Sesión" 
+              className="h-9 w-9 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors border border-transparent hover:border-destructive/20"
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
