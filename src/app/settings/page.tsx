@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { FileUp, Loader2, CheckCircle2, Database, Cpu, Search, Trash } from 'lucide-react';
+import { FileUp, Loader2, CheckCircle2, Database, Cpu, Search, Trash, AlertTriangle, TableIcon } from 'lucide-react';
 import Header from '@/components/header';
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,9 +14,10 @@ import { type Dato, type Department, type District, type MaquinaVotacion } from 
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirebase, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, writeBatch, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, writeBatch, deleteDoc, query, orderBy, getDocs } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -30,15 +31,27 @@ export default function SettingsPage() {
   const [isUploadingGeo, setIsUploadingGeo] = useState(false);
   const [previewGeo, setPreviewGeo] = useState<Dato[]>([]);
 
-  const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
-  const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
+  const [fileNameMaq, setFileNameMaq] = useState<string | null>(null);
+  const [isParsingMaq, setIsParsingMaq] = useState(false);
+  const [isUploadingMaq, setIsUploadingMaq] = useState(false);
+  const [previewMaq, setPreviewMaq] = useState<Omit<MaquinaVotacion, 'id' | 'fecha_registro'>[]>([]);
 
-  const maquinasQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
-    return query(collection(firestore, 'maquinas'), orderBy('departamento'), orderBy('distrito'));
-  }, [firestore, currentUser]);
-  
-  const { data: maquinasData, isLoading: isLoadingMaquinas } = useCollection<MaquinaVotacion>(maquinasQuery);
+  // Removed orderBy to avoid index issues during the fix
+  const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
+  const { data: rawDatosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
+
+  const maquinasQuery = useMemoFirebase(() => firestore ? collection(firestore, 'maquinas') : null, [firestore]);
+  const { data: rawMaquinasData, isLoading: isLoadingMaquinas } = useCollection<MaquinaVotacion>(maquinasQuery);
+
+  const datosData = useMemo(() => {
+    if (!rawDatosData) return [];
+    return [...rawDatosData].sort((a, b) => a.departamento.localeCompare(b.departamento) || a.distrito.localeCompare(b.distrito));
+  }, [rawDatosData]);
+
+  const maquinasData = useMemo(() => {
+    if (!rawMaquinasData) return [];
+    return [...rawMaquinasData].sort((a, b) => a.departamento.localeCompare(b.departamento) || a.distrito.localeCompare(b.distrito));
+  }, [rawMaquinasData]);
 
   const departmentsWithDistricts = useMemo(() => {
     if (!datosData) return [];
@@ -58,9 +71,11 @@ export default function SettingsPage() {
   const [maqSearch, setMaqSearch] = useState('');
   const filteredMaquinas = useMemo(() => {
     if (!maquinasData) return [];
-    const term = maqSearch.toLowerCase();
+    const term = maqSearch.toLowerCase().trim();
     return maquinasData.filter(m => 
-      m.codigo.toLowerCase().includes(term) || m.departamento.toLowerCase().includes(term) || m.distrito.toLowerCase().includes(term)
+      m.codigo.toLowerCase().includes(term) || 
+      m.departamento.toLowerCase().includes(term) || 
+      m.distrito.toLowerCase().includes(term)
     );
   }, [maquinasData, maqSearch]);
 
@@ -72,14 +87,45 @@ export default function SettingsPage() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const json = XLSX.utils.sheet_to_json(XLSX.read(e.target?.result, { type: 'binary' }).Sheets[XLSX.read(e.target?.result, { type: 'binary' }).SheetNames[0]]);
+        const workbook = XLSX.read(e.target?.result, { type: 'binary' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json: any[] = XLSX.utils.sheet_to_json(sheet);
         setPreviewGeo(json.map((row: any) => ({
-          departamento: String(row.DEPARTAMENTO || '').trim(),
-          distrito: String(row.DISTRITO || '').trim(),
-          departamento_codigo: String(row.DEPARTAMENTO_CODIGO || '').trim(),
-          distrito_codigo: String(row.DISTRITO_CODIGO || '').trim(),
+          departamento: String(row.DEPARTAMENTO || row.departamento || '').trim().toUpperCase(),
+          distrito: String(row.DISTRITO || row.distrito || '').trim().toUpperCase(),
+          departamento_codigo: String(row.DEPARTAMENTO_CODIGO || row.codigo_dpto || '').trim(),
+          distrito_codigo: String(row.DISTRITO_CODIGO || row.codigo_dist || '').trim(),
         })).filter(d => d.departamento && d.distrito));
-      } catch (err) { toast({ variant: 'destructive', title: 'Error' }); } finally { setIsParsingGeo(false); }
+      } catch (err) { 
+        toast({ variant: 'destructive', title: 'Error al procesar archivo' }); 
+      } finally { 
+        setIsParsingGeo(false); 
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleMaqFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsParsingMaq(true);
+    setFileNameMaq(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const workbook = XLSX.read(e.target?.result, { type: 'binary' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json: any[] = XLSX.utils.sheet_to_json(sheet);
+        setPreviewMaq(json.map((row: any) => ({
+          codigo: String(row.CODIGO || row.codigo || row.NRO_SERIE || '').trim().toUpperCase(),
+          departamento: String(row.DEPARTAMENTO || row.departamento || '').trim().toUpperCase(),
+          distrito: String(row.DISTRITO || row.distrito || '').trim().toUpperCase(),
+        })).filter(m => m.codigo && m.departamento && m.distrito));
+      } catch (err) { 
+        toast({ variant: 'destructive', title: 'Error al procesar archivo' }); 
+      } finally { 
+        setIsParsingMaq(false); 
+      }
     };
     reader.readAsBinaryString(file);
   };
@@ -88,49 +134,230 @@ export default function SettingsPage() {
     if (!firestore || previewGeo.length === 0) return;
     setIsUploadingGeo(true);
     try {
-      for (let i = 0; i < previewGeo.length; i += 100) {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < previewGeo.length; i += BATCH_SIZE) {
         const batch = writeBatch(firestore);
-        previewGeo.slice(i, i + 100).forEach(item => batch.set(doc(collection(firestore, 'datos')), item));
-        await batch.commit(); await delay(500);
+        previewGeo.slice(i, i + BATCH_SIZE).forEach(item => {
+          const newDoc = doc(collection(firestore, 'datos'));
+          batch.set(newDoc, item);
+        });
+        await batch.commit(); 
+        await delay(300);
       }
-      toast({ title: '¡Éxito!' }); setPreviewGeo([]); setFileNameGeo(null);
-    } catch (err) { toast({ variant: 'destructive', title: 'Error' }); } finally { setIsUploadingGeo(false); }
+      toast({ title: 'Geografía Actualizada', description: `${previewGeo.length} registros cargados.` }); 
+      setPreviewGeo([]); 
+      setFileNameGeo(null);
+    } catch (err) { 
+      toast({ variant: 'destructive', title: 'Error al guardar' }); 
+    } finally { 
+      setIsUploadingGeo(false); 
+    }
+  };
+
+  const handleSaveMaquinas = async () => {
+    if (!firestore || previewMaq.length === 0) return;
+    setIsUploadingMaq(true);
+    try {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < previewMaq.length; i += BATCH_SIZE) {
+        const batch = writeBatch(firestore);
+        previewMaq.slice(i, i + BATCH_SIZE).forEach(item => {
+          const newDoc = doc(collection(firestore, 'maquinas'));
+          batch.set(newDoc, {
+            ...item,
+            fecha_registro: new Date().toISOString()
+          });
+        });
+        await batch.commit(); 
+        await delay(300);
+      }
+      toast({ title: 'Inventario Actualizado', description: `${previewMaq.length} máquinas registradas.` }); 
+      setPreviewMaq([]); 
+      setFileNameMaq(null);
+    } catch (err) { 
+      toast({ variant: 'destructive', title: 'Error al guardar inventario' }); 
+    } finally { 
+      setIsUploadingMaq(false); 
+    }
   };
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
+  const isAdmin = currentUser?.profile?.role === 'admin';
+
+  if (!isAdmin) {
+    return (
+      <div className="flex min-h-screen flex-col bg-muted/10">
+        <Header title="Configuración" />
+        <main className="flex-1 p-8 flex items-center justify-center">
+          <Card className="max-w-md w-full text-center p-8 border-dashed">
+            <AlertTriangle className="h-16 w-16 mx-auto text-muted-foreground opacity-20 mb-4" />
+            <h2 className="text-xl font-black uppercase text-primary mb-2">Acceso Restringido</h2>
+            <p className="text-xs text-muted-foreground font-bold uppercase">Solo los administradores nacionales pueden gestionar la configuración maestra.</p>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/5">
-      <Header title="Configuración" />
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+      <Header title="Configuración del Sistema" />
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8">
+        
+        <div className="mb-4">
+            <h1 className="text-3xl font-black uppercase text-primary">Configuración Maestra</h1>
+            <p className="text-xs font-bold text-muted-foreground uppercase mt-1">Gestión de estructura geográfica e inventario técnico.</p>
+        </div>
+
         <Tabs defaultValue="geografia" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-            <TabsTrigger value="geografia" className="gap-2"><Database className="h-4 w-4" /> Geografía</TabsTrigger>
-            <TabsTrigger value="maquinas" className="gap-2"><Cpu className="h-4 w-4" /> Máquinas</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 lg:w-[400px] bg-white border shadow-sm h-auto p-1">
+            <TabsTrigger value="geografia" className="gap-2 font-black uppercase text-[10px] py-2">
+                <Database className="h-3.5 w-3.5" /> Geografía
+            </TabsTrigger>
+            <TabsTrigger value="maquinas" className="gap-2 font-black uppercase text-[10px] py-2">
+                <Cpu className="h-3.5 w-3.5" /> Inventario Máquinas
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="geografia" className="space-y-6">
-            <Card>
-              <CardHeader><CardTitle>Importar Geografía</CardTitle></CardHeader>
-              <CardContent>
-                <div className="border-2 border-dashed rounded-xl p-8 bg-muted/30 text-center">
-                  <label htmlFor="geo-up" className="cursor-pointer"><FileUp className="mx-auto h-10 w-10 mb-2" /><span>Seleccionar Excel</span></label>
-                  <Input id="geo-up" type="file" className="hidden" accept=".xlsx,.csv" onChange={handleGeoFile} />
-                  {fileNameGeo && <p className="mt-2 text-xs font-black">{fileNameGeo}</p>}
-                </div>
-              </CardContent>
-              <CardFooter><Button className="w-full" onClick={handleSaveGeo} disabled={previewGeo.length === 0 || isUploadingGeo}>Guardar Estructura</Button></CardFooter>
-            </Card>
-            <Card><CardContent><Accordion type="single" collapsible className="w-full">
-              {departmentsWithDistricts.map((dept) => (
-                <AccordionItem key={dept.id} value={dept.id}><AccordionTrigger className="uppercase">{dept.name}</AccordionTrigger>
-                <AccordionContent><div className="grid grid-cols-2 gap-2">{dept.districts.map(d => <Badge key={d.id} variant="outline">{d.name}</Badge>)}</div></AccordionContent></AccordionItem>
-              ))}
-            </Accordion></CardContent></Card>
+
+          <TabsContent value="geografia" className="space-y-6 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-1 shadow-lg h-fit">
+                    <CardHeader className="bg-primary/5 border-b">
+                        <CardTitle className="text-xs font-black uppercase">Importar Estructura</CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold">Suba el archivo Excel oficial de Dptos y Distritos.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <div className="border-2 border-dashed rounded-xl p-8 bg-muted/30 text-center hover:bg-white transition-all">
+                            <label htmlFor="geo-up" className="cursor-pointer flex flex-col items-center">
+                                <FileUp className="h-10 w-10 mb-2 text-primary opacity-40" />
+                                <span className="text-[10px] font-black uppercase text-primary">Seleccionar Excel</span>
+                            </label>
+                            <Input id="geo-up" type="file" className="hidden" accept=".xlsx,.csv" onChange={handleGeoFile} disabled={isParsingGeo || isUploadingGeo} />
+                            {fileNameGeo && <p className="mt-4 text-[10px] font-black uppercase text-green-600 flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3"/> {fileNameGeo}</p>}
+                        </div>
+                        {previewGeo.length > 0 && (
+                            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                                <p className="text-[10px] font-black uppercase text-primary">Registros detectados: {previewGeo.length}</p>
+                            </div>
+                        )}
+                    </CardContent>
+                    <CardFooter className="bg-muted/30 border-t p-4">
+                        <Button className="w-full font-black uppercase" onClick={handleSaveGeo} disabled={previewGeo.length === 0 || isUploadingGeo}>
+                            {isUploadingGeo ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Database className="mr-2 h-4 w-4" />}
+                            GUARDAR GEOGRAFÍA
+                        </Button>
+                    </CardFooter>
+                </Card>
+
+                <Card className="lg:col-span-2 shadow-lg">
+                    <CardHeader className="bg-muted/30 border-b">
+                        <CardTitle className="text-xs font-black uppercase">Estructura Actual</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <ScrollArea className="h-[500px]">
+                            <Accordion type="single" collapsible className="w-full">
+                                {departmentsWithDistricts.map((dept) => (
+                                    <AccordionItem key={dept.id} value={dept.id} className="px-6 border-b">
+                                        <AccordionTrigger className="hover:no-underline font-black uppercase text-xs">
+                                            {dept.name} <span className="ml-2 text-[9px] text-muted-foreground">({dept.districts.length} Distritos)</span>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pb-6">
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2">
+                                                {dept.districts.map(d => (
+                                                    <Badge key={d.id} variant="secondary" className="text-[9px] font-black uppercase py-1 px-3 border-none bg-primary/5 text-primary">
+                                                        {d.name}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+            </div>
           </TabsContent>
-          <TabsContent value="maquinas" className="space-y-6">
-            <Card><CardHeader><div className="flex justify-between items-center"><CardTitle>Inventario</CardTitle><Input placeholder="Buscar..." className="max-w-xs" value={maqSearch} onChange={e => setMaqSearch(e.target.value)} /></div></CardHeader>
-            <CardContent><div className="border rounded-lg"><Table><TableHeader><TableRow><TableHead>Código</TableHead><TableHead>Dpto.</TableHead><TableHead>Distrito</TableHead></TableRow></TableHeader>
-            <TableBody>{filteredMaquinas.map(m => <TableRow key={m.id}><TableCell className="font-bold">{m.codigo}</TableCell><TableCell>{m.departamento}</TableCell><TableCell>{m.distrito}</TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>
+
+          <TabsContent value="maquinas" className="space-y-6 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-1 shadow-lg h-fit">
+                    <CardHeader className="bg-primary/5 border-b">
+                        <CardTitle className="text-xs font-black uppercase">Importar Inventario</CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold">Cargue el lote de máquinas por jurisdicción.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <div className="border-2 border-dashed rounded-xl p-8 bg-muted/30 text-center hover:bg-white transition-all">
+                            <label htmlFor="maq-up" className="cursor-pointer flex flex-col items-center">
+                                <FileUp className="h-10 w-10 mb-2 text-primary opacity-40" />
+                                <span className="text-[10px] font-black uppercase text-primary">Seleccionar Inventario</span>
+                            </label>
+                            <Input id="maq-up" type="file" className="hidden" accept=".xlsx,.csv" onChange={handleMaqFile} disabled={isParsingMaq || isUploadingMaq} />
+                            {fileNameMaq && <p className="mt-4 text-[10px] font-black uppercase text-green-600 flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3"/> {fileNameMaq}</p>}
+                        </div>
+                        {previewMaq.length > 0 && (
+                            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                                <p className="text-[10px] font-black uppercase text-primary">Máquinas detectadas: {previewMaq.length}</p>
+                            </div>
+                        )}
+                    </CardContent>
+                    <CardFooter className="bg-muted/30 border-t p-4">
+                        <Button className="w-full font-black uppercase" onClick={handleSaveMaquinas} disabled={previewMaq.length === 0 || isUploadingMaq}>
+                            {isUploadingMaq ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Cpu className="mr-2 h-4 w-4" />}
+                            GUARDAR INVENTARIO
+                        </Button>
+                    </CardFooter>
+                </Card>
+
+                <Card className="lg:col-span-2 shadow-lg overflow-hidden border-none">
+                    <CardHeader className="bg-primary text-white flex flex-row items-center justify-between py-4 px-6">
+                        <CardTitle className="text-xs font-black uppercase tracking-widest">Listado de Equipos ({filteredMaquinas.length})</CardTitle>
+                        <div className="relative w-48">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white/50" />
+                            <Input 
+                                placeholder="Buscar código..." 
+                                className="h-8 pl-8 text-[10px] bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-white/30" 
+                                value={maqSearch} 
+                                onChange={e => setMaqSearch(e.target.value)} 
+                            />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0 bg-white">
+                        <ScrollArea className="h-[500px]">
+                            <Table>
+                                <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                                    <TableRow>
+                                        <TableHead className="text-[10px] font-black uppercase">Nº Serie</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Jurisdicción</TableHead>
+                                        <TableHead className="text-right text-[10px] font-black uppercase">Estado</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoadingMaquinas ? (
+                                        <TableRow><TableCell colSpan={3} className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary"/></TableCell></TableRow>
+                                    ) : filteredMaquinas.length === 0 ? (
+                                        <TableRow><TableCell colSpan={3} className="text-center py-10 text-[10px] font-bold uppercase text-muted-foreground">No hay máquinas registradas.</TableCell></TableRow>
+                                    ) : (
+                                        filteredMaquinas.map(m => (
+                                            <TableRow key={m.id} className="hover:bg-muted/30 transition-colors">
+                                                <TableCell className="font-black text-xs text-primary">{m.codigo}</TableCell>
+                                                <TableCell className="text-[9px] font-bold uppercase leading-tight">
+                                                    {m.departamento}<br/>
+                                                    <span className="text-muted-foreground">{m.distrito}</span>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Badge className="bg-green-600 text-[8px] font-black uppercase">ACTIVA</Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
