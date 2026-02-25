@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -121,5 +121,11 @@ export const dashboardMenuItems = [
     label: 'Configuración',
     icon: Settings,
     description: 'Importa datos geográficos y configura la aplicación.',
+  },
+  {
+    href: '/documentacion',
+    label: 'Documentación del Sistema',
+    icon: BookOpen,
+    description: 'Manual de usuario, roles, permisos y guía técnica.',
   },
 ];

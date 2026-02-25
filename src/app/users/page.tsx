@@ -67,7 +67,8 @@ const ALL_MODULES = [
   'importar-locales',
   'importar-partidos',
   'users',
-  'settings'
+  'settings',
+  'documentacion'
 ];
 
 const MODULE_LABELS: { [key: string]: string } = {
@@ -91,7 +92,8 @@ const MODULE_LABELS: { [key: string]: string } = {
   'importar-locales': 'Importar Locales',
   'importar-partidos': 'Importar Partidos',
   'users': 'Usuarios',
-  'settings': 'Configuración'
+  'settings': 'Configuración',
+  'documentacion': 'Documentación'
 };
 
 const MODULE_GROUPS = [
@@ -117,7 +119,7 @@ const MODULE_GROUPS = [
   },
   {
     label: "SISTEMA",
-    modules: ['users', 'settings']
+    modules: ['users', 'settings', 'documentacion']
   },
 ];
 
@@ -131,9 +133,6 @@ const ACTIONS = [
 
 const GLOBAL_PERMISSIONS = ['admin_filter', 'department_filter', 'district_filter', 'assign_staff'];
 
-/**
- * Plantillas de permisos por defecto para cada rol.
- */
 const ROLE_DEFAULTS: Record<UserProfile['role'], { modules: string[], permissions: string[] }> = {
   admin: {
     modules: ALL_MODULES,
@@ -144,16 +143,16 @@ const ROLE_DEFAULTS: Record<UserProfile['role'], { modules: string[], permission
     permissions: ['admin_filter', ...ALL_MODULES.flatMap(m => [`${m}:view`, `${m}:pdf`])]
   },
   jefe: {
-    modules: ['solicitud-capacitacion', 'divulgadores', 'agenda-capacitacion', 'control-movimiento-maquinas', 'denuncia-lacres', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion'],
-    permissions: ['district_filter', 'assign_staff', 'solicitud-capacitacion:view', 'solicitud-capacitacion:add', 'divulgadores:view', 'divulgadores:add', 'agenda-capacitacion:view', 'informe-divulgador:view', 'informe-divulgador:add', 'informe-semanal-puntos-fijos:view', 'informe-semanal-puntos-fijos:add', 'informe-semanal-puntos-fijos:pdf']
+    modules: ['solicitud-capacitacion', 'divulgadores', 'agenda-capacitacion', 'control-movimiento-maquinas', 'denuncia-lacres', 'encuesta-satisfaccion', 'informe-divulgador', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion', 'documentacion'],
+    permissions: ['district_filter', 'assign_staff', 'solicitud-capacitacion:view', 'solicitud-capacitacion:add', 'divulgadores:view', 'divulgadores:add', 'agenda-capacitacion:view', 'informe-divulgador:view', 'informe-divulgador:add', 'informe-semanal-puntos-fijos:view', 'informe-semanal-puntos-fijos:add', 'informe-semanal-puntos-fijos:pdf', 'documentacion:view']
   },
   funcionario: {
-    modules: ['ficha', 'fotos', 'cargar-ficha', 'locales-votacion', 'cargar-fotos-locales', 'solicitud-capacitacion'],
-    permissions: ['district_filter', 'ficha:view', 'ficha:edit', 'fotos:view', 'fotos:add', 'locales-votacion:view', 'solicitud-capacitacion:add']
+    modules: ['ficha', 'fotos', 'cargar-ficha', 'locales-votacion', 'cargar-fotos-locales', 'solicitud-capacitacion', 'documentacion'],
+    permissions: ['district_filter', 'ficha:view', 'ficha:edit', 'fotos:view', 'fotos:add', 'locales-votacion:view', 'solicitud-capacitacion:add', 'documentacion:view']
   },
   viewer: {
-    modules: ['resumen', 'estadisticas-capacitacion', 'locales-votacion'],
-    permissions: ['resumen:view', 'estadisticas-capacitacion:view', 'locales-votacion:view']
+    modules: ['resumen', 'estadisticas-capacitacion', 'locales-votacion', 'documentacion'],
+    permissions: ['resumen:view', 'estadisticas-capacitacion:view', 'locales-votacion:view', 'documentacion:view']
   }
 };
 
@@ -169,14 +168,12 @@ export default function UsersPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Registration States
   const [regDepartamento, setRegDepartamento] = useState<string>('');
   const [regDistrito, setRegDistrito] = useState<string>('');
   const [regRole, setRegRole] = useState<UserProfile['role']>('viewer');
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set());
   const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
 
-  // Editing States
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [editRole, setEditRole] = useState<UserProfile['role']>();
@@ -214,7 +211,6 @@ export default function UsersPage() {
     );
   }, [users, searchTerm]);
 
-  // Aplicar sugerencias de rol automáticamente
   const applyRoleDefaults = (role: UserProfile['role'], isEdit: boolean = false) => {
     const defaults = ROLE_DEFAULTS[role];
     if (!defaults) return;

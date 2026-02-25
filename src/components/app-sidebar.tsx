@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -34,7 +35,8 @@ import {
   ArrowLeftRight,
   Flag,
   FileUp,
-  UserCircle
+  UserCircle,
+  BookOpen
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -99,6 +101,7 @@ export default function AppSidebar() {
       items: [
         { href: "/users", label: "Usuarios", icon: Users },
         { href: "/settings", label: "Configuración", icon: Settings },
+        { href: "/documentacion", label: "Documentación", icon: BookOpen },
       ]
     },
   ];

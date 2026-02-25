@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -42,8 +43,8 @@ const MODULE_GROUPS = [
   },
   {
     label: "Sistema",
-    description: "Administración de usuarios, permisos, roles y configuración geográfica del sistema.",
-    modules: ['users', 'settings']
+    description: "Administración de usuarios, permisos, roles, configuración geográfica y documentación del sistema.",
+    modules: ['users', 'settings', 'documentacion']
   },
 ];
 
