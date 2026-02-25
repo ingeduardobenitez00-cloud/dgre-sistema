@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Header from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -24,7 +23,8 @@ import {
   Printer, 
   Check,
   FileText,
-  X
+  X,
+  FlipHorizontal
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, limit } from 'firebase/firestore';
@@ -49,6 +49,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -172,6 +180,11 @@ export default function SolicitudCapacitacionPage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
+  // Estados para Cámara en Vivo
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   useEffect(() => {
     setIsMounted(true);
     const now = new Date();
@@ -192,6 +205,56 @@ export default function SolicitudCapacitacionPage() {
   }, []);
 
   const profile = user?.profile;
+
+  const startCamera = async () => {
+    setIsCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment',
+          // Priorizamos verticalidad para captura de documentos
+          aspectRatio: { ideal: 0.75 } 
+        } 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error al acceder a la cámara:", err);
+      toast({ 
+        variant: "destructive", 
+        title: "Error de Cámara", 
+        description: "No se pudo acceder a la cámara. Verifique los permisos de su navegador." 
+      });
+      setIsCameraOpen(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      // Mantenemos la resolución nativa de la captura
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+        setPhotoDataUri(dataUri);
+        stopCamera();
+        toast({ title: "Captura exitosa", description: "La imagen se ha adjuntado correctamente." });
+      }
+    }
+  };
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
     const cleanTerm = (cedulaInput || '').trim().replace(/\D/g, ''); 
@@ -658,11 +721,13 @@ export default function SolicitudCapacitacionPage() {
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <label className="flex flex-col items-center justify-center gap-3 h-32 border-2 border-dashed rounded-[1.5rem] cursor-pointer hover:bg-muted/10 transition-all bg-muted/5 group">
+                        <div 
+                          className="flex flex-col items-center justify-center gap-3 h-32 border-2 border-dashed rounded-[1.5rem] cursor-pointer hover:bg-muted/10 transition-all bg-muted/5 group"
+                          onClick={startCamera}
+                        >
                             <Camera className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
                             <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest text-center">CÁMARA EN VIVO</span>
-                            <Input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
-                        </label>
+                        </div>
                         <label className="flex flex-col items-center justify-center gap-3 h-32 border-2 border-dashed rounded-[1.5rem] cursor-pointer hover:bg-muted/10 transition-all bg-muted/5 group">
                             <FileUp className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
                             <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest text-center">GALERÍA / ARCHIVO</span>
@@ -675,6 +740,49 @@ export default function SolicitudCapacitacionPage() {
           </div>
         </div>
       </main>
+
+      {/* Diálogo de Cámara en Vivo (Captura Vertical) */}
+      <Dialog open={isCameraOpen} onOpenChange={(o) => !o && stopCamera()}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-black rounded-[2rem] sm:max-w-[400px]">
+          <DialogHeader className="p-6 bg-black/50 backdrop-blur-sm absolute top-0 left-0 right-0 z-10">
+            <DialogTitle className="text-white font-black uppercase text-center tracking-widest text-xs flex items-center justify-center gap-2">
+              <Camera className="h-4 w-4" /> CAPTURA VERTICAL EN VIVO
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative aspect-[3/4] w-full bg-black flex items-center justify-center">
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              muted 
+              playsInline 
+              className="h-full w-full object-cover"
+            />
+            {/* Guía visual para encuadre de documentos */}
+            <div className="absolute inset-8 border-2 border-white/20 rounded-xl pointer-events-none border-dashed" />
+          </div>
+
+          <DialogFooter className="p-8 bg-black/80 backdrop-blur-md flex flex-row items-center justify-between gap-4">
+            <Button 
+              variant="outline" 
+              className="rounded-full h-14 w-14 border-white/20 bg-white/10 text-white hover:bg-white/20 p-0"
+              onClick={stopCamera}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+            
+            <Button 
+              className="flex-1 h-16 rounded-full bg-white text-black hover:bg-white/90 font-black uppercase text-sm shadow-2xl group"
+              onClick={takePhoto}
+            >
+              <div className="h-10 w-10 rounded-full border-4 border-black/10 flex items-center justify-center mr-3 group-active:scale-90 transition-transform">
+                <div className="h-6 w-6 rounded-full bg-black" />
+              </div>
+              CAPTURAR
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
