@@ -104,7 +104,7 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // Inicialización del mapa con ResizeObserver para evitar el cuadro gris
+  // INICIALIZACIÓN ROBUSTA DEL MAPA CON AUTO-REPARACIÓN
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
@@ -118,6 +118,7 @@ export default function SolicitudCapacitacionPage() {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
+        // Corregir iconos de Leaflet que a veces no cargan en NextJS
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
           L.Icon.Default.mergeOptions({
@@ -139,6 +140,7 @@ export default function SolicitudCapacitacionPage() {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
+        // Configuración del buscador geográfico (Leaflet GeoSearch)
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -152,6 +154,7 @@ export default function SolicitudCapacitacionPage() {
         });
         map.addControl(searchControl);
 
+        // Escuchar cuando el buscador encuentra una ubicación
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           const coords = `${y.toFixed(6)}, ${x.toFixed(6)}`;
@@ -160,6 +163,7 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([y, x]).addTo(map);
         });
 
+        // Captura de coordenadas por doble clic
         map.on('dblclick', (e: any) => {
           const { lat, lng } = e.latlng;
           const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -168,7 +172,8 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // REPARACIÓN AUTOMÁTICA DE RENDERIZADO
+        // SOLUCIÓN DEFINITIVA AL CUADRO GRIS: ResizeObserver
+        // Este observador fuerza al mapa a recalcular su tamaño apenas el contenedor cambia
         resizeObserver = new ResizeObserver(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -176,7 +181,7 @@ export default function SolicitudCapacitacionPage() {
         });
         resizeObserver.observe(mapContainerRef.current);
 
-        // Forzar un segundo recalculo tras el montaje inicial
+        // Forzar un segundo recalculo tras el montaje inicial para asegurar carga de azulejos
         setTimeout(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -184,7 +189,7 @@ export default function SolicitudCapacitacionPage() {
         }, 500);
 
       } catch (err) { 
-        console.error("Leaflet initialization failed:", err); 
+        console.error("Fallo al inicializar mapa:", err); 
       }
     };
 
@@ -231,7 +236,6 @@ export default function SolicitudCapacitacionPage() {
     }
   };
 
-  // Función para abrir los selectores nativos al hacer clic en el icono
   const openPicker = (ref: React.RefObject<HTMLInputElement>) => {
     if (ref.current) {
       try {
@@ -305,9 +309,11 @@ export default function SolicitudCapacitacionPage() {
                     <FileText className="h-3.5 w-3.5" /> Proforma oficial de solicitud de capacitación (Anexo V).
                 </p>
             </div>
-            <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-10" onClick={generatePDF}>
-                <Printer className="mr-2 h-3.5 w-3.5" /> VISTA PREVIA PDF
-            </Button>
+            <div className="flex gap-2">
+                <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-10" onClick={generatePDF}>
+                    <Printer className="mr-2 h-3.5 w-3.5" /> VISTA PREVIA PDF
+                </Button>
+            </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
