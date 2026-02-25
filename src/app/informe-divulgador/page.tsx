@@ -13,7 +13,7 @@ import { Loader2, FileDown, CheckCircle2, Printer, X, CalendarDays, DatabaseZap,
 import { useUser, useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, query, where } from 'firebase/firestore';
 import jsPDF from 'jspdf';
-import { type SolicitudCapacitacion } from '@/lib/data';
+import { type SolicitudCapacitacion, type InformeDivulgador } from '@/lib/data';
 import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
 import Image from 'next/image';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -80,10 +80,24 @@ function InformeContent() {
 
   const { data: rawAgendaItems } = useCollection<SolicitudCapacitacion>(agendaQuery);
 
+  // Query para obtener informes ya realizados para filtrar el selector
+  const informesRealizadosQuery = useMemoFirebase(() => {
+    if (!firestore || isUserLoading || !user?.profile) return null;
+    return collection(firestore, 'informes-divulgador');
+  }, [firestore, user, isUserLoading]);
+
+  const { data: rawInformesRealizados } = useCollection<InformeDivulgador>(informesRealizadosQuery);
+
+  // Filtrar agenda: SOLO mostrar los que NO tienen informe realizado (Cierre de ciclo)
   const agendaItems = useMemo(() => {
     if (!rawAgendaItems) return [];
-    return [...rawAgendaItems].sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [rawAgendaItems]);
+    
+    const usedSolicitudIds = new Set(rawInformesRealizados?.map(inf => inf.solicitud_id) || []);
+    
+    return rawAgendaItems
+      .filter(item => !usedSolicitudIds.has(item.id) || item.id === selectedAgendaId) // Permitir la seleccionada actualmente
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [rawAgendaItems, rawInformesRealizados, selectedAgendaId]);
 
   // Obtener documento seleccionado específicamente
   const solicitudRef = useMemoFirebase(() => 
@@ -98,8 +112,8 @@ function InformeContent() {
       setFormData({
         lugar_divulgacion: agendaDoc.lugar_local || '',
         fecha: agendaDoc.fecha || '',
-        hora_desde: agendaDoc.hora_desde || '',
-        hora_hasta: agendaDoc.hora_hasta || '',
+        hora_desde: (agendaDoc.hora_desde || '').substring(0, 5),
+        hora_hasta: (agendaDoc.hora_hasta || '').substring(0, 5),
         nombre_divulgador: agendaDoc.divulgador_nombre || user?.profile?.username || '',
         cedula_divulgador: agendaDoc.divulgador_cedula || user?.profile?.cedula || '',
         vinculo: agendaDoc.divulgador_vinculo || user?.profile?.vinculo || '',
@@ -107,7 +121,6 @@ function InformeContent() {
         departamento: agendaDoc.departamento || '',
       });
     } else if (!selectedAgendaId && user?.profile) {
-        // Valores por defecto si no hay selección
         setFormData(prev => ({
             ...prev,
             lugar_divulgacion: '',
@@ -146,7 +159,6 @@ function InformeContent() {
         doc.rect(margin, y, pageWidth - (margin * 2), height);
     };
 
-    // Box 1
     drawBox(18);
     doc.setFontSize(10);
     doc.text(`LUGAR DE DIVULGACIÓN: ${formData.lugar_divulgacion.toUpperCase()}`, margin + 3, y + 7);
@@ -157,26 +169,22 @@ function InformeContent() {
     doc.text(`HORARIO DE:   ${formData.hora_desde}   A   ${formData.hora_hasta}   HS.`, margin + 100, y + 14);
     
     y += 22;
-    // Box 2
     drawBox(12);
     doc.text(`NOMBRE COMPLETO DIVULGADOR: ${formData.nombre_divulgador.toUpperCase()}`, margin + 3, y + 5);
     doc.text(`C.I.C. N.º: ${formData.cedula_divulgador}`, margin + 3, y + 10);
     doc.text(`VÍNCULO: ${formData.vinculo.toUpperCase()}`, margin + 100, y + 10);
 
     y += 16;
-    // Box 3
     drawBox(12);
     doc.text(`OFICINA: ${formData.oficina.toUpperCase()}`, margin + 3, y + 5);
     doc.text(`DEPARTAMENTO: ${formData.departamento.toUpperCase()}`, margin + 3, y + 10);
 
     y += 18;
-    // Table Header
     doc.rect(margin + 10, y, 170, 8);
     doc.setFontSize(11);
     doc.text("MARCA CON UNA \"X\" POR CADA CIUDADANO QUE PRACTICÓ", pageWidth / 2, y + 5.5, { align: 'center' });
     
     y += 8;
-    // Grid 13 columns x 8 rows = 104
     const cellW = 170 / 13;
     const cellH = 8;
     for (let row = 0; row < 8; row++) {
@@ -232,8 +240,9 @@ function InformeContent() {
 
     addDoc(collection(firestore, 'informes-divulgador'), docData)
       .then(() => {
-        toast({ title: "¡Informe Guardado con éxito!" });
+        toast({ title: "¡Informe Guardado con éxito!", description: "La actividad ha cerrado su ciclo en la agenda." });
         setMarcaciones([]); 
+        setSelectedAgendaId(null);
         setIsSubmitting(false);
       })
       .catch(async (error) => {
@@ -253,25 +262,28 @@ function InformeContent() {
       <Header title="Carga de Anexo III" />
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6">
         
-        {/* PANEL DE VINCULACIÓN (SELECTOR) - AGREGADO SIN TOCAR FORMATO ANTERIOR */}
         <Card className="border-primary/20 shadow-md">
             <CardHeader className="py-4 bg-primary/5">
                 <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest text-primary">
-                    <DatabaseZap className="h-4 w-4" /> VINCULAR CON ACTIVIDAD DE LA AGENDA
+                    <DatabaseZap className="h-4 w-4" /> VINCULAR CON ACTIVIDAD PENDIENTE
                 </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
                 <div className="flex gap-2">
                     <Select onValueChange={setSelectedAgendaId} value={selectedAgendaId || undefined}>
                         <SelectTrigger className="h-11 font-bold">
-                            <SelectValue placeholder="Seleccione actividad agendada..." />
+                            <SelectValue placeholder="Seleccione actividad de la agenda..." />
                         </SelectTrigger>
                         <SelectContent>
-                            {agendaItems.map(item => (
-                                <SelectItem key={item.id} value={item.id}>
-                                    {formatDateToDDMMYYYY(item.fecha)} | {item.lugar_local}
-                                </SelectItem>
-                            ))}
+                            {agendaItems.length === 0 ? (
+                                <div className="p-4 text-center text-xs font-bold text-muted-foreground uppercase">No hay actividades pendientes</div>
+                            ) : (
+                                agendaItems.map(item => (
+                                    <SelectItem key={item.id} value={item.id}>
+                                        {formatDateToDDMMYYYY(item.fecha)} | {item.lugar_local}
+                                    </SelectItem>
+                                ))
+                            )}
                         </SelectContent>
                     </Select>
                     {selectedAgendaId && (
@@ -283,7 +295,6 @@ function InformeContent() {
             </CardContent>
         </Card>
 
-        {/* CABECERA VISUAL DEL ANEXO */}
         <div className="flex justify-between items-center px-2">
             <div className="flex items-center gap-4">
                 <Image src="/logo.png" alt="Logo" width={50} height={50} className="object-contain" />
@@ -297,11 +308,9 @@ function InformeContent() {
             </Button>
         </div>
 
-        {/* FORMATO ANTERIOR PRESERVADO (CAJAS Y GRID) */}
         <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
           <CardContent className="p-8 space-y-6">
             
-            {/* Box 1: Lugar, Fecha, Horario */}
             <div className="border-2 border-black p-6 space-y-4">
                 <div className="flex items-center gap-3">
                     <Label className="font-black uppercase text-xs shrink-0">LUGAR DE DIVULGACIÓN:</Label>
@@ -345,7 +354,6 @@ function InformeContent() {
                 </div>
             </div>
 
-            {/* Box 2: Divulgador */}
             <div className="border-2 border-black p-6 space-y-4">
                 <div className="flex items-center gap-3">
                     <Label className="font-black uppercase text-xs shrink-0">NOMBRE COMPLETO DIVULGADOR:</Label>
@@ -378,7 +386,6 @@ function InformeContent() {
                 </div>
             </div>
 
-            {/* Box 3: Oficina */}
             <div className="border-2 border-black p-6 space-y-4">
                 <div className="flex items-center gap-3">
                     <Label className="font-black uppercase text-xs shrink-0">OFICINA:</Label>
@@ -398,7 +405,6 @@ function InformeContent() {
                 </div>
             </div>
 
-            {/* Grid de Marcaciones (13 columnas x 8 filas) */}
             <div className="border-2 border-black rounded-sm overflow-hidden">
                 <div className="bg-[#F8F9FA] border-b-2 border-black p-2 text-center">
                     <p className="font-black uppercase text-sm tracking-tight">MARCA CON UNA "X" POR CADA CIUDADANO QUE PRACTICÓ</p>
