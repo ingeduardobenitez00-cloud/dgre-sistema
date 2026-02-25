@@ -41,8 +41,27 @@ body {
 }
 
 /* 
- * LIMPIEZA TOTAL DE CONTROLES NATIVOS DE FECHA Y HORA
+ * FIX CRÍTICO PARA LEAFLET: 
+ * Evita que Tailwind bloquee la carga de los tiles del mapa.
  */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  z-index: 1;
+  background-color: transparent !important;
+}
+
+.leaflet-tile-container img {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Limpieza de inputs nativos */
 input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-inner-spin-button,
 input[type="time"]::-webkit-clear-button,
@@ -53,47 +72,12 @@ input[type="date"]::-webkit-clear-button {
   -webkit-appearance: none !important;
 }
 
-input[type="time"]::-webkit-datetime-edit-ampm-field,
-input[type="time"]::-webkit-datetime-edit-second-field {
-  display: none !important;
-  width: 0 !important;
-}
-
-/* FIX DEFINITIVO PARA LEAFLET */
 .map-view-container {
   width: 100%;
   height: 400px;
   min-height: 400px;
-  background-color: transparent !important; /* Quita el gris de fondo */
+  background-color: #f3f4f6;
   position: relative;
   overflow: hidden;
-  z-index: 1;
-}
-
-/* Asegura que los tiles no tengan restricciones de Tailwind */
-.leaflet-container .leaflet-tile-container img {
-  max-width: none !important;
-  max-height: none !important;
-  width: 256px !important;
-  height: 256px !important;
-  display: block !important;
-  opacity: 1 !important;
-}
-
-.leaflet-container {
-  font-family: inherit;
-  background-color: #f3f4f6 !important;
-  outline: none;
-}
-
-/* Estilo del buscador de geosearch */
-.leaflet-control-geosearch form {
-  border-radius: 8px;
-  border: 2px solid #e5e7eb;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-}
-
-.leaflet-control-geosearch form input {
-  font-weight: 600;
-  font-size: 12px;
+  border-radius: 2.5rem;
 }

@@ -158,14 +158,14 @@ export default function SolicitudCapacitacionPage() {
   const [isSearchingCedula, setIsSearchingCedula] = useState(false);
   const [padronFound, setPadronFound] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
-  const [isClientReady, setIsClientReady] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
 
   useEffect(() => {
-    setIsClientReady(true);
+    setIsMounted(true);
     const now = new Date();
     setFormData(prev => ({ ...prev, fecha: now.toISOString().split('T')[0] }));
 
@@ -185,26 +185,27 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // LÓGICA DE MAPA REFORZADA: ELIMINA EL CUADRO GRIS
+  // NUEVA LÓGICA DE MAPA: MODO "HYDRATION DELAY"
   useEffect(() => {
-    if (!isClientReady || !mapContainerRef.current) return;
+    if (!isMounted || !mapContainerRef.current) return;
 
     let mounted = true;
-    let intervals: NodeJS.Timeout[] = [];
+    let syncIntervals: NodeJS.Timeout[] = [];
 
-    const initMap = async () => {
+    const initLeaflet = async () => {
       try {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
         if (!mounted || !mapContainerRef.current) return;
 
+        // Limpieza de seguridad
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
         }
 
-        // Configuración de iconos
+        // Configuración de marcadores oficiales
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -212,20 +213,24 @@ export default function SolicitudCapacitacionPage() {
           shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
 
+        // Crear instancia centrada en Paraguay
         const map = L.map(mapContainerRef.current, { 
           center: [-25.29916, -57.58916], 
-          zoom: 15, 
+          zoom: 15,
+          zoomControl: false,
           doubleClickZoom: false,
-          fadeAnimation: true,
+          fadeAnimation: true
         });
         
         mapInstanceRef.current = map;
 
+        // Cargar Capas
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors',
           maxZoom: 19
         }).addTo(map);
 
+        // Añadir Buscador
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -236,6 +241,7 @@ export default function SolicitudCapacitacionPage() {
         });
         map.addControl(searchControl);
 
+        // Eventos
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           setFormData(prev => ({ ...prev, gps: `${y.toFixed(6)}, ${x.toFixed(6)}` }));
@@ -250,38 +256,38 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // CICLO DE SINCRONIZACIÓN AGRESIVO PARA ELIMINAR EL GRIS
-        const forceRedraw = () => {
+        // CICLO DE VISIBILIDAD FORZADA (Elimina el cuadro gris)
+        const forceRefresh = () => {
           if (mapInstanceRef.current && mounted) {
-            mapInstanceRef.current.invalidateSize({ animate: true });
+            mapInstanceRef.current.invalidateSize({ animate: false });
           }
         };
 
-        // Ejecutar inmediatamente y en ráfagas para asegurar carga de tiles
-        forceRedraw();
-        intervals.push(setTimeout(forceRedraw, 100));
-        intervals.push(setTimeout(forceRedraw, 500));
-        intervals.push(setTimeout(forceRedraw, 1000));
-        intervals.push(setTimeout(forceRedraw, 2500));
+        // Disparar ráfaga de redibujado
+        syncIntervals.push(setTimeout(forceRefresh, 100));
+        syncIntervals.push(setTimeout(forceRefresh, 300));
+        syncIntervals.push(setTimeout(forceRefresh, 600));
+        syncIntervals.push(setTimeout(forceRefresh, 1200));
+        syncIntervals.push(setTimeout(forceRefresh, 2500));
 
-      } catch (err) { 
-        console.error("Error Map:", err); 
+      } catch (err) {
+        console.error("Leaflet Init Error:", err);
       }
     };
 
-    // Pequeño delay inicial para asegurar que el contenedor tiene tamaño real
-    const initialDelay = setTimeout(initMap, 300);
+    // Delay inicial para asegurar que el contenedor tiene tamaño real en el DOM
+    const startDelay = setTimeout(initLeaflet, 400);
 
-    return () => { 
+    return () => {
       mounted = false;
-      clearTimeout(initialDelay);
-      intervals.forEach(i => clearTimeout(i));
-      if (mapInstanceRef.current) { 
-        mapInstanceRef.current.remove(); 
-        mapInstanceRef.current = null; 
-      } 
+      clearTimeout(startDelay);
+      syncIntervals.forEach(i => clearTimeout(i));
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
-  }, [isClientReady]);
+  }, [isMounted]);
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
     const cleanTerm = (cedulaInput || '').trim().replace(/\D/g, ''); 
@@ -499,7 +505,7 @@ export default function SolicitudCapacitacionPage() {
 
   const selectedParty = useMemo(() => partidosData?.find(p => p.nombre === formData.solicitante_entidad), [partidosData, formData.solicitante_entidad]);
 
-  if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
+  if (isUserLoading || !isMounted) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
@@ -732,18 +738,20 @@ export default function SolicitudCapacitacionPage() {
                     <p className="text-[11px] font-black uppercase text-black leading-tight">DOBLE CLIC EN EL MAPA PARA CAPTURAR COORDENADAS EXACTAS</p>
                 </div>
                 
-                <div className="relative w-full rounded-[2.5rem] overflow-hidden border border-gray-200 shadow-md z-0 bg-white">
+                {/* CONTENEDOR DEL MAPA REFORZADO */}
+                <div className="relative w-full aspect-square rounded-[2.5rem] overflow-hidden border border-gray-200 shadow-md z-0 bg-[#F3F4F6]">
                     <div 
                       ref={mapContainerRef} 
-                      className="map-view-container" 
-                      style={{ height: '400px', width: '100%' }}
+                      className="w-full h-full" 
+                      style={{ height: '100%', width: '100%', minHeight: '400px' }}
                     />
                 </div>
 
+                {/* PANEL INFERIOR DE COORDENADAS (RÉPLICA EXACTA) */}
                 <div className="bg-[#F3F4F6] p-8 rounded-[2.5rem] border border-gray-200 space-y-4">
                     <div className="flex items-center gap-5">
                         <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center shadow-sm">
-                            <Navigation className={cn("h-7 w-7 fill-current transition-colors", formData.gps ? "text-primary" : "text-gray-300")} />
+                            <Navigation className={cn("h-7 w-7 transition-colors", formData.gps ? "text-primary fill-current" : "text-gray-300")} />
                         </div>
                         <div>
                             <p className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">COORDENADAS GPS</p>
