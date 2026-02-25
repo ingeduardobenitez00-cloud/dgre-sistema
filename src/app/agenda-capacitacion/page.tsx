@@ -174,20 +174,17 @@ export default function AgendaCapacitacionPage() {
                 </AccordionTrigger>
                 
                 <AccordionContent className="px-8 pb-8 pt-2">
-                  <Accordion type="multiple" className="space-y-4">
+                  <div className="space-y-4">
                     {Object.values(dept.dists).map((dist) => (
-                      <AccordionItem key={dist.label} value={dist.label} className="border-none bg-muted/5 rounded-2xl overflow-hidden px-2">
-                        <AccordionTrigger className="hover:no-underline py-4 px-4 group/dist">
-                          <div className="flex items-center gap-3">
+                      <div key={dist.label} className="space-y-4">
+                        <div className="flex items-center gap-3 py-2 border-b border-dashed">
                             <Building2 className="h-5 w-5 text-[#1A1A1A]" />
-                            <h3 className="font-black uppercase text-sm tracking-tight text-primary/80 group-hover/dist:text-primary transition-colors">
-                              {dist.code} {dist.label} <span className="ml-2 text-[10px] font-bold text-muted-foreground">({dist.items.length})</span>
+                            <h3 className="font-black uppercase text-sm tracking-tight text-primary/80">
+                                {dist.code} {dist.label}
                             </h3>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-4 pb-6 space-y-4">
-                          {dist.items.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => (
-                            <Card key={item.id} className="border-none shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+                        </div>
+                        {dist.items.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => (
+                            <Card key={item.id} className="border-none shadow-sm bg-[#F8F9FA] rounded-2xl hover:shadow-md transition-all">
                                 <CardContent className="p-6">
                                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
                                         <div className="space-y-2">
@@ -248,11 +245,10 @@ export default function AgendaCapacitacionPage() {
                                     </div>
                                 </CardContent>
                             </Card>
-                          ))}
-                        </AccordionContent>
-                      </AccordionItem>
+                        ))}
+                      </div>
                     ))}
-                  </Accordion>
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}
