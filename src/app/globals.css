@@ -48,7 +48,7 @@ body {
   height: 100% !important;
   width: 100% !important;
   z-index: 1;
-  background-color: transparent !important;
+  background-color: white !important; /* Eliminamos el gris de fondo para evitar parpadeos */
 }
 
 .leaflet-tile-container img {
@@ -76,8 +76,8 @@ input[type="date"]::-webkit-clear-button {
   width: 100%;
   height: 400px;
   min-height: 400px;
-  background-color: #f3f4f6;
   position: relative;
   overflow: hidden;
-  border-radius: 2.5rem;
+  border-radius: 1.5rem;
+  background-color: white;
 }
