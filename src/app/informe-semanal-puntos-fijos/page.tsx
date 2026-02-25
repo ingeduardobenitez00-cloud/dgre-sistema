@@ -36,6 +36,7 @@ export default function InformeSemanalAnexoIVPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   
@@ -43,19 +44,28 @@ export default function InformeSemanalAnexoIVPage() {
   const [semanaHasta, setSemanaHasta] = useState('');
 
   const profile = user?.profile;
-  const hasAdminFilter = ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter');
-  const hasDeptFilter = !hasAdminFilter && profile?.permissions?.includes('department_filter');
-  const hasDistFilter = !hasAdminFilter && !hasDeptFilter && (profile?.permissions?.includes('district_filter') || profile?.role === 'jefe' || profile?.role === 'funcionario');
+  const isAdminView = ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter');
+  const isJefeView = profile?.role === 'jefe' || profile?.permissions?.includes('department_filter');
+  const isDistView = !isAdminView && !isJefeView && (profile?.permissions?.includes('district_filter') || profile?.role === 'funcionario');
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData } = useCollection<Dato>(datosQuery);
 
+  const departments = useMemo(() => {
+    if (!datosData) return [];
+    return [...new Set(datosData.map(d => d.departamento))].sort();
+  }, [datosData]);
+
+  const districts = useMemo(() => {
+    if (!datosData || !selectedDepartment) return [];
+    return [...new Set(datosData.filter(d => d.departamento === selectedDepartment).map(d => d.distrito))].sort();
+  }, [datosData, selectedDepartment]);
+
   useEffect(() => {
     if (!isUserLoading && profile) {
-      if (hasDeptFilter && profile.departamento) setSelectedDepartment(profile.departamento);
-      else if (hasDistFilter && profile.departamento && profile.distrito) {
-        setSelectedDepartment(profile.departamento);
-        setSelectedDistrict(profile.distrito);
+      if (!isAdminView) {
+        if (profile.departamento) setSelectedDepartment(profile.departamento);
+        if (isDistView && profile.distrito) setSelectedDistrict(profile.distrito);
       }
     }
 
@@ -71,14 +81,15 @@ export default function InformeSemanalAnexoIVPage() {
       }
     };
     fetchLogo();
-  }, [isUserLoading, profile, hasDeptFilter, hasDistFilter]);
+  }, [isUserLoading, profile, isAdminView, isJefeView, isDistView]);
 
+  // FIX: Se utiliza el campo 'oficina' para la consulta, ya que es donde se guarda el distrito en Anexo III
   const informesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedDepartment || !selectedDistrict) return null;
     return query(
         collection(firestore, 'informes-divulgador'), 
         where('departamento', '==', selectedDepartment), 
-        where('distrito', '==', selectedDistrict)
+        where('oficina', '==', selectedDistrict)
     );
   }, [firestore, selectedDepartment, selectedDistrict]);
 
@@ -94,6 +105,10 @@ export default function InformeSemanalAnexoIVPage() {
     
     return filtered.sort((a, b) => a.fecha.localeCompare(b.fecha));
   }, [rawInformesAnexoIII, semanaDesde, semanaHasta]);
+
+  const totalCapacitados = useMemo(() => {
+    return informesAnexoIII.reduce((acc, curr) => acc + (curr.total_personas || 0), 0);
+  }, [informesAnexoIII]);
 
   const generatePDF = () => {
     if (!logoBase64 || !selectedDistrict) return;
@@ -241,13 +256,29 @@ export default function InformeSemanalAnexoIVPage() {
             <Card className="lg:col-span-1 shadow-lg border-none">
                 <CardHeader className="bg-black text-white py-4">
                     <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
-                        <Search className="h-4 w-4" /> RANGO DE SEMANA
+                        <Search className="h-4 w-4" /> FILTROS DE JURISDICCIÓN
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
+                    
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Jurisdicción</Label>
-                        <Input value={`${selectedDistrict} - ${selectedDepartment}`} readOnly className="bg-muted/30 font-black uppercase text-[10px] h-11 border-2" />
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Departamento</Label>
+                        {isAdminView ? (
+                          <Select onValueChange={(v) => { setSelectedDepartment(v); setSelectedDistrict(null); }} value={selectedDepartment || undefined}>
+                            <SelectTrigger className="h-11 font-bold border-2"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                            <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                          </Select>
+                        ) : <Input value={selectedDepartment || ''} readOnly className="bg-muted/30 font-black uppercase text-xs h-11 border-2" />}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Distrito / Oficina</Label>
+                        {(isAdminView || isJefeView) ? (
+                          <Select onValueChange={setSelectedDistrict} value={selectedDistrict || undefined} disabled={!selectedDepartment}>
+                            <SelectTrigger className="h-11 font-bold border-2"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                            <SelectContent>{districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                          </Select>
+                        ) : <Input value={selectedDistrict || ''} readOnly className="bg-muted/30 font-black uppercase text-xs h-11 border-2" />}
                     </div>
 
                     <div className="space-y-2">
@@ -330,7 +361,9 @@ export default function InformeSemanalAnexoIVPage() {
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center py-20">
                                             <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-4" />
-                                            <p className="text-xs font-black text-muted-foreground uppercase">No hay informes individuales para este rango en {selectedDistrict}</p>
+                                            <p className="text-xs font-black text-muted-foreground uppercase">
+                                                {!selectedDistrict ? "Seleccione un distrito para buscar informes" : `No hay informes individuales para este rango en ${selectedDistrict}`}
+                                            </p>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -353,7 +386,7 @@ export default function InformeSemanalAnexoIVPage() {
                 </CardContent>
                 <CardFooter className="bg-muted/30 p-4 flex justify-between border-t">
                     <p className="text-[10px] font-black uppercase text-muted-foreground italic">Total consolidado en semana:</p>
-                    <p className="text-lg font-black text-primary">{informesAnexoIII.reduce((acc, curr) => acc + (curr.total_personas || 0), 0)} Ciudadanos</p>
+                    <p className="text-xl font-black text-primary">{totalCapacitados} Ciudadanos</p>
                 </CardFooter>
             </Card>
         </div>

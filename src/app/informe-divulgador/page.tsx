@@ -41,6 +41,7 @@ function InformeContent() {
     cedula_divulgador: '',
     vinculo: '',
     oficina: '',
+    distrito: '',
     departamento: '',
   });
 
@@ -118,6 +119,7 @@ function InformeContent() {
         cedula_divulgador: agendaDoc.divulgador_cedula || user?.profile?.cedula || '',
         vinculo: agendaDoc.divulgador_vinculo || user?.profile?.vinculo || '',
         oficina: agendaDoc.distrito || '',
+        distrito: agendaDoc.distrito || '',
         departamento: agendaDoc.departamento || '',
       });
     } else if (!selectedAgendaId && user?.profile) {
@@ -131,6 +133,7 @@ function InformeContent() {
             cedula_divulgador: user.profile?.cedula || '',
             vinculo: user.profile?.vinculo || '',
             oficina: user.profile?.distrito || '',
+            distrito: user.profile?.distrito || '',
             departamento: user.profile?.departamento || '',
         }));
     }
