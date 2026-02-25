@@ -1,6 +1,6 @@
 
 'use client';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { type User } from 'firebase/auth';
@@ -28,7 +28,6 @@ export interface UserHookResult {
 
 export const useUser = (): UserHookResult => {
   const { user: authUser, isUserLoading: isAuthLoading, userError: authError, firestore } = useFirebase();
-  const [profileLoadingComplete, setProfileLoadingComplete] = useState(false);
 
   const userProfileDocRef = useMemoFirebase(() => {
     if (!firestore || !authUser?.uid) return null;
@@ -37,12 +36,6 @@ export const useUser = (): UserHookResult => {
 
   const { data: profileData, isLoading: isProfileLoading, error: profileError } = useDoc<UserProfile>(userProfileDocRef);
   
-  useEffect(() => {
-    if (!isProfileLoading) {
-      setProfileLoadingComplete(true);
-    }
-  }, [isProfileLoading]);
-
   const enrichedUser = useMemo(() => {
     if (!authUser) return null;
     return {
@@ -51,7 +44,8 @@ export const useUser = (): UserHookResult => {
     };
   }, [authUser, profileData]);
 
-  const loading = isAuthLoading || (!!authUser && isProfileLoading && !profileLoadingComplete);
+  // Cargando solo si el auth está cargando o si hay un usuario pero su perfil aún se está buscando
+  const loading = isAuthLoading || (!!authUser && isProfileLoading);
 
   return {
     user: enrichedUser,

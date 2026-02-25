@@ -1,3 +1,4 @@
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
@@ -8,6 +9,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   swcMinify: true,
+  compress: true,
   images: {
     remotePatterns: [
       {
@@ -37,7 +39,13 @@ const nextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
+    optimizePackageImports: [
+      'lucide-react', 
+      'recharts', 
+      'date-fns',
+      'leaflet',
+      '@radix-ui/react-icons'
+    ],
   },
 };
 

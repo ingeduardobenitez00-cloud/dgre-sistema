@@ -2,8 +2,8 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState } from 'react';
-import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from '@/components/app-sidebar';
@@ -15,12 +15,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   
   const [mounted, setMounted] = useState(false);
-  const [bootReady, setBootReady] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const timer = setTimeout(() => setBootReady(true), 100);
-    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -54,13 +51,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!mounted) return null;
-
-  if ((isUserLoading || !bootReady)) {
+  if (!mounted || isUserLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 relative animate-pulse">
+          <div className="h-12 w-12 relative">
              <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
           </div>
