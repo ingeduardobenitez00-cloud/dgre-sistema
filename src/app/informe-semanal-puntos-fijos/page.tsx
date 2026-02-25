@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, TableProperties, CheckCircle2, FileDown, DatabaseZap, AlertCircle, Search } from 'lucide-react';
+import { Loader2, TableProperties, CheckCircle2, FileDown, DatabaseZap, AlertCircle, Search, Printer, FileText, Calendar, Landmark } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, orderBy } from 'firebase/firestore';
 import { type InformeDivulgador, type Dato } from '@/lib/data';
@@ -16,6 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatDateToDDMMYYYY } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import Image from 'next/image';
 
 export default function InformeSemanalAnexoIVPage() {
   const { user, isUserLoading } = useUser();
@@ -23,8 +27,12 @@ export default function InformeSemanalAnexoIVPage() {
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  
+  const [semanaDesde, setSemanaDesde] = useState('');
+  const [semanaHasta, setSemanaHasta] = useState('');
 
   const profile = user?.profile;
   const hasAdminFilter = ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter');
@@ -42,29 +50,138 @@ export default function InformeSemanalAnexoIVPage() {
         setSelectedDistrict(profile.distrito);
       }
     }
+
+    const fetchLogo = async () => {
+      try {
+        const response = await fetch('/logo.png');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setLogoBase64(reader.result as string);
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error("Error fetching logo:", error);
+      }
+    };
+    fetchLogo();
   }, [isUserLoading, profile, hasDeptFilter, hasDistFilter]);
 
   const informesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedDepartment || !selectedDistrict) return null;
-    return query(collection(firestore, 'informes-divulgador'), where('departamento', '==', selectedDepartment), where('distrito', '==', selectedDistrict));
+    return query(
+        collection(firestore, 'informes-divulgador'), 
+        where('departamento', '==', selectedDepartment), 
+        where('distrito', '==', selectedDistrict)
+    );
   }, [firestore, selectedDepartment, selectedDistrict]);
 
   const { data: rawInformesAnexoIII, isLoading: isLoadingInformes } = useCollection<InformeDivulgador>(informesQuery);
 
   const informesAnexoIII = useMemo(() => {
-    if (!rawInformesAnexoIII) return null;
-    return [...rawInformesAnexoIII].sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [rawInformesAnexoIII]);
+    if (!rawInformesAnexoIII) return [];
+    let filtered = [...rawInformesAnexoIII];
+    
+    if (semanaDesde && semanaHasta) {
+        filtered = filtered.filter(inf => inf.fecha >= semanaDesde && inf.fecha <= semanaHasta);
+    }
+    
+    return filtered.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  }, [rawInformesAnexoIII, semanaDesde, semanaHasta]);
+
+  const generatePDF = () => {
+    if (!logoBase64 || !selectedDistrict) return;
+    const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+    const margin = 15;
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.addImage(logoBase64, 'PNG', margin, 10, 20, 20);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text("Justicia Electoral", pageWidth / 2, 15, { align: "center" });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.text("Custodio de la Voluntad Popular", pageWidth / 2, 22, { align: "center" });
+
+    // Flag stripes (Right)
+    const barW = 4; const barH = 15; const barX = pageWidth - margin - (barW * 3);
+    doc.setFillColor(200, 0, 0); doc.rect(barX, 10, barW, barH, 'F');
+    doc.setFillColor(255, 255, 255); doc.rect(barX + barW, 10, barW, barH, 'F');
+    doc.setFillColor(0, 0, 200); doc.rect(barX + (barW * 2), 10, barW, barH, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text("ANEXO IV", pageWidth / 2, 35, { align: "center" });
+    doc.text("INFORME SEMANAL PUNTOS FIJOS DE DIVULGACIÓN 2026", pageWidth / 2, 40, { align: "center" });
+
+    // Semana y Jurisdicción
+    doc.setFontSize(9);
+    const d1 = semanaDesde ? semanaDesde.split('-').reverse().join('/') : '__/__';
+    const d2 = semanaHasta ? semanaHasta.split('-').reverse().join('/') : '__/__';
+    doc.text(`SEMANA DEL LUNES:  ${d1}  /  2026   AL DOMINGO:  ${d2}  /  2026`, margin, 50);
+    doc.text(`DISTRITO:  ${(selectedDistrict || '').toUpperCase()}`, margin, 55);
+    doc.text(`DEPARTAMENTO:  ${(selectedDepartment || '').toUpperCase()}`, pageWidth / 2 - 20, 55);
+
+    // Table
+    const tableBody = informesAnexoIII.map((inf, idx) => [
+        idx + 1,
+        inf.lugar_divulgacion.toUpperCase(),
+        inf.fecha.split('-').reverse().join('/'),
+        `DE: ${inf.hora_desde} A: ${inf.hora_hasta} HS.`,
+        inf.nombre_divulgador.toUpperCase(),
+        inf.cedula_divulgador,
+        inf.vinculo.toUpperCase(),
+        inf.total_personas
+    ]);
+
+    // Fill with empty rows if less than 12
+    while (tableBody.length < 12) {
+        tableBody.push([tableBody.length + 1, '', '', 'DE:    A:    HS.', '', '', '', '']);
+    }
+
+    autoTable(doc, {
+        startY: 60,
+        margin: { left: margin, right: margin },
+        theme: 'grid',
+        styles: { fontSize: 7, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
+        headStyles: { fillColor: [240, 240, 240], fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+            0: { cellWidth: 8, halign: 'center' },
+            1: { cellWidth: 55 },
+            2: { cellWidth: 20, halign: 'center' },
+            3: { cellWidth: 35, halign: 'center' },
+            4: { cellWidth: 60 },
+            5: { cellWidth: 20, halign: 'center' },
+            6: { cellWidth: 40, halign: 'center' },
+            7: { cellWidth: 25, halign: 'center' }
+        },
+        head: [['N.º', 'LUGAR DE DIVULGACIÓN', 'FECHA', 'HORARIO', 'NOMBRE COMPLETO FUNCIONARIO DIVULGADOR', 'C.I.C. N.º', 'VÍNCULO', 'CANTIDAD DE PERSONAS']],
+        body: tableBody,
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY + 20;
+    doc.line(pageWidth - margin - 60, finalY, pageWidth - margin, finalY);
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text("FIRMA Y SELLO DE LOS JEFES", pageWidth - margin - 30, finalY + 5, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text("- Oficina del Registro Electoral o Centro Cívico remite a la Coordinación Departamental correspondiente hasta el martes posterior a la semana de divulgación realizada.", margin, finalY + 15);
+    doc.text("- Coordinación Departamental remite a la Dirección del CIDEE.", margin, finalY + 19);
+
+    doc.save(`AnexoIV-${selectedDistrict.replace(/\s+/g, '-')}-Semana.pdf`);
+  };
 
   const handleSubmit = () => {
     if (!firestore || !user || !informesAnexoIII || informesAnexoIII.length === 0) {
-        toast({ variant: "destructive", title: "Sin datos" }); return;
+        toast({ variant: "destructive", title: "Sin datos", description: "No hay informes de Anexo III para consolidar." }); return;
     }
 
     setIsSubmitting(true);
     const docData = {
       departamento: selectedDepartment || '',
       distrito: selectedDistrict || '',
+      semana_desde: semanaDesde,
+      semana_hasta: semanaHasta,
       filas: informesAnexoIII.map(inf => ({
         lugar: inf.lugar_divulgacion,
         fecha: inf.fecha,
@@ -82,7 +199,7 @@ export default function InformeSemanalAnexoIVPage() {
 
     addDoc(collection(firestore, 'informes-semanales-anexo-iv'), docData)
       .then(() => {
-        toast({ title: "¡Consolidado Guardado!" });
+        toast({ title: "¡Consolidado Guardado!", description: "El informe semanal ha sido archivado en el sistema." });
         setIsSubmitting(false);
       })
       .catch(async (error) => {
@@ -94,22 +211,105 @@ export default function InformeSemanalAnexoIVPage() {
   if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/20">
-      <Header title="Informe Semanal - Anexo IV" />
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
-        <Card className="shadow-xl border-t-4 border-t-primary">
-          <CardHeader className="bg-primary/5">
-            <CardTitle className="font-black uppercase text-lg">Anexo IV - Consolidado Semanal</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {isLoadingInformes ? <Loader2 className="animate-spin mx-auto" /> : (
-                <Button onClick={handleSubmit} disabled={isSubmitting || !informesAnexoIII?.length} className="w-full h-14 font-black uppercase">
-                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <DatabaseZap className="mr-2" />}
-                    GUARDAR REPORTE OFICIAL ({informesAnexoIII?.length || 0} registros)
+    <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
+      <Header title="Informe Semanal Anexo IV" />
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+        
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 className="text-3xl font-black tracking-tight text-primary uppercase">Informe Semanal</h1>
+                <p className="text-muted-foreground text-xs font-bold uppercase flex items-center gap-2 mt-1">
+                    <TableProperties className="h-3.5 w-3.5" /> Consolida automáticamente los Anexos III del distrito.
+                </p>
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-10 shadow-sm" onClick={generatePDF} disabled={informesAnexoIII.length === 0}>
+                    <Printer className="mr-2 h-4 w-4" /> GENERAR PDF HORIZONTAL
                 </Button>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <Card className="lg:col-span-1 shadow-lg border-none">
+                <CardHeader className="bg-black text-white py-4">
+                    <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
+                        <Search className="h-4 w-4" /> RANGO DE SEMANA
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Jurisdicción</Label>
+                        <Input value={`${selectedDistrict} - ${selectedDepartment}`} readOnly className="bg-muted/30 font-black uppercase text-[10px]" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-primary">Desde (Lunes)</Label>
+                        <Input type="date" value={semanaDesde} onChange={e => setSemanaDesde(e.target.value)} className="font-bold h-11 border-2" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-primary">Hasta (Domingo)</Label>
+                        <Input type="date" value={semanaHasta} onChange={e => setSemanaHasta(e.target.value)} className="font-bold h-11 border-2" />
+                    </div>
+                    <div className="pt-4">
+                        <Button onClick={handleSubmit} disabled={isSubmitting || informesAnexoIII.length === 0} className="w-full font-black uppercase h-12 bg-black hover:bg-black/90">
+                            {isSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
+                            GUARDAR REPORTE
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-3 shadow-xl border-none overflow-hidden">
+                <CardHeader className="bg-primary text-white py-4">
+                    <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                        <FileText className="h-4 w-4" /> VISTA PREVIA DE CONSOLIDACIÓN ({informesAnexoIII.length} REGISTROS)
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-auto max-h-[600px]">
+                        <Table>
+                            <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                                <TableRow>
+                                    <TableHead className="text-[9px] font-black uppercase w-10">N.º</TableHead>
+                                    <TableHead className="text-[9px] font-black uppercase">Lugar de Divulgación</TableHead>
+                                    <TableHead className="text-[9px] font-black uppercase">Fecha</TableHead>
+                                    <TableHead className="text-[9px] font-black uppercase">Divulgador</TableHead>
+                                    <TableHead className="text-right text-[9px] font-black uppercase">Personas</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody className="bg-white">
+                                {isLoadingInformes ? (
+                                    <TableRow><TableCell colSpan={5} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                                ) : informesAnexoIII.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center py-20">
+                                            <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-4" />
+                                            <p className="text-xs font-black text-muted-foreground uppercase">No hay informes individuales para este rango en {selectedDistrict}</p>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    informesAnexoIII.map((inf, idx) => (
+                                        <TableRow key={inf.id} className="hover:bg-muted/30 transition-colors border-b">
+                                            <TableCell className="font-black text-xs text-muted-foreground">{idx + 1}</TableCell>
+                                            <TableCell className="font-black text-[11px] uppercase text-primary">{inf.lugar_divulgacion}</TableCell>
+                                            <TableCell className="text-[10px] font-bold">{formatDateToDDMMYYYY(inf.fecha)}</TableCell>
+                                            <TableCell>
+                                                <p className="font-black text-[10px] uppercase leading-tight">{inf.nombre_divulgador}</p>
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase">{inf.vinculo}</p>
+                                            </TableCell>
+                                            <TableCell className="text-right font-black text-primary">{inf.total_personas}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+                <CardFooter className="bg-muted/30 p-4 flex justify-between border-t">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground italic">Total consolidado en semana:</p>
+                    <p className="text-lg font-black text-primary">{informesAnexoIII.reduce((acc, curr) => acc + (curr.total_personas || 0), 0)} Ciudadanos</p>
+                </CardFooter>
+            </Card>
+        </div>
       </main>
     </div>
   );
