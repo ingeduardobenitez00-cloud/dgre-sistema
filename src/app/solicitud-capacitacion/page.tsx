@@ -80,6 +80,7 @@ export default function SolicitudCapacitacionPage() {
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   
+  const fechaInputRef = useRef<HTMLInputElement>(null);
   const horaDesdeRef = useRef<HTMLInputElement>(null);
   const horaHastaRef = useRef<HTMLInputElement>(null);
 
@@ -103,6 +104,7 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
+  // Inicialización del mapa con ResizeObserver para evitar el cuadro gris
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
@@ -166,6 +168,7 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
+        // REPARACIÓN AUTOMÁTICA DE RENDERIZADO
         resizeObserver = new ResizeObserver(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -173,6 +176,7 @@ export default function SolicitudCapacitacionPage() {
         });
         resizeObserver.observe(mapContainerRef.current);
 
+        // Forzar un segundo recalculo tras el montaje inicial
         setTimeout(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
@@ -227,6 +231,7 @@ export default function SolicitudCapacitacionPage() {
     }
   };
 
+  // Función para abrir los selectores nativos al hacer clic en el icono
   const openPicker = (ref: React.RefObject<HTMLInputElement>) => {
     if (ref.current) {
       try {
@@ -401,8 +406,17 @@ export default function SolicitudCapacitacionPage() {
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">FECHA PROPUESTA</Label>
                         <div className="relative">
-                            <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-                            <Input type="date" value={formData.fecha} onChange={e => setFormData(p => ({...p, fecha: e.target.value}))} className="h-14 font-black text-lg border-2 rounded-xl pr-12" />
+                            <CalendarIcon 
+                              className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer z-10" 
+                              onClick={() => openPicker(fechaInputRef)}
+                            />
+                            <Input 
+                              ref={fechaInputRef}
+                              type="date" 
+                              value={formData.fecha} 
+                              onChange={e => setFormData(p => ({...p, fecha: e.target.value}))} 
+                              className="h-14 font-black text-lg border-2 rounded-xl pr-12 cursor-pointer" 
+                            />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-6">
