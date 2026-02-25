@@ -117,9 +117,9 @@ function EncuestaContent() {
       .then(() => {
         toast({ title: "¡Gracias por su participación!", description: "Su feedback ha sido registrado exitosamente." });
         if (!effectiveSolicitudId) {
-            setFormData(p => ({ ...p, edad: '', lugar_practica: '', fecha: '', hora: '' }));
+            setFormData(p => ({ ...p, edad: '', lugar_practica: '', fecha: '', hora: '', pueblo_originario: false }));
         } else {
-            setFormData(p => ({ ...p, edad: '' }));
+            setFormData(p => ({ ...p, edad: '', pueblo_originario: false }));
         }
         setIsSubmitting(false);
       })
@@ -174,7 +174,7 @@ function EncuestaContent() {
 
           <CardContent className="p-8 md:p-12 space-y-16">
             
-            {/* Box 1: Lugar, Fecha, Hora (IDÉNTICO A LA IMAGEN) */}
+            {/* Box 1: Lugar, Fecha, Hora */}
             <div className="p-10 border-[3px] border-black rounded-[2.5rem] space-y-12 bg-white">
                 <div className="space-y-2">
                     <Label className="text-[11px] font-black uppercase text-[#1A1A1A] tracking-[0.1em]">LUGAR DONDE REALIZÓ LA PRÁCTICA:</Label>
@@ -215,26 +215,34 @@ function EncuestaContent() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-start">
                     <div className="space-y-2">
                         <Label className="text-[11px] font-black uppercase text-[#1A1A1A] tracking-[0.1em]">EDAD (AÑOS):</Label>
                         <Input name="edad" type="number" value={formData.edad} onChange={handleInputChange} className="h-14 font-black text-xl border-x-0 border-t-0 border-b-[3px] rounded-none border-black focus-visible:ring-0 px-0 bg-transparent" />
                     </div>
-                    <div className="md:col-span-2 flex flex-wrap gap-8 items-center">
-                        <Label className="text-[11px] font-black uppercase text-[#1A1A1A] tracking-[0.1em] shrink-0">GÉNERO:</Label>
-                        <div className="flex items-center gap-6">
-                            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleValueChange('genero', 'hombre')}>
-                                <div className={cn("h-7 w-7 border-[3px] border-black rounded-lg flex items-center justify-center transition-colors", formData.genero === 'hombre' ? "bg-black text-white" : "bg-white")}>
-                                    {formData.genero === 'hombre' && <Check className="h-5 w-5 stroke-[4]" />}
+                    <div className="md:col-span-2 space-y-8 pt-1">
+                        <div className="flex flex-wrap gap-8 items-center">
+                            <Label className="text-[11px] font-black uppercase text-[#1A1A1A] tracking-[0.1em] shrink-0">GÉNERO:</Label>
+                            <div className="flex items-center gap-6">
+                                <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleValueChange('genero', 'hombre')}>
+                                    <div className={cn("h-7 w-7 border-[3px] border-black rounded-lg flex items-center justify-center transition-colors", formData.genero === 'hombre' ? "bg-black text-white" : "bg-white")}>
+                                        {formData.genero === 'hombre' && <Check className="h-5 w-5 stroke-[4]" />}
+                                    </div>
+                                    <span className="font-black text-xs uppercase">HOMBRE</span>
                                 </div>
-                                <span className="font-black text-xs uppercase">HOMBRE</span>
-                            </div>
-                            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleValueChange('genero', 'mujer')}>
-                                <div className={cn("h-7 w-7 border-[3px] border-black rounded-lg flex items-center justify-center transition-colors", formData.genero === 'mujer' ? "bg-black text-white" : "bg-white")}>
-                                    {formData.genero === 'mujer' && <Check className="h-5 w-5 stroke-[4]" />}
+                                <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleValueChange('genero', 'mujer')}>
+                                    <div className={cn("h-7 w-7 border-[3px] border-black rounded-lg flex items-center justify-center transition-colors", formData.genero === 'mujer' ? "bg-black text-white" : "bg-white")}>
+                                        {formData.genero === 'mujer' && <Check className="h-5 w-5 stroke-[4]" />}
+                                    </div>
+                                    <span className="font-black text-xs uppercase">MUJER</span>
                                 </div>
-                                <span className="font-black text-xs uppercase">MUJER</span>
                             </div>
+                        </div>
+                        <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setFormData(p => ({...p, pueblo_originario: !p.pueblo_originario}))}>
+                            <div className={cn("h-7 w-7 border-[3px] border-black rounded-lg flex items-center justify-center transition-colors", formData.pueblo_originario ? "bg-black text-white" : "bg-white")}>
+                                {formData.pueblo_originario && <Check className="h-5 w-5 stroke-[4]" />}
+                            </div>
+                            <span className="font-black text-[11px] uppercase tracking-[0.1em] text-[#1A1A1A]">PUEBLO ORIGINARIO</span>
                         </div>
                     </div>
                 </div>
