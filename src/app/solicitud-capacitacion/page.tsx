@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -105,7 +104,7 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
-  // INICIALIZACIÓN DEL MAPA CON SOLUCIÓN AL CUADRO GRIS
+  // INICIALIZACIÓN DEL MAPA CON SOLUCIÓN DEFINITIVA MEDIANTE RESIZEOBSERVER
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
@@ -118,7 +117,7 @@ export default function SolicitudCapacitacionPage() {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
-        // Configuración de iconos
+        // Configuración de iconos nativos
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
           L.Icon.Default.mergeOptions({
@@ -140,7 +139,7 @@ export default function SolicitudCapacitacionPage() {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Buscador de direcciones
+        // Buscador de direcciones estilo barra
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -148,10 +147,11 @@ export default function SolicitudCapacitacionPage() {
             showMarker: true,
             autoClose: true,
             keepResult: true,
+            placeholder: 'Buscar dirección...',
         });
         map.addControl(searchControl);
 
-        // Captura de coordenadas por buscador
+        // Captura por buscador
         map.on('geosearch/showlocation', (result: any) => {
           const { x, y } = result.location;
           const coords = `${y.toFixed(6)}, ${x.toFixed(6)}`;
@@ -160,7 +160,7 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([y, x]).addTo(map);
         });
 
-        // Captura de coordenadas por doble clic
+        // Captura por doble clic (Requerimiento de la instrucción visual)
         map.on('dblclick', (e: any) => {
           const { lat, lng } = e.latlng;
           const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -169,14 +169,20 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // SOLUCIÓN AL CUADRO GRIS: Forzar recalculo de tamaño tras carga
-        setTimeout(() => {
+        // SOLUCIÓN INDUSTRIAL AL CUADRO GRIS: ResizeObserver
+        const resizeObserver = new ResizeObserver(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
           }
+        });
+        resizeObserver.observe(mapContainerRef.current);
+
+        // Forzado inicial tras montaje
+        setTimeout(() => {
+          if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
         }, 500);
 
-      } catch (err) { console.error(err); }
+      } catch (err) { console.error("Error al inicializar mapa:", err); }
     };
 
     initMap();

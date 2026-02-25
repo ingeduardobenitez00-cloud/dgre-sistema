@@ -41,8 +41,8 @@ body {
 }
 
 /* 
- * OCULTAR CONTROLES NATIVOS DE FECHA Y HORA TOTALMENTE
- * Esto elimina segundos, AM/PM amontonados e iconos nativos feos
+ * LIMPIEZA TOTAL DE CONTROLES NATIVOS DE FECHA Y HORA
+ * Elimina segundos, AM/PM y flechas nativas que ensucian la visualización
  */
 input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-inner-spin-button,
@@ -54,24 +54,22 @@ input[type="date"]::-webkit-clear-button {
   -webkit-appearance: none !important;
 }
 
-/* Ocultar específicamente los campos de AM/PM y Segundos que ensucian la vista en Chrome */
 input[type="time"]::-webkit-datetime-edit-ampm-field,
 input[type="time"]::-webkit-datetime-edit-second-field {
   display: none !important;
   width: 0 !important;
 }
 
-/* Asegurar que el campo de texto de hora no tenga espacios extraños */
 input[type="time"]::-webkit-datetime-edit-hour-field,
 input[type="time"]::-webkit-datetime-edit-minute-field,
 input[type="time"]::-webkit-datetime-edit-text {
   padding: 0;
 }
 
-/* Leaflet Container Fix */
+/* Leaflet Container Fix - Soluciona el problema de los azulejos grises */
 .leaflet-container {
   width: 100%;
   height: 100%;
   z-index: 1;
-  background-color: #f0f0f0; /* Color base mientras carga */
+  background-color: #f0f0f0;
 }
