@@ -148,7 +148,6 @@ export default function SolicitudCapacitacionPage() {
     nombre_completo: '',
     cedula: '',
     telefono: '',
-    gps: '',
   });
 
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
@@ -232,7 +231,7 @@ export default function SolicitudCapacitacionPage() {
     addDoc(collection(firestore, 'solicitudes-capacitacion'), docData)
       .then(() => {
         toast({ title: "¡Solicitud Registrada!" });
-        setFormData(p => ({ ...p, solicitante_entidad: '', otra_entidad: '', lugar_local: '', nombre_completo: '', cedula: '', gps: '' }));
+        setFormData(p => ({ ...p, solicitante_entidad: '', otra_entidad: '', lugar_local: '', nombre_completo: '', cedula: '' }));
         setPhotoDataUri(null);
         setIsSubmitting(false);
       })
