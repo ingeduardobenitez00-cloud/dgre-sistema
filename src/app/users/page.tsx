@@ -542,10 +542,10 @@ export default function UsersPage() {
       </main>
 
       <Dialog open={isEditModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-0 border-none shadow-2xl overflow-hidden rounded-2xl">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 border-none shadow-2xl overflow-hidden rounded-2xl">
           {editingUser && (
-            <form onSubmit={handleUpdateUser} className="flex flex-col h-full bg-white">
-              <DialogHeader className="p-8 bg-primary text-white shrink-0">
+            <form onSubmit={handleUpdateUser} className="flex flex-col h-full bg-white overflow-hidden">
+              <DialogHeader className="p-8 bg-black text-white shrink-0">
                 <div className="flex items-center gap-4">
                     <div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
                         <Settings className="h-6 w-6" />
@@ -559,8 +559,8 @@ export default function UsersPage() {
                 </div>
               </DialogHeader>
               
-              <ScrollArea className="flex-1 p-8">
-                <div className="space-y-10">
+              <ScrollArea className="flex-1">
+                <div className="p-8 space-y-10">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="space-y-3">
                             <Label className="text-[10px] font-black uppercase text-primary">Rol</Label>
@@ -603,7 +603,7 @@ export default function UsersPage() {
                 </div>
               </ScrollArea>
               
-              <DialogFooter className="p-8 bg-muted/30 border-t">
+              <DialogFooter className="p-8 bg-muted/30 border-t shrink-0">
                 <DialogClose asChild><Button variant="outline" type="button" className="font-black uppercase text-[10px] px-8 h-14">CANCELAR</Button></DialogClose>
                 <Button type="submit" disabled={isSubmitting} className="font-black uppercase text-xs px-12 h-14 flex-1 shadow-xl">
                     {isSubmitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : "ACTUALIZAR MATRIZ DE PERFIL"}
