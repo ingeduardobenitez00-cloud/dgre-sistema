@@ -135,6 +135,108 @@ const GLOBAL_PERMS = [
   { id: 'assign_staff', label: 'ASIGNAR PERSONAL' },
 ];
 
+/**
+ * COMPONENTE DE MATRIZ DE PERMISOS
+ * Movido fuera del componente principal para evitar que el acordeón se cierre al interactuar
+ */
+const PermissionMatrix = ({ 
+  userObj, 
+  isEditing = false, 
+  selectedPerms, 
+  selectedModules,
+  onTogglePerm, 
+  onToggleModuleAction,
+  onToggleColumn
+}: { 
+  userObj?: Partial<UserProfile>, 
+  isEditing?: boolean,
+  selectedPerms: Set<string>,
+  selectedModules: Set<string>,
+  onTogglePerm: (id: string, editing: boolean) => void,
+  onToggleModuleAction: (modId: string, actId: string, editing: boolean) => void,
+  onToggleColumn: (actId: string, items: {id: string}[], editing: boolean) => void
+}) => {
+  const currentPerms = new Set(isEditing ? (userObj?.permissions || []) : Array.from(selectedPerms));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Asignación de Módulos y Acciones</h3>
+        <div className="flex flex-wrap gap-4">
+          {GLOBAL_PERMS.map(p => (
+            <div key={p.id} className="flex items-center space-x-2">
+              <Checkbox 
+                id={`global-${p.id}-${isEditing ? 'edit' : 'new'}`}
+                checked={currentPerms.has(p.id)}
+                onCheckedChange={() => onTogglePerm(p.id, isEditing)}
+              />
+              <Label htmlFor={`global-${p.id}-${isEditing ? 'edit' : 'new'}`} className="text-[9px] font-black uppercase cursor-pointer">{p.label}</Label>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Accordion type="multiple" className="border rounded-lg overflow-hidden bg-white shadow-sm">
+        {MODULE_STRUCTURE.map((cat) => (
+          <AccordionItem key={cat.category} value={cat.category} className="border-b last:border-0">
+            <AccordionTrigger className="px-6 py-3 hover:no-underline bg-muted/5">
+              <span className="text-[10px] font-black uppercase tracking-wider">{cat.category}</span>
+            </AccordionTrigger>
+            <AccordionContent className="p-0">
+              <Table>
+                <TableHeader className="bg-white">
+                  <TableRow className="border-b hover:bg-transparent">
+                    <TableHead className="w-1/3"></TableHead>
+                    {ACTION_LABELS.map(a => {
+                      const allInColSelected = cat.items.every(item => currentPerms.has(`${item.id}:${a.id}`));
+                      return (
+                        <TableHead key={a.id} className="text-center py-4">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <span className="text-[9px] font-black uppercase">{a.label}</span>
+                            <div className="flex items-center gap-1">
+                                <Checkbox 
+                                    checked={allInColSelected}
+                                    onCheckedChange={() => onToggleColumn(a.id, cat.items, isEditing)}
+                                    className="h-3.5 w-3.5 border-primary/30"
+                                />
+                                <span className="text-[7px] font-black text-muted-foreground">ALL</span>
+                            </div>
+                          </div>
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cat.items.map(module => (
+                    <TableRow key={module.id} className="border-b last:border-0 hover:bg-muted/5 transition-colors">
+                      <TableCell className="px-6 py-4">
+                        <span className="text-[10px] font-bold uppercase">{module.label}</span>
+                      </TableCell>
+                      {ACTION_LABELS.map(action => {
+                        const permKey = `${module.id}:${action.id}`;
+                        return (
+                          <TableCell key={action.id} className="text-center py-4">
+                            <Checkbox 
+                              checked={currentPerms.has(permKey)}
+                              onCheckedChange={() => onToggleModuleAction(module.id, action.id, isEditing)}
+                              className="mx-auto"
+                            />
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </div>
+  );
+};
+
 export default function UsersPage() {
   const { toast } = useToast();
   const { firestore } = useFirebase();
@@ -225,6 +327,42 @@ export default function UsersPage() {
     }
   };
 
+  const handleToggleColumn = (actionId: string, items: {id: string}[], isEditing = false) => {
+    if (isEditing && editingUser) {
+        const nextPerms = new Set(editingUser.permissions || []);
+        const nextModules = new Set(editingUser.modules || []);
+        const allSelected = items.every(item => nextPerms.has(`${item.id}:${actionId}`));
+
+        items.forEach(item => {
+            const key = `${item.id}:${actionId}`;
+            if (allSelected) {
+                nextPerms.delete(key);
+            } else {
+                nextPerms.add(key);
+                nextModules.add(item.id);
+            }
+        });
+
+        setEditingUser({ ...editingUser, permissions: Array.from(nextPerms), modules: Array.from(nextModules) });
+    } else {
+        setSelectedPerms(prev => {
+            const next = new Set(prev);
+            const allSelected = items.every(item => next.has(`${item.id}:${actionId}`));
+            
+            items.forEach(item => {
+                const key = `${item.id}:${actionId}`;
+                if (allSelected) {
+                    next.delete(key);
+                } else {
+                    next.add(key);
+                    setSelectedModules(m => new Set(m).add(item.id));
+                }
+            });
+            return next;
+        });
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -293,73 +431,6 @@ export default function UsersPage() {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
         setIsSubmitting(false);
       });
-  };
-
-  const PermissionMatrix = ({ userObj, isEditing = false }: { userObj?: Partial<UserProfile>, isEditing?: boolean }) => {
-    const currentPerms = new Set(isEditing ? (userObj?.permissions || []) : Array.from(selectedPerms));
-
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Asignación de Módulos y Acciones</h3>
-          <div className="flex flex-wrap gap-4">
-            {GLOBAL_PERMS.map(p => (
-              <div key={p.id} className="flex items-center space-x-2">
-                <Checkbox 
-                  id={`global-${p.id}-${isEditing ? 'edit' : 'new'}`}
-                  checked={currentPerms.has(p.id)}
-                  onCheckedChange={() => handleTogglePerm(p.id, isEditing)}
-                />
-                <Label htmlFor={`global-${p.id}-${isEditing ? 'edit' : 'new'}`} className="text-[9px] font-black uppercase cursor-pointer">{p.label}</Label>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <Accordion type="multiple" className="border rounded-lg overflow-hidden bg-white shadow-sm">
-          {MODULE_STRUCTURE.map((cat) => (
-            <AccordionItem key={cat.category} value={cat.category} className="border-b last:border-0">
-              <AccordionTrigger className="px-6 py-3 hover:no-underline bg-muted/5">
-                <span className="text-[10px] font-black uppercase tracking-wider">{cat.category}</span>
-              </AccordionTrigger>
-              <AccordionContent className="p-0">
-                <Table>
-                  <TableHeader className="bg-white">
-                    <TableRow className="border-b hover:bg-transparent">
-                      <TableHead className="w-1/3"></TableHead>
-                      {ACTION_LABELS.map(a => (
-                        <TableHead key={a.id} className="text-center text-[9px] font-black uppercase py-4">{a.label}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cat.items.map(module => (
-                      <TableRow key={module.id} className="border-b last:border-0 hover:bg-muted/5 transition-colors">
-                        <TableCell className="px-6 py-4">
-                          <span className="text-[10px] font-bold uppercase">{module.label}</span>
-                        </TableCell>
-                        {ACTION_LABELS.map(action => {
-                          const permKey = `${module.id}:${action.id}`;
-                          return (
-                            <TableCell key={action.id} className="text-center py-4">
-                              <Checkbox 
-                                checked={currentPerms.has(permKey)}
-                                onCheckedChange={() => handleToggleModuleAction(module.id, action.id, isEditing)}
-                                className="mx-auto"
-                              />
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </div>
-    );
   };
 
   if (isMeLoading || isLoadingUsers) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
@@ -439,7 +510,13 @@ export default function UsersPage() {
 
               <Separator />
 
-              <PermissionMatrix />
+              <PermissionMatrix 
+                selectedPerms={selectedPerms}
+                selectedModules={selectedModules}
+                onTogglePerm={handleTogglePerm}
+                onToggleModuleAction={handleToggleModuleAction}
+                onToggleColumn={handleToggleColumn}
+              />
 
             </CardContent>
             <CardFooter className="bg-muted/30 border-t p-6">
@@ -608,7 +685,15 @@ export default function UsersPage() {
 
                     <Separator />
 
-                    <PermissionMatrix userObj={editingUser} isEditing={true} />
+                    <PermissionMatrix 
+                        userObj={editingUser} 
+                        isEditing={true} 
+                        selectedPerms={selectedPerms}
+                        selectedModules={selectedModules}
+                        onTogglePerm={handleTogglePerm}
+                        onToggleModuleAction={handleToggleModuleAction}
+                        onToggleColumn={handleToggleColumn}
+                    />
                 </div>
               </ScrollArea>
               
