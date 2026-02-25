@@ -94,6 +94,7 @@ export default function SolicitudCapacitacionPage() {
         const L = (await import('leaflet')).default;
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
 
+        // Fix for marker icons in Next.js/Leaflet
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
           L.Icon.Default.mergeOptions({
@@ -103,7 +104,7 @@ export default function SolicitudCapacitacionPage() {
           });
         }
 
-        const initialPos: [number, number] = [-25.311549, -57.653496];
+        const initialPos: [number, number] = [-25.311549, -57.653496]; // Asunción
         map = L.map(mapContainerRef.current, { 
           center: initialPos, 
           zoom: 13, 
@@ -147,12 +148,13 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // Asegurar que el mapa se dimensione correctamente después de cargar la página
+        // CRITICAL FIX: Invalidate size after a short delay to fix the "gray map" issue
+        // This ensures Leaflet recalculates dimensions once the container is fully ready.
         setTimeout(() => {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
           }
-        }, 500);
+        }, 200);
 
       } catch (err) { 
         console.error("Leaflet initialization failed:", err); 
