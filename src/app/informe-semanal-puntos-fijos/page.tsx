@@ -8,18 +8,26 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, TableProperties, CheckCircle2, FileDown, DatabaseZap, AlertCircle, Search, Printer, FileText, Calendar, Landmark } from 'lucide-react';
+import { Loader2, TableProperties, CheckCircle2, FileDown, DatabaseZap, AlertCircle, Search, Printer, FileText, Calendar as CalendarIcon, Landmark } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, orderBy } from 'firebase/firestore';
 import { type InformeDivulgador, type Dato } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDateToDDMMYYYY } from '@/lib/utils';
+import { formatDateToDDMMYYYY, cn } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Image from 'next/image';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
 
 export default function InformeSemanalAnexoIVPage() {
   const { user, isUserLoading } = useUser();
@@ -236,19 +244,58 @@ export default function InformeSemanalAnexoIVPage() {
                         <Search className="h-4 w-4" /> RANGO DE SEMANA
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-6 space-y-4">
+                <CardContent className="pt-6 space-y-6">
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground">Jurisdicción</Label>
-                        <Input value={`${selectedDistrict} - ${selectedDepartment}`} readOnly className="bg-muted/30 font-black uppercase text-[10px]" />
+                        <Input value={`${selectedDistrict} - ${selectedDepartment}`} readOnly className="bg-muted/30 font-black uppercase text-[10px] h-11 border-2" />
                     </div>
+
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-primary">Desde (Lunes)</Label>
-                        <Input type="date" value={semanaDesde} onChange={e => setSemanaDesde(e.target.value)} className="font-bold h-11 border-2" />
+                        <Label className="text-[11px] font-black uppercase text-black tracking-tight">DESDE (LUNES)</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <div className="relative group cursor-pointer">
+                                <div className="h-14 w-full flex items-center px-5 font-black text-xl border-2 rounded-xl bg-white group-hover:border-primary transition-all">
+                                  {semanaDesde ? format(parseISO(semanaDesde), "dd/MM/yyyy") : "__/__/____"}
+                                </div>
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 shadow-2xl rounded-2xl border-none overflow-hidden" align="center">
+                            <Calendar
+                              mode="single"
+                              selected={semanaDesde ? parseISO(semanaDesde) : undefined}
+                              onSelect={(date) => setSemanaDesde(date ? format(date, "yyyy-MM-dd") : '')}
+                              locale={es}
+                              initialFocus
+                              className="bg-white"
+                            />
+                          </PopoverContent>
+                        </Popover>
                     </div>
+
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-primary">Hasta (Domingo)</Label>
-                        <Input type="date" value={semanaHasta} onChange={e => setSemanaHasta(e.target.value)} className="font-bold h-11 border-2" />
+                        <Label className="text-[11px] font-black uppercase text-black tracking-tight">HASTA (DOMINGO)</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <div className="relative group cursor-pointer">
+                                <div className="h-14 w-full flex items-center px-5 font-black text-xl border-2 rounded-xl bg-white group-hover:border-primary transition-all">
+                                  {semanaHasta ? format(parseISO(semanaHasta), "dd/MM/yyyy") : "__/__/____"}
+                                </div>
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 shadow-2xl rounded-2xl border-none overflow-hidden" align="center">
+                            <Calendar
+                              mode="single"
+                              selected={semanaHasta ? parseISO(semanaHasta) : undefined}
+                              onSelect={(date) => setSemanaHasta(date ? format(date, "yyyy-MM-dd") : '')}
+                              locale={es}
+                              initialFocus
+                              className="bg-white"
+                            />
+                          </PopoverContent>
+                        </Popover>
                     </div>
+
                     <div className="pt-4">
                         <Button onClick={handleSubmit} disabled={isSubmitting || informesAnexoIII.length === 0} className="w-full font-black uppercase h-12 bg-black hover:bg-black/90">
                             {isSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
