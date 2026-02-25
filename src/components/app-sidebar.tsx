@@ -57,14 +57,14 @@ export default function AppSidebar() {
       label: "CIDEE - CAPACITACIONES",
       items: [
         { href: "/solicitud-capacitacion", label: "Nueva Solicitud", icon: ClipboardCheck },
-        { href: "/divulgadores", label: "Directorio Divulgadores", icon: UserCircle },
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
         { href: "/control-movimiento-maquinas", label: "Movimiento de Máquinas", icon: ArrowLeftRight },
         { href: "/denuncia-lacres", label: "Denuncia de Lacres", icon: ShieldAlert },
-        { href: "/encuesta-satisfaccion", label: "Encuesta Satisfacción", icon: MessageSquareHeart },
         { href: "/informe-divulgador", label: "Informe del Divulgador", icon: UserCheck },
         { href: "/informe-semanal-puntos-fijos", label: "Informe Semanal (Anexo IV)", icon: TableProperties },
+        { href: "/divulgadores", label: "Directorio Divulgadores", icon: UserCircle },
         { href: "/estadisticas-capacitacion", label: "Estadísticas", icon: PieChart },
+        { href: "/encuesta-satisfaccion", label: "Encuesta Satisfacción", icon: MessageSquareHeart },
       ]
     },
     {

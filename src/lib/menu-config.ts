@@ -1,25 +1,7 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle } from 'lucide-react';
 
 export const dashboardMenuItems = [
-  {
-    href: '/ficha',
-    label: 'Vista de Ficha',
-    icon: FileText,
-    description: 'Consulta informes detallados e imágenes por distrito.',
-  },
-  {
-    href: '/fotos',
-    label: 'Imágenes',
-    icon: ImageIcon,
-    description: 'Explora y gestiona las imágenes de los registros.',
-  },
-  {
-    href: '/cargar-ficha',
-    label: 'Cargar Ficha',
-    icon: UploadCloud,
-    description: 'Accede a tu distrito asignado para cargar datos.',
-  },
   {
     href: '/solicitud-capacitacion',
     label: 'Nueva Solicitud',
@@ -45,12 +27,6 @@ export const dashboardMenuItems = [
     description: 'Reporte de adulteración de los lacres de seguridad.',
   },
   {
-    href: '/encuesta-satisfaccion',
-    label: 'Encuesta Satisfacción',
-    icon: MessageSquareHeart,
-    description: 'Formulario de encuesta sobre el uso de la máquina.',
-  },
-  {
     href: '/informe-divulgador',
     label: 'Informe del Divulgador',
     icon: UserCheck,
@@ -63,10 +39,40 @@ export const dashboardMenuItems = [
     description: 'Resumen semanal de puntos fijos de divulgación.',
   },
   {
+    href: '/divulgadores',
+    label: 'Directorio Divulgadores',
+    icon: UserCircle,
+    description: 'Gestiona la lista de personal operativo del CIDEE.',
+  },
+  {
     href: '/estadisticas-capacitacion',
     label: 'Estadísticas CIDEE',
     icon: PieChart,
     description: 'Análisis de resultados de las encuestas de satisfacción.',
+  },
+  {
+    href: '/encuesta-satisfaccion',
+    label: 'Encuesta Satisfacción',
+    icon: MessageSquareHeart,
+    description: 'Formulario de encuesta sobre el uso de la máquina.',
+  },
+  {
+    href: '/ficha',
+    label: 'Vista de Ficha',
+    icon: FileText,
+    description: 'Consulta informes detallados e imágenes por distrito.',
+  },
+  {
+    href: '/fotos',
+    label: 'Imágenes',
+    icon: ImageIcon,
+    description: 'Explora y gestiona las imágenes de los registros.',
+  },
+  {
+    href: '/cargar-ficha',
+    label: 'Cargar Ficha',
+    icon: UploadCloud,
+    description: 'Accede a tu distrito asignado para cargar datos.',
   },
   {
     href: '/resumen',

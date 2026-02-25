@@ -78,14 +78,14 @@ const MODULE_STRUCTURE = [
     category: "CIDEE - CAPACITACIONES",
     items: [
       { id: 'solicitud-capacitacion', label: 'ANEXO V - SOLICITUD' },
-      { id: 'divulgadores', label: 'DIRECTORIO DIVULGADORES' },
       { id: 'agenda-capacitacion', label: 'AGENDA DE ACTIVIDADES' },
       { id: 'control-movimiento-maquinas', label: 'MOVIMIENTO DE MÁQUINAS' },
       { id: 'denuncia-lacres', label: 'DENUNCIA DE LACRES' },
-      { id: 'encuesta-satisfaccion', label: 'ENCUESTA SATISFACCIÓN' },
       { id: 'informe-divulgador', label: 'ANEXO III - INFORME DIV.' },
       { id: 'informe-semanal-puntos-fijos', label: 'ANEXO IV - INF. SEMANAL' },
+      { id: 'divulgadores', label: 'DIRECTORIO DIVULGADORES' },
       { id: 'estadisticas-capacitacion', label: 'ESTADÍSTICAS CIDEE' },
+      { id: 'encuesta-satisfaccion', label: 'ENCUESTA SATISFACCIÓN' },
     ]
   },
   {
