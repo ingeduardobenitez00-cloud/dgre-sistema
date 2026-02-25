@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -8,18 +7,17 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador } from '@/lib/data';
-import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check, AlertTriangle, FileWarning, PackageSearch } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import { formatDateToDDMMYYYY } from '@/lib/utils';
+import { formatDateToDDMMYYYY, cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
 export default function AgendaCapacitacionPage() {
@@ -65,7 +63,6 @@ export default function AgendaCapacitacionPage() {
 
   const { data: rawSolicitudes, isLoading: isLoadingSolicitudes } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
 
-  // Carga de movimientos e informes para filtrar ARCHIVADOS
   const movimientosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'movimientos-maquinas') : null, [firestore]);
   const { data: movimientosData } = useCollection<MovimientoMaquina>(movimientosQuery);
 
@@ -88,19 +85,23 @@ export default function AgendaCapacitacionPage() {
 
   const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
-  // Agrupación jerárquica con FILTRADO DE ARCHIVO
+  // Agrupación jerárquica con LÓGICA DE ALERTA Y ARCHIVO
   const groupedData = useMemo(() => {
     if (!rawSolicitudes || !datosData) return [];
 
     const today = new Date().toISOString().split('T')[0];
 
-    // Filtrar solicitudes activas: No terminadas O fecha futura
+    // LÓGICA: Mostrar si es futura O si es pasada pero le falta algo (Devolución o Informe)
     const activeSolicitudes = rawSolicitudes.filter(sol => {
         const mov = movimientosData?.find(m => m.solicitud_id === sol.id);
         const inf = informesData?.find(i => i.solicitud_id === sol.id);
-        const isFinished = mov?.devolucion && inf;
+        
         const isPast = sol.fecha < today;
-        return !(isFinished && isPast); // Solo mostrar si NO está archivado
+        const isClosed = mov?.devolucion && inf;
+
+        // Se ARCHIVA (no se muestra aquí) si pasó la fecha Y está todo cerrado
+        const shouldArchive = isPast && isClosed;
+        return !shouldArchive;
     });
 
     const depts: Record<string, { label: string, code: string, dists: Record<string, { label: string, code: string, items: SolicitudCapacitacion[] }> }> = {};
@@ -180,13 +181,19 @@ export default function AgendaCapacitacionPage() {
       <Header title="Agenda de Capacitaciones" />
       
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
-        <div className="flex gap-2 mb-8">
-            <Button variant="outline" size="sm" className="rounded-full bg-white font-black uppercase text-[9px] border-none shadow-sm gap-2">
-                <LayoutList className="h-3 w-3" /> GESTIÓN DE ACTIVIDADES
-            </Button>
-            <Button size="sm" className="rounded-full bg-[#2563EB] hover:bg-blue-700 font-black uppercase text-[9px] shadow-sm gap-2">
-                <Globe className="h-3 w-3" /> VISTA GLOBAL
-            </Button>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="rounded-full bg-white font-black uppercase text-[9px] border-none shadow-sm gap-2">
+                    <LayoutList className="h-3 w-3" /> GESTIÓN DE ACTIVIDADES
+                </Button>
+                <Button size="sm" className="rounded-full bg-[#2563EB] hover:bg-blue-700 font-black uppercase text-[9px] shadow-sm gap-2">
+                    <Globe className="h-3 w-3" /> VISTA GLOBAL
+                </Button>
+            </div>
+            <div className="bg-white px-4 py-2 rounded-full border border-dashed flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                <span className="text-[9px] font-black uppercase text-muted-foreground">ALERTAS DE INCUMPLIMIENTO ACTIVAS</span>
+            </div>
         </div>
 
         {groupedData.length === 0 ? (
@@ -227,81 +234,116 @@ export default function AgendaCapacitacionPage() {
                             </div>
                         </AccordionTrigger>
                         <AccordionContent className="pt-6 space-y-4 px-2">
-                            {dist.items.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => (
-                                <Card key={item.id} className="border-none shadow-sm bg-white rounded-2xl hover:shadow-md transition-all border border-muted/20">
-                                    <CardContent className="p-8">
-                                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                                            
-                                            {/* Columna 1: Solicitante */}
-                                            <div className="lg:col-span-4 space-y-3">
-                                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE</p>
-                                                <p className="font-black text-base uppercase leading-tight text-[#1A1A1A]">{item.solicitante_entidad || item.otra_entidad}</p>
-                                                <Badge variant="secondary" className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[9px] tracking-widest px-3 py-1 rounded-md">
-                                                    {item.tipo_solicitud}
-                                                </Badge>
-                                            </div>
+                            {dist.items.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => {
+                                const today = new Date().toISOString().split('T')[0];
+                                const isPast = item.fecha < today;
+                                const mov = movimientosData?.find(m => m.solicitud_id === item.id);
+                                const inf = informesData?.find(i => i.solicitud_id === item.id);
+                                
+                                const missingReturn = !mov?.devolucion;
+                                const missingReport = !inf;
+                                const hasAlert = isPast && (missingReturn || missingReport);
 
-                                            {/* Columna 2: Ubicación y Fecha */}
-                                            <div className="lg:col-span-3 space-y-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center">
-                                                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                                return (
+                                    <Card 
+                                        key={item.id} 
+                                        className={cn(
+                                            "border-2 shadow-sm rounded-2xl transition-all",
+                                            hasAlert ? "border-destructive/40 bg-destructive/[0.02] ring-1 ring-destructive/20" : "border-muted/20 bg-white"
+                                        )}
+                                    >
+                                        <CardContent className="p-8">
+                                            {hasAlert && (
+                                                <div className="mb-6 bg-destructive text-white px-4 py-2 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <FileWarning className="h-5 w-5" />
+                                                        <span className="font-black uppercase text-[10px] tracking-widest">ALERTA DE INCUMPLIMIENTO: ACTIVIDAD VENCIDA</span>
                                                     </div>
-                                                    <p className="font-black text-[12px] uppercase text-[#1A1A1A]">{item.lugar_local}</p>
+                                                    <div className="flex gap-2">
+                                                        {missingReturn && <Badge className="bg-white text-destructive font-black text-[8px] uppercase">PENDIENTE DEVOLUCIÓN</Badge>}
+                                                        {missingReport && <Badge className="bg-white text-destructive font-black text-[8px] uppercase">PENDIENTE INFORME</Badge>}
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center">
-                                                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                    </div>
-                                                    <p className="font-black text-[12px] uppercase text-[#1A1A1A]">{formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} HS</p>
-                                                </div>
-                                            </div>
+                                            )}
 
-                                            {/* Columna 3: Divulgador */}
-                                            <div className="lg:col-span-2 space-y-2">
-                                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR ASIGNADO</p>
-                                                {item.divulgador_nombre ? (
-                                                    <div className="flex items-center gap-2 text-[#16A34A]">
-                                                        <UserCheck className="h-5 w-5" />
-                                                        <p className="font-black text-[13px] uppercase">{item.divulgador_nombre}</p>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-xs font-black text-destructive italic uppercase">SIN ASIGNAR</p>
-                                                )}
-                                            </div>
-
-                                            {/* Columna 4: Acciones */}
-                                            <div className="lg:col-span-3 flex flex-col items-end gap-3">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="h-11 px-6 rounded-xl font-black uppercase text-[11px] border-2 gap-2 w-full max-w-[180px] bg-white hover:bg-muted/10"
-                                                    onClick={() => setAssigningSolicitud(item)}
-                                                >
-                                                    <UserPlus className="h-4 w-4" /> {item.divulgador_nombre ? 'REASIGNAR' : 'ASIGNAR'}
-                                                </Button>
+                                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                                                 
-                                                <div className="flex gap-2 w-full max-w-[180px]">
+                                                {/* Columna 1: Solicitante */}
+                                                <div className="lg:col-span-4 space-y-3">
+                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE</p>
+                                                    <p className="font-black text-base uppercase leading-tight text-[#1A1A1A]">{item.solicitante_entidad || item.otra_entidad}</p>
+                                                    <Badge variant="secondary" className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[9px] tracking-widest px-3 py-1 rounded-md">
+                                                        {item.tipo_solicitud}
+                                                    </Badge>
+                                                </div>
+
+                                                {/* Columna 2: Ubicación y Fecha */}
+                                                <div className="lg:col-span-3 space-y-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center">
+                                                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                        <p className="font-black text-[12px] uppercase text-[#1A1A1A]">{item.lugar_local}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", hasAlert ? "bg-destructive/20" : "bg-muted/30")}>
+                                                            <Calendar className={cn("h-4 w-4", hasAlert ? "text-destructive" : "text-muted-foreground")} />
+                                                        </div>
+                                                        <p className={cn("font-black text-[12px] uppercase", hasAlert ? "text-destructive" : "text-[#1A1A1A]")}>
+                                                            {formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} HS
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Columna 3: Divulgador */}
+                                                <div className="lg:col-span-2 space-y-2">
+                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR ASIGNADO</p>
+                                                    {item.divulgador_nombre ? (
+                                                        <div className="flex items-center gap-2 text-[#16A34A]">
+                                                            <UserCheck className="h-5 w-5" />
+                                                            <p className="font-black text-[13px] uppercase">{item.divulgador_nombre}</p>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs font-black text-destructive italic uppercase">SIN ASIGNAR</p>
+                                                    )}
+                                                </div>
+
+                                                {/* Columna 4: Acciones */}
+                                                <div className="lg:col-span-3 flex flex-col items-end gap-3">
                                                     <Button 
                                                         variant="outline" 
                                                         size="sm" 
-                                                        className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2 gap-2 bg-white hover:bg-muted/10"
-                                                        onClick={() => setQrSolicitud(item)}
+                                                        className="h-11 px-6 rounded-xl font-black uppercase text-[11px] border-2 gap-2 w-full max-w-[180px] bg-white hover:bg-muted/10"
+                                                        onClick={() => setAssigningSolicitud(item)}
                                                     >
-                                                        <QrCode className="h-4 w-4" />
+                                                        <UserPlus className="h-4 w-4" /> {item.divulgador_nombre ? 'REASIGNAR' : 'ASIGNAR'}
                                                     </Button>
-
-                                                    <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
-                                                        <Button className="h-11 w-full rounded-xl font-black uppercase text-[11px] bg-black hover:bg-black/90 text-white shadow-lg">
-                                                            INFORME
+                                                    
+                                                    <div className="flex gap-2 w-full max-w-[180px]">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2 gap-2 bg-white hover:bg-muted/10"
+                                                            onClick={() => setQrSolicitud(item)}
+                                                        >
+                                                            <QrCode className="h-4 w-4" />
                                                         </Button>
-                                                    </Link>
+
+                                                        <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
+                                                            <Button className={cn(
+                                                                "h-11 w-full rounded-xl font-black uppercase text-[11px] shadow-lg",
+                                                                missingReport && isPast ? "bg-destructive hover:bg-destructive/90 text-white" : "bg-black hover:bg-black/90 text-white"
+                                                            )}>
+                                                                INFORME
+                                                            </Button>
+                                                        </Link>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
                         </AccordionContent>
                       </AccordionItem>
                     ))}
@@ -393,7 +435,7 @@ export default function AgendaCapacitacionPage() {
                     onClick={copyToClipboard}
                 >
                     {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                    {copied ? "COPIADOO" : "COPIAR ENLACE MANUAL"}
+                    {copied ? "COPIADO" : "COPIAR ENLACE MANUAL"}
                 </Button>
                 <Button 
                     className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white hover:bg-black/90"
