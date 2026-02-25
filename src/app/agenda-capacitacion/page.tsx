@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -8,9 +7,9 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador } from '@/lib/data';
-import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 export default function AgendaCapacitacionPage() {
   const { user, isUserLoading } = useUser();
@@ -27,8 +27,10 @@ export default function AgendaCapacitacionPage() {
   const { toast } = useToast();
 
   const [assigningSolicitud, setAssigningSolicitud] = useState<SolicitudCapacitacion | null>(null);
+  const [qrSolicitud, setQrSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [divulSearch, setDivulSearch] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const profile = user?.profile;
 
@@ -76,7 +78,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulageresQuery);
 
   // Agrupación jerárquica
   const groupedData = useMemo(() => {
@@ -131,6 +133,23 @@ export default function AgendaCapacitacionPage() {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
         setIsUpdating(false);
       });
+  };
+
+  const surveyUrl = useMemo(() => {
+    if (typeof window === 'undefined' || !qrSolicitud) return '';
+    return `${window.location.origin}/encuesta-satisfaccion?solicitudId=${qrSolicitud.id}`;
+  }, [qrSolicitud]);
+
+  const qrImageUrl = useMemo(() => {
+    if (!surveyUrl) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(surveyUrl)}`;
+  }, [surveyUrl]);
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(surveyUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({ title: "Enlace copiado" });
   };
 
   if (isUserLoading || isLoadingSolicitudes || isLoadingDivul) {
@@ -248,6 +267,7 @@ export default function AgendaCapacitacionPage() {
                                                         variant="outline" 
                                                         size="sm" 
                                                         className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2 gap-2 bg-white hover:bg-muted/10"
+                                                        onClick={() => setQrSolicitud(item)}
                                                     >
                                                         <QrCode className="h-4 w-4" />
                                                     </Button>
@@ -274,6 +294,7 @@ export default function AgendaCapacitacionPage() {
         )}
       </main>
 
+      {/* Dialogo para Asignar Personal */}
       <Dialog open={!!assigningSolicitud} onOpenChange={(o) => !o && setAssigningSolicitud(null)}>
         <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-black text-white p-6">
@@ -315,6 +336,53 @@ export default function AgendaCapacitacionPage() {
                 </div>
               )}
             </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogo para Código QR de Encuesta */}
+      <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
+        <DialogContent className="max-w-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="bg-primary p-8 text-white">
+            <DialogTitle className="font-black uppercase text-center tracking-widest text-lg">ENCUESTA DE SATISFACCIÓN</DialogTitle>
+            <DialogDescription className="text-white/60 font-bold text-[10px] text-center uppercase mt-2">Escanee para registrar feedback ciudadano</DialogDescription>
+          </DialogHeader>
+          <div className="p-10 flex flex-col items-center bg-white space-y-8">
+            <div className="p-4 bg-white border-4 border-muted/20 rounded-[2rem] shadow-inner relative group">
+                {qrSolicitud && (
+                    <Image 
+                        src={qrImageUrl} 
+                        alt="QR Encuesta" 
+                        width={220} 
+                        height={220} 
+                        className="rounded-xl"
+                    />
+                )}
+            </div>
+            
+            <div className="text-center space-y-2">
+                <p className="font-black uppercase text-sm text-primary">{qrSolicitud?.lugar_local}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    {qrSolicitud ? formatDateToDDMMYYYY(qrSolicitud.fecha) : ''}
+                </p>
+            </div>
+
+            <div className="w-full space-y-3">
+                <Button 
+                    variant="outline" 
+                    className="w-full h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2"
+                    onClick={copyToClipboard}
+                >
+                    {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    {copied ? "COPIADO" : "COPIAR ENLACE MANUAL"}
+                </Button>
+                <Button 
+                    className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white hover:bg-black/90"
+                    onClick={() => setQrSolicitud(null)}
+                >
+                    CERRAR VENTANA
+                </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
