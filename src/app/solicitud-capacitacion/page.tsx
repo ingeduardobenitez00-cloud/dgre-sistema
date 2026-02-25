@@ -92,9 +92,7 @@ export default function SolicitudCapacitacionPage() {
       
       try {
         const L = (await import('leaflet')).default;
-        await import('leaflet/dist/leaflet.css');
         const { OpenStreetMapProvider, GeoSearchControl } = await import('leaflet-geosearch');
-        await import('leaflet-geosearch/dist/geosearch.css');
 
         if (L.Icon.Default) {
           delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -117,7 +115,6 @@ export default function SolicitudCapacitacionPage() {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Geosearch Control
         const provider = new OpenStreetMapProvider();
         const searchControl = new (GeoSearchControl as any)({ 
             provider, 
@@ -150,10 +147,12 @@ export default function SolicitudCapacitacionPage() {
           markerRef.current = L.marker([lat, lng]).addTo(map);
         });
 
-        // Ensure tiles load correctly
+        // Asegurar que el mapa se dimensione correctamente después de cargar la página
         setTimeout(() => {
-          map.invalidateSize();
-        }, 200);
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        }, 500);
 
       } catch (err) { 
         console.error("Leaflet initialization failed:", err); 

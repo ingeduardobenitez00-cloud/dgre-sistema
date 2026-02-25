@@ -1,7 +1,7 @@
-
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-geosearch/dist/geosearch.css';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
