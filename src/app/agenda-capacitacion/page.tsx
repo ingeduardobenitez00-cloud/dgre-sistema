@@ -376,10 +376,13 @@ export default function AgendaCapacitacionPage() {
 
                                                         <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
                                                             <Button className={cn(
-                                                                "h-11 w-full rounded-xl font-black uppercase text-[11px] shadow-lg",
-                                                                missingReport && isPast ? "bg-destructive hover:bg-destructive/90 text-white" : "bg-black hover:bg-black/90 text-white"
+                                                                "h-11 w-full rounded-xl font-black uppercase text-[11px] shadow-lg gap-2",
+                                                                inf 
+                                                                    ? "bg-[#16A34A] hover:bg-[#15803D] text-white" 
+                                                                    : (missingReport && isPast ? "bg-destructive hover:bg-destructive/90 text-white" : "bg-black hover:bg-black/90 text-white")
                                                             )}>
-                                                                INFORME
+                                                                {inf && <Check className="h-4 w-4" />}
+                                                                {inf ? 'CUMPLIDO' : 'INFORME'}
                                                             </Button>
                                                         </Link>
                                                     </div>
@@ -481,7 +484,7 @@ export default function AgendaCapacitacionPage() {
 
       {/* Dialogo para Código QR de Encuesta */}
       <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
-        <DialogContent className="max-w-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="max-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-primary p-8 text-white">
             <DialogTitle className="font-black uppercase text-center tracking-widest text-lg">ENCUESTA DE SATISFACCIÓN</DialogTitle>
             <DialogDescription className="text-white/60 font-bold text-[10px] text-center uppercase mt-2">Escanee para registrar feedback ciudadano</DialogDescription>
