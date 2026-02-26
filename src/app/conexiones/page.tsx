@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from 'react';
@@ -32,7 +33,7 @@ export default function ConexionesPage() {
   const { firestore } = useFirebase();
 
   const presenceQuery = useMemoFirebase(() => {
-    if (!firestore || isMeLoading) return null;
+    if (!firestore || isUserLoading) return null;
     return collection(firestore, 'presencia');
   }, [firestore, isUserLoading]);
 
@@ -61,7 +62,6 @@ export default function ConexionesPage() {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
 
-  const isMeLoading = isUserLoading;
   const isAdmin = currentUser?.profile?.role === 'admin' || currentUser?.profile?.role === 'director';
 
   if (!isAdmin) {
