@@ -1,7 +1,8 @@
+
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -21,36 +22,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // SISTEMA DE PRESENCIA (HEARTBEAT) - ACTUALIZADO PARA MAYOR PRECISIÓN
-  useEffect(() => {
-    if (!user || !firestore || !mounted) return;
-
-    const updatePresence = async () => {
-      const presenceRef = doc(firestore, 'presencia', user.uid);
-      
-      const presenceData = {
-        usuario_id: user.uid,
-        username: user.profile?.username || user.email || 'Usuario',
-        email: user.email || '',
-        role: user.profile?.role || 'funcionario',
-        departamento: user.profile?.departamento || 'N/A',
-        distrito: user.profile?.distrito || 'N/A',
-        ultima_actividad: serverTimestamp(),
-        ruta_actual: pathname || '/'
-      };
-
-      await setDoc(presenceRef, presenceData, { merge: true }).catch((err) => {
-        console.error("Error silencioso en presencia:", err);
-      });
+  // SISTEMA DE PRESENCIA (HEARTBEAT) - MEMOIZADO PARA ESTABILIDAD
+  const updatePresence = useCallback(async () => {
+    if (!user || !firestore) return;
+    
+    const presenceRef = doc(firestore, 'presencia', user.uid);
+    const presenceData = {
+      usuario_id: user.uid,
+      username: user.profile?.username || user.email || 'Usuario',
+      email: user.email || '',
+      role: user.profile?.role || 'funcionario',
+      departamento: user.profile?.departamento || 'N/A',
+      distrito: user.profile?.distrito || 'N/A',
+      ultima_actividad: serverTimestamp(),
+      ruta_actual: pathname || '/'
     };
 
-    // Actualizar inmediatamente al cargar/cambiar ruta
-    updatePresence();
+    try {
+      await setDoc(presenceRef, presenceData, { merge: true });
+    } catch (err) {
+      // Error silencioso en presencia para no interrumpir la UX
+    }
+  }, [user, firestore, pathname]);
 
-    // Actualizar cada 60 segundos (1 minuto) para mayor sensibilidad
+  useEffect(() => {
+    if (!mounted || !user) return;
+
+    updatePresence();
     const interval = setInterval(updatePresence, 60000);
     return () => clearInterval(interval);
-  }, [user, firestore, mounted, pathname]);
+  }, [mounted, user, updatePresence]);
 
   useEffect(() => {
     if (!mounted || isUserLoading) return;
@@ -83,7 +84,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!mounted || isUserLoading) {
+  // Splash screen mejorado: solo se muestra si el sistema realmente está en un estado de carga inicial crítico
+  if (!mounted || (isUserLoading && pathname !== '/login' && !pathname.startsWith('/encuesta-satisfaccion'))) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -99,11 +101,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Logic to determine if we should show the full app shell (with sidebar)
   const isLoginPage = pathname === '/login';
   const isEncuestaPage = pathname.startsWith('/encuesta-satisfaccion');
   const isPublicView = isEncuestaPage && !user;
-
   const showSimpleLayout = isLoginPage || isPublicView;
 
   return (
