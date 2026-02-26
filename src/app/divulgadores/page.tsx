@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { UserPlus, Users, Loader2, Edit, Trash2, Search, AlertCircle, UserCircle, MapPin, Landmark, Navigation, FileUp, CheckCircle2, TableIcon, X, AlertTriangle } from 'lucide-react';
+import { UserPlus, Users, Loader2, Edit, Trash2, Search, AlertCircle, UserCircle, MapPin, Landmark, Navigation, FileUp, CheckCircle2, TableIcon, X, AlertTriangle, FileWarning } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { type Dato, type Divulgador } from '@/lib/data';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function DivulgadoresPage() {
   const { toast } = useToast();
@@ -56,6 +57,7 @@ export default function DivulgadoresPage() {
   const [importPreview, setImportPreview] = useState<Omit<Divulgador, 'id' | 'fecha_registro'>[]>([]);
   const [importFileName, setImportFileName] = useState<string | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [skippedDetails, setSkippedDetails] = useState<{row: number, reason: string}[]>([]);
 
   const profile = currentUser?.profile;
 
@@ -172,6 +174,7 @@ export default function DivulgadoresPage() {
     
     setIsParsing(true);
     setImportErrors([]);
+    setSkippedDetails([]);
     setImportFileName(file.name);
     
     const reader = new FileReader();
@@ -205,14 +208,22 @@ export default function DivulgadoresPage() {
             return;
         }
 
-        let skippedRows = 0;
+        const errors: {row: number, reason: string}[] = [];
         const mappedData: Omit<Divulgador, 'id' | 'fecha_registro'>[] = json.map((row, index) => {
-          // Aseguramos que la cédula se lea como string para permitir letras
+          const excelRow = index + 2; // +1 por base 0, +1 por encabezado
           const cedulaRaw = String(row.CEDULA || '').trim().toUpperCase();
           const nombreRaw = String(row['NOMBRES Y APELLIDOS'] || row.NOMBRE || '').trim();
           
-          if (!cedulaRaw || !nombreRaw) {
-            skippedRows++;
+          if (!cedulaRaw && !nombreRaw) {
+            errors.push({ row: excelRow, reason: "Fila vacía" });
+            return null;
+          }
+          if (!cedulaRaw) {
+            errors.push({ row: excelRow, reason: "Falta Cédula" });
+            return null;
+          }
+          if (!nombreRaw) {
+            errors.push({ row: excelRow, reason: "Falta Nombre y Apellido" });
             return null;
           }
 
@@ -231,17 +242,10 @@ export default function DivulgadoresPage() {
         }).filter(d => d !== null) as Omit<Divulgador, 'id' | 'fecha_registro'>[];
 
         if (mappedData.length === 0) {
-            throw new Error("No se encontraron registros válidos en el archivo. Verifique que el nombre y la cédula no estén vacíos.");
+            throw new Error("No se encontraron registros válidos en el archivo.");
         }
 
-        if (skippedRows > 0) {
-            toast({ 
-                variant: "warning", 
-                title: "Registros incompletos", 
-                description: `Se ignoraron ${skippedRows} filas porque les faltaba información básica.` 
-            });
-        }
-
+        setSkippedDetails(errors);
         setImportPreview(mappedData);
       } catch (err: any) {
         setImportErrors([err.message || "Error desconocido al procesar el Excel."]);
@@ -279,6 +283,7 @@ export default function DivulgadoresPage() {
       setImportPreview([]);
       setImportFileName(null);
       setImportErrors([]);
+      setSkippedDetails([]);
     } catch (err) {
       toast({ variant: 'destructive', title: "Error al guardar en la nube" });
     } finally {
@@ -290,6 +295,7 @@ export default function DivulgadoresPage() {
     setImportPreview([]);
     setImportFileName(null);
     setImportErrors([]);
+    setSkippedDetails([]);
   };
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
@@ -420,7 +426,7 @@ export default function DivulgadoresPage() {
 
       {/* Modal de Importación */}
       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
           <DialogHeader className="bg-black text-white p-8">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
@@ -429,7 +435,7 @@ export default function DivulgadoresPage() {
               <div>
                 <DialogTitle className="text-2xl font-black uppercase leading-none">Importar Divulgadores</DialogTitle>
                 <DialogDescription className="text-white/60 font-bold uppercase text-[9px] tracking-widest mt-2">
-                  Cargue masivamente el personal operativo desde Excel (Soporta Cédulas Alfanuméricas)
+                  Motor de carga masiva institucional (Admite cédulas alfanuméricas)
                 </DialogDescription>
               </div>
             </div>
@@ -440,7 +446,7 @@ export default function DivulgadoresPage() {
                 <div className="bg-destructive/10 border-2 border-destructive p-6 rounded-2xl flex items-start gap-4 animate-in shake duration-500">
                     <AlertTriangle className="h-6 w-6 text-destructive shrink-0 mt-1" />
                     <div>
-                        <p className="font-black uppercase text-sm text-destructive">Error en el archivo</p>
+                        <p className="font-black uppercase text-sm text-destructive">Error crítico en el archivo</p>
                         {importErrors.map((err, idx) => <p key={idx} className="text-xs font-bold uppercase text-destructive/80 mt-1">{err}</p>)}
                         <Button variant="outline" size="sm" onClick={resetImport} className="mt-4 border-destructive text-destructive hover:bg-destructive hover:text-white font-black uppercase text-[10px]">REINTENTAR CARGA</Button>
                     </div>
@@ -454,8 +460,8 @@ export default function DivulgadoresPage() {
                     {isParsing ? <Loader2 className="h-8 w-8 animate-spin text-primary" /> : <FileUp className="h-8 w-8 text-primary/40" />}
                   </div>
                   <div className="text-center">
-                    <p className="font-black uppercase text-sm text-primary">{isParsing ? "Procesando Archivo..." : "Seleccionar Archivo Excel"}</p>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">CEDULA, VINCULO, NOMBRES Y APELLIDOS, DISTRITO, DEPARTAMENTO</p>
+                    <p className="font-black uppercase text-sm text-primary">{isParsing ? "Analizando Registros..." : "Seleccionar Archivo Excel"}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Columnas: CEDULA, VINCULO, NOMBRES Y APELLIDOS, DISTRITO, DEPARTAMENTO</p>
                   </div>
                 </div>
                 <Input type="file" accept=".xlsx,.csv" className="hidden" onChange={handleFileImport} disabled={isParsing} />
@@ -463,30 +469,54 @@ export default function DivulgadoresPage() {
             )}
 
             {importPreview.length > 0 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
+              <div className="space-y-8">
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
                       <CheckCircle2 className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-black uppercase text-xs">Archivo: {importFileName}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">{importPreview.length} Registros válidos detectados</p>
+                      <p className="font-black uppercase text-xs">Análisis de: {importFileName}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">{importPreview.length} Registros listos para cargar</p>
                     </div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={resetImport} className="text-destructive font-black uppercase text-[10px] gap-2">
-                    <X className="h-4 w-4" /> Cambiar Archivo
+                    <X className="h-4 w-4" /> Cancelar y Cambiar
                   </Button>
                 </div>
 
-                <div className="border rounded-2xl overflow-hidden bg-white shadow-sm">
+                {skippedDetails.length > 0 && (
+                    <Card className="border-2 border-amber-200 bg-amber-50/50 rounded-2xl overflow-hidden">
+                        <CardHeader className="bg-amber-100/50 py-3 px-6 flex flex-row items-center gap-2">
+                            <FileWarning className="h-4 w-4 text-amber-600" />
+                            <CardTitle className="text-[10px] font-black uppercase text-amber-700 tracking-wider">REGISTROS IGNORADOS ({skippedDetails.length})</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <ScrollArea className="h-32">
+                                <div className="divide-y divide-amber-100">
+                                    {skippedDetails.map((s, idx) => (
+                                        <div key={idx} className="px-6 py-2 flex items-center justify-between text-[10px] font-bold uppercase text-amber-800/70">
+                                            <span>Excel Fila: {s.row}</span>
+                                            <span className="bg-amber-200/50 px-2 py-0.5 rounded italic">{s.reason}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                )}
+
+                <div className="border-2 rounded-2xl overflow-hidden bg-white shadow-sm">
+                  <div className="bg-muted/30 px-6 py-3 border-b">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Vista previa de los primeros 10 registros</p>
+                  </div>
                   <Table>
-                    <TableHeader className="bg-muted/50">
+                    <TableHeader className="bg-white">
                       <TableRow>
                         <TableHead className="text-[9px] font-black uppercase px-6">Cédula</TableHead>
                         <TableHead className="text-[9px] font-black uppercase px-6">Nombres y Apellidos</TableHead>
                         <TableHead className="text-[9px] font-black uppercase px-6">Jurisdicción</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-6">Vínculo</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-6 text-center">Vínculo</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -498,14 +528,14 @@ export default function DivulgadoresPage() {
                             <p className="text-[9px] font-black uppercase leading-none">{row.departamento}</p>
                             <p className="text-[8px] font-bold text-muted-foreground uppercase">{row.distrito}</p>
                           </TableCell>
-                          <TableCell className="px-6 py-3"><Badge variant="outline" className="text-[8px] font-black uppercase">{row.vinculo}</Badge></TableCell>
+                          <TableCell className="px-6 py-3 text-center"><Badge variant="secondary" className="text-[8px] font-black uppercase bg-primary/5 text-primary border-none">{row.vinculo}</Badge></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                   {importPreview.length > 10 && (
-                    <div className="p-4 bg-muted/20 text-center border-t">
-                      <p className="text-[9px] font-black text-muted-foreground uppercase">Y {importPreview.length - 10} registros más...</p>
+                    <div className="p-4 bg-muted/10 text-center border-t">
+                      <p className="text-[9px] font-black text-muted-foreground uppercase">... Y {importPreview.length - 10} registros adicionales ...</p>
                     </div>
                   )}
                 </div>
@@ -514,14 +544,14 @@ export default function DivulgadoresPage() {
           </div>
 
           <DialogFooter className="bg-white border-t p-6 gap-4">
-            <Button variant="outline" onClick={() => setIsImportModalOpen(false)} className="font-black uppercase text-[10px] h-12 px-8">Cancelar</Button>
+            <Button variant="outline" onClick={() => setIsImportModalOpen(false)} className="font-black uppercase text-[10px] h-12 px-8 rounded-xl border-2">Cerrar</Button>
             <Button 
               onClick={handleSaveImportData} 
               disabled={importPreview.length === 0 || isUploading}
-              className="flex-1 font-black uppercase text-xs h-12 shadow-xl bg-black hover:bg-black/90"
+              className="flex-1 font-black uppercase text-xs h-12 shadow-xl bg-black hover:bg-black/90 rounded-xl"
             >
               {isUploading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <TableIcon className="mr-2 h-4 w-4" />}
-              GUARDAR IMPORTACIÓN MASIVA
+              CONFIRMAR CARGA DE {importPreview.length} REGISTROS
             </Button>
           </DialogFooter>
         </DialogContent>
