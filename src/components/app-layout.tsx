@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -28,16 +27,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     const updatePresence = async () => {
       const presenceRef = doc(firestore, 'presencia', user.uid);
-      await setDoc(presenceRef, {
+      
+      // Aseguramos que no se envíen campos como 'undefined' a Firestore
+      const presenceData = {
         usuario_id: user.uid,
-        username: user.profile?.username || user.email,
-        email: user.email,
-        role: user.profile?.role,
-        departamento: user.profile?.departamento || '',
-        distrito: user.profile?.distrito || '',
+        username: user.profile?.username || user.email || 'Usuario',
+        email: user.email || '',
+        role: user.profile?.role || 'funcionario',
+        departamento: user.profile?.departamento || 'N/A',
+        distrito: user.profile?.distrito || 'N/A',
         ultima_actividad: serverTimestamp(),
-        ruta_actual: pathname
-      }, { merge: true }).catch(() => {});
+        ruta_actual: pathname || '/'
+      };
+
+      await setDoc(presenceRef, presenceData, { merge: true }).catch((err) => {
+        console.error("Error silencioso en presencia:", err);
+      });
     };
 
     // Actualizar inmediatamente al cargar/cambiar ruta
