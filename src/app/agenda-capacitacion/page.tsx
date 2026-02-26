@@ -10,7 +10,7 @@ import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador } from '@/lib/data';
 import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check, AlertTriangle, FileWarning, PackageSearch, CalendarX, Trash2, FileDown, Printer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -107,7 +107,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divuladoresQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
   // Agrupación jerárquica con LÓGICA DE ALERTA Y ARCHIVO
   const groupedData = useMemo(() => {
