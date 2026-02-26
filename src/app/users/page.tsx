@@ -375,7 +375,7 @@ export default function UsersPage() {
     const username = formData.get('username') as string;
 
     const newUserProfile: Omit<UserProfile, 'id'> = { 
-      username: username.toUpperCase(), 
+      username: username, 
       email, 
       role: regRole, 
       modules: Array.from(selectedModules), 
@@ -412,7 +412,7 @@ export default function UsersPage() {
     setIsSubmitting(true);
     
     const updateData = { 
-      username: editingUser.username.toUpperCase(),
+      username: editingUser.username,
       role: editingUser.role, 
       modules: editingUser.modules || [], 
       permissions: editingUser.permissions || [],
@@ -460,11 +460,11 @@ export default function UsersPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Nombre y Apellido</Label>
-                    <Input name="username" placeholder="CARGA EN MAYÚSCULAS" required className="font-bold uppercase h-11 border-2" />
+                    <Input name="username" placeholder="Nombre y Apellido" required className="font-bold h-11 border-2" />
                 </div>
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Correo Institucional</Label>
-                    <Input name="email" type="email" placeholder="usuario@tsje.gov.py" required className="font-bold h-11 border-2" />
+                    <Input name="email" type="text" placeholder="usuario@tsje.gov.py" required autoCapitalize="none" className="font-bold h-11 border-2" />
                 </div>
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Contraseña</Label>
@@ -644,8 +644,8 @@ export default function UsersPage() {
                             <Label className="text-[10px] font-black uppercase text-muted-foreground">Nombre y Apellido</Label>
                             <Input 
                                 value={editingUser.username} 
-                                onChange={(e) => setEditingUser({...editingUser, username: e.target.value.toUpperCase()})}
-                                className="font-bold uppercase h-12 border-2" 
+                                onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
+                                className="font-bold h-12 border-2" 
                             />
                         </div>
                         <div className="space-y-3">
