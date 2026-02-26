@@ -22,7 +22,9 @@ import {
   CheckCircle2,
   Info,
   Settings2,
-  HelpCircle
+  HelpCircle,
+  ExternalLinkIcon,
+  ShoppingCart
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -67,78 +69,94 @@ export default function DocumentacionPage() {
                 <Card className="border-t-4 border-t-[#EA4335] shadow-lg">
                   <CardHeader className="bg-muted/5">
                     <CardTitle className="uppercase font-black text-lg flex items-center gap-2">
-                      <ShieldCheck className="h-5 w-5 text-[#EA4335]" /> Configuración para evitar el SPAM
+                      <ShieldCheck className="h-5 w-5 text-[#EA4335]" /> ¿Cómo obtener un Dominio?
                     </CardTitle>
                     <CardDescription className="text-[10px] font-bold uppercase">
-                      Guía para que los correos de reseteo de contraseña lleguen a la bandeja de entrada.
+                      Firebase no vende dominios, solo te permite conectar uno que ya poseas.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-8 pt-6">
                     
-                    <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
+                    <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
                         <div className="flex gap-3">
-                            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-                            <p className="text-xs text-amber-800 font-bold uppercase leading-tight">
-                                Sin una firma digital válida (DKIM), Gmail marcará los correos automáticos como sospechosos. Aquí tienes dos caminos a seguir:
+                            <Info className="h-5 w-5 text-blue-600 shrink-0" />
+                            <p className="text-xs text-blue-800 font-bold uppercase leading-tight">
+                                Para que tus correos no lleguen a SPAM, necesitas un dominio institucional o profesional (ej. tsje.gov.py o tu-institucion.com).
                             </p>
                         </div>
                     </div>
 
                     <Accordion type="single" collapsible className="w-full space-y-4">
-                        <AccordionItem value="con-dominio" className="border rounded-xl px-4 bg-white">
+                        <AccordionItem value="obtener-dominio" className="border rounded-xl px-4 bg-white">
                             <AccordionTrigger className="hover:no-underline">
                                 <div className="flex items-center gap-3">
-                                    <Globe className="h-5 w-5 text-blue-600" />
-                                    <span className="font-black uppercase text-sm">Opción A: Tengo un dominio propio</span>
+                                    <ShoppingCart className="h-5 w-5 text-green-600" />
+                                    <span className="font-black uppercase text-sm">Paso 1: ¿Dónde comprarlo?</span>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="space-y-4 pb-6">
-                                <p className="text-xs text-muted-foreground">Esta es la solución definitiva. Sigue estos pasos en la Consola de Firebase:</p>
-                                <div className="space-y-3 pl-4">
-                                    <div className="flex items-start gap-2">
-                                        <Badge className="bg-black text-[8px] h-5 w-5 rounded-full p-0 flex items-center justify-center shrink-0">1</Badge>
-                                        <p className="text-xs">Ve a <b>Authentication > Templates</b> y edita "Password Reset".</p>
+                                <p className="text-xs text-muted-foreground">Existen varios proveedores confiables. Una vez que lo compres, tendrás un "Panel de Control" donde pegaremos los códigos de Firebase.</p>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="p-3 border rounded-lg text-center">
+                                        <p className="font-black text-[10px] mb-1">NIC.PY</p>
+                                        <p className="text-[9px] text-muted-foreground">Para dominios .py (Paraguay)</p>
                                     </div>
-                                    <div className="flex items-start gap-2">
-                                        <Badge className="bg-black text-[8px] h-5 w-5 rounded-full p-0 flex items-center justify-center shrink-0">2</Badge>
-                                        <p className="text-xs">Haz clic en <b>"Personalizar dominio"</b> e ingresa tu URL (ej. tsje.gov.py).</p>
+                                    <div className="p-3 border rounded-lg text-center">
+                                        <p className="font-black text-[10px] mb-1">GODADDY</p>
+                                        <p className="text-[9px] text-muted-foreground">Líder mundial (.com, .net)</p>
                                     </div>
-                                    <div className="flex items-start gap-2">
-                                        <Badge className="bg-black text-[8px] h-5 w-5 rounded-full p-0 flex items-center justify-center shrink-0">3</Badge>
-                                        <p className="text-xs">Copia los registros <b>TXT</b> y <b>CNAME</b> que te entregue Firebase y pégalos en tu panel de control de DNS.</p>
+                                    <div className="p-3 border rounded-lg text-center">
+                                        <p className="font-black text-[10px] mb-1">NAMECHEAP</p>
+                                        <p className="text-[9px] text-muted-foreground">Muy económicos y seguros</p>
                                     </div>
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
 
-                        <AccordionItem value="sin-dominio" className="border rounded-xl px-4 bg-white">
+                        <AccordionItem value="conectar-firebase" className="border rounded-xl px-4 bg-white">
                             <AccordionTrigger className="hover:no-underline">
                                 <div className="flex items-center gap-3">
-                                    <HelpCircle className="h-5 w-5 text-amber-600" />
-                                    <span className="font-black uppercase text-sm">Opción B: No tengo dominio propio</span>
+                                    <Globe className="h-5 w-5 text-blue-600" />
+                                    <span className="font-black uppercase text-sm">Paso 2: Conectar a Firebase</span>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="space-y-4 pb-6">
-                                <p className="text-xs text-muted-foreground">Si no puedes adquirir un dominio, aplica estas estrategias para mejorar la entrega:</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <Card className="p-4 border-dashed border-2 bg-muted/10">
-                                        <p className="text-[10px] font-black uppercase text-primary mb-2">Entrenamiento de Filtros</p>
-                                        <p className="text-[11px] leading-tight text-muted-foreground italic">
-                                            Indica a los funcionarios que la primera vez deben buscar el correo en "Spam" y marcarlo como <b>"No es Spam"</b>. Esto le dice a Google que el remitente es de confianza.
-                                        </p>
-                                    </Card>
-                                    <Card className="p-4 border-dashed border-2 bg-muted/10">
-                                        <p className="text-[10px] font-black uppercase text-primary mb-2">Nombre Institucional</p>
-                                        <p className="text-[11px] leading-tight text-muted-foreground italic">
-                                            Como ya has configurado el nombre "Dirección General del Registro Electoral", esto ayuda a que los filtros de contenido no sean tan agresivos.
-                                        </p>
-                                    </Card>
+                                <p className="text-xs text-muted-foreground">Una vez que tengas tu nombre de dominio:</p>
+                                <div className="space-y-3 pl-4">
+                                    <div className="flex items-start gap-2">
+                                        <Badge className="bg-black text-[8px] h-5 w-5 rounded-full p-0 flex items-center justify-center shrink-0">1</Badge>
+                                        <p className="text-xs">Ve a la sección <b>Hosting</b> en Firebase Console.</p>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <Badge className="bg-black text-[8px] h-5 w-5 rounded-full p-0 flex items-center justify-center shrink-0">2</Badge>
+                                        <p className="text-xs">Haz clic en <b>"Agregar dominio personalizado"</b>.</p>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <Badge className="bg-black text-[8px] h-5 w-5 rounded-full p-0 flex items-center justify-center shrink-0">3</Badge>
+                                        <p className="text-xs">Firebase te dará registros **A** o **TXT**. Cópialos y pégalos en el panel de tu proveedor (donde compraste el dominio).</p>
+                                    </div>
                                 </div>
-                                <div className="bg-blue-50 p-4 rounded-xl flex items-start gap-3 mt-4 border border-blue-100">
-                                    <Info className="h-5 w-5 text-blue-600 shrink-0" />
-                                    <p className="text-[11px] text-blue-800 font-bold uppercase leading-tight">
-                                        NOTA: Firebase NO permite usar una cuenta @gmail.com personal como remitente oficial para evitar "Spoofing" (suplantación de identidad).
-                                    </p>
+                            </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem value="sin-dominio-smtp" className="border rounded-xl px-4 bg-white">
+                            <AccordionTrigger className="hover:no-underline">
+                                <div className="flex items-center gap-3">
+                                    <Settings2 className="h-5 w-5 text-amber-600" />
+                                    <span className="font-black uppercase text-sm">Opción B: NO tengo dominio (Usar Gmail)</span>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="space-y-4 pb-6">
+                                <p className="text-xs text-muted-foreground">Si no puedes comprar un dominio, la única forma de que no sea SPAM es que los correos salgan **desde tu propia cuenta de Gmail** como si los enviaras tú manualmente.</p>
+                                <div className="bg-amber-50 p-4 rounded-xl space-y-3 border border-amber-100">
+                                    <p className="text-[11px] font-bold text-amber-900 uppercase">CONFIGURACIÓN SMTP (GMAIL):</p>
+                                    <ol className="text-[10px] space-y-2 list-decimal pl-4 font-medium">
+                                        <li>Ve a tu Cuenta de Google {">"} Seguridad {">"} **Contraseña de Aplicaciones**.</li>
+                                        <li>Genera una clave de 16 letras para "Correo".</li>
+                                        <li>En Firebase Console {">"} Authentication {">"} Templates {">"} **Configuración de SMTP**.</li>
+                                        <li>Host: <code className="bg-white px-1">smtp.gmail.com</code> | Puerto: <code className="bg-white px-1">465</code></li>
+                                        <li>Usa tu correo y la clave de 16 letras.</li>
+                                    </ol>
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
@@ -151,36 +169,25 @@ export default function DocumentacionPage() {
               <div className="lg:col-span-4 space-y-6">
                 <Card className="bg-black text-white p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
                   <div className="absolute -right-4 -top-4 opacity-10">
-                    <Settings2 className="h-32 w-32" />
+                    <Globe className="h-32 w-32" />
                   </div>
                   <h3 className="font-black uppercase text-xs mb-6 flex items-center gap-2 text-amber-400">
-                    <ShieldAlert className="h-4 w-4" /> Importancia Técnica
+                    <AlertCircle className="h-4 w-4" /> Concepto Clave
                   </h3>
                   <p className="text-xs leading-relaxed opacity-80 mb-6 font-bold uppercase">
-                    Los correos que salen desde subdominios genéricos de Google (`.firebaseapp.com`) son los blancos más fáciles para los filtros de spam automáticos. Autenticar un dominio propio es la única forma de garantizar un 100% de éxito en la entrega.
+                    Firebase te asigna un dominio gratuito para tu sitio web, pero **los proveedores de correo (Gmail, Outlook) desconfían de estos dominios genéricos**. 
                   </p>
                   <Separator className="bg-white/20 mb-6" />
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">BENEFICIOS DEL DOMINIO:</p>
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Firma Digital DKIM válida
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Reputación de remitente alta
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Imagen 100% Institucional
-                        </div>
-                    </div>
-                  </div>
+                  <p className="text-[10px] leading-relaxed font-medium opacity-60 italic uppercase">
+                    Un dominio propio es como una "Cédula de Identidad" para tu sistema. Sin ella, los servidores de correo te tratan como un desconocido (SPAM).
+                  </p>
                 </Card>
 
                 <Card className="p-6 border-2 border-dashed flex flex-col items-center text-center gap-4">
                     <ExternalLink className="h-8 w-8 text-muted-foreground opacity-20" />
-                    <p className="text-[10px] font-black uppercase text-muted-foreground">Manual de Firebase</p>
+                    <p className="text-[10px] font-black uppercase text-muted-foreground">Panel de Dominios</p>
                     <Button variant="outline" className="w-full font-black uppercase text-[10px]" asChild>
-                        <a href="https://firebase.google.com/docs/auth/admin/email-settings" target="_blank" rel="noopener noreferrer">Ver Documentación Oficial</a>
+                        <a href="https://console.firebase.google.com/project/_/hosting/main" target="_blank" rel="noopener noreferrer">Ir a Hosting en Firebase</a>
                     </Button>
                 </Card>
               </div>
