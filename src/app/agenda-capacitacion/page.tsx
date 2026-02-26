@@ -107,7 +107,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divuladoresQuery);
 
   // Agrupación jerárquica con LÓGICA DE ALERTA Y ARCHIVO
   const groupedData = useMemo(() => {
@@ -154,10 +154,14 @@ export default function AgendaCapacitacionPage() {
   }, [rawSolicitudes, datosData, movimientosData, informesData]);
 
   const filteredDivul = useMemo(() => {
-    if (!rawDivulgadores) return [];
+    if (!rawDivulgadores || !assigningSolicitud) return [];
     const term = divulSearch.toLowerCase().trim();
-    return rawDivulgadores.filter(d => d.nombre.toLowerCase().includes(term) || d.cedula.includes(term));
-  }, [rawDivulgadores, divulSearch]);
+    // RESTRICCIÓN CRÍTICA: Solo mostrar divulgadores del distrito de la actividad
+    return rawDivulgadores.filter(d => 
+      d.distrito === assigningSolicitud.distrito &&
+      (d.nombre.toLowerCase().includes(term) || d.cedula.includes(term))
+    );
+  }, [rawDivulgadores, divulSearch, assigningSolicitud]);
 
   const handleAssignDivulgador = (divulgador: Divulgador) => {
     if (!assigningSolicitud || !firestore) return;
@@ -490,7 +494,7 @@ export default function AgendaCapacitacionPage() {
         <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-black text-white p-6">
             <DialogTitle className="font-black uppercase tracking-widest text-sm flex items-center gap-2">
-                <UserPlus className="h-4 w-4" /> ASIGNAR PERSONAL OPERATIVO
+                <UserPlus className="h-4 w-4" /> ASIGNAR PERSONAL - {assigningSolicitud?.distrito.toUpperCase()}
             </DialogTitle>
           </DialogHeader>
           <div className="p-6 space-y-4 bg-white">
@@ -505,9 +509,9 @@ export default function AgendaCapacitacionPage() {
             </div>
             <ScrollArea className="h-[350px] pr-2">
               {filteredDivul.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 opacity-20">
-                    <UserPlus className="h-12 w-12 mb-2" />
-                    <p className="text-[10px] font-black uppercase">No se encontró personal</p>
+                <div className="flex flex-col items-center justify-center py-20 opacity-20 text-center">
+                    <UserPlus className="h-12 w-12 mb-2 mx-auto" />
+                    <p className="text-[10px] font-black uppercase">No se encontró personal registrado en {assigningSolicitud?.distrito}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
