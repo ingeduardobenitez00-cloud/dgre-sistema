@@ -28,7 +28,7 @@ const MODULE_GROUPS = [
   },
   {
     label: "Análisis y Reportes",
-    description: "Consolidados nacionales, resúmenes por ubicación y generación de informes generales en PDF.",
+    description: "Consolidados nacionales, resúmenes por ubicación y monitoreo de conexiones activas.",
     modules: ['resumen', 'informe-general', 'conexiones']
   },
   {
@@ -43,8 +43,8 @@ const MODULE_GROUPS = [
   },
   {
     label: "Sistema",
-    description: "Administración de usuarios, permisos, roles, configuración geográfica y documentación del sistema.",
-    modules: ['users', 'settings', 'documentacion']
+    description: "Administración de usuarios, permisos, roles, auditoría técnica y documentación del sistema.",
+    modules: ['users', 'settings', 'documentacion', 'auditoria']
   },
 ];
 

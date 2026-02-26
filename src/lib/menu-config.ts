@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -48,7 +48,7 @@ export const dashboardMenuItems = [
     href: '/archivo-capacitaciones',
     label: 'Historial / Archivo',
     icon: History,
-    description: 'Consulta de actividades finalizadas y archivadas.',
+    description: 'Consulta de actividades finalizadas y archivadas por jurisdicción.',
   },
   {
     href: '/divulgadores',
@@ -73,6 +73,12 @@ export const dashboardMenuItems = [
     label: 'Monitoreo de Conexiones',
     icon: Activity,
     description: 'Seguimiento en tiempo real de usuarios activos en el sistema.',
+  },
+  {
+    href: '/auditoria',
+    label: 'Auditoría del Sistema',
+    icon: ScrollText,
+    description: 'Registro cronológico de acciones y movimientos de usuarios.',
   },
   {
     href: '/ficha',

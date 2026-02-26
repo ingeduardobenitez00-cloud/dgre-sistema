@@ -86,6 +86,7 @@ const MODULE_STRUCTURE = [
       { id: 'divulgadores', label: 'DIRECTORIO DIVULGADORES' },
       { id: 'estadisticas-capacitacion', label: 'ESTADÍSTICAS CIDEE' },
       { id: 'encuesta-satisfaccion', label: 'ENCUESTA SATISFACCIÓN' },
+      { id: 'archivo-capacitaciones', label: 'HISTORIAL / ARCHIVO' },
     ]
   },
   {
@@ -101,6 +102,7 @@ const MODULE_STRUCTURE = [
     items: [
       { id: 'resumen', label: 'RESUMEN UBICACIONES' },
       { id: 'informe-general', label: 'INFORME GENERAL PDF' },
+      { id: 'conexiones', label: 'MONITOREO CONEXIONES' },
     ]
   },
   {
@@ -124,6 +126,7 @@ const MODULE_STRUCTURE = [
       { id: 'users', label: 'GESTIÓN USUARIOS' },
       { id: 'settings', label: 'CONFIGURACIÓN' },
       { id: 'documentacion', label: 'DOCUMENTACIÓN' },
+      { id: 'auditoria', label: 'AUDITORÍA DEL SISTEMA' },
     ]
   }
 ];
@@ -135,10 +138,6 @@ const GLOBAL_PERMS = [
   { id: 'assign_staff', label: 'ASIGNAR PERSONAL' },
 ];
 
-/**
- * COMPONENTE DE MATRIZ DE PERMISOS
- * Movido fuera del componente principal para evitar que el acordeón se cierre al interactuar
- */
 const PermissionMatrix = ({ 
   userObj, 
   isEditing = false, 
