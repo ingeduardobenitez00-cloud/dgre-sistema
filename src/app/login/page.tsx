@@ -24,7 +24,7 @@ import {
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, UserPlus, LogIn, MapPin } from 'lucide-react';
+import { Eye, EyeOff, Loader2, UserPlus, LogIn, MapPin, MessageCircle, HelpCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type Dato } from '@/lib/data';
 
@@ -97,7 +97,6 @@ export default function LoginPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, regData.email, regData.password);
       const user = userCredential.user;
 
-      // Definición exacta de módulos para el rol Jefe solicitado
       const jefeModules = [
         'solicitud-capacitacion',
         'agenda-capacitacion',
@@ -108,20 +107,17 @@ export default function LoginPage() {
         'encuesta-satisfaccion'
       ];
 
-      // Construcción de permisos automáticos: FILTRO DISTRITAL incluido por defecto
       const jefePermissions = [
         'assign_staff',
-        'district_filter' // EL JEFE TENDRÁ AUTOMÁTICAMENTE FILTRO DISTRITAL
+        'district_filter'
       ];
 
-      // Asignación de permisos granulares (Ver, Guardar, PDF) para cada módulo autorizado
       jefeModules.forEach(mod => {
         jefePermissions.push(`${mod}:view`);
         jefePermissions.push(`${mod}:add`);
         jefePermissions.push(`${mod}:pdf`);
       });
 
-      // Create User Profile in Firestore with role 'jefe'
       await setDoc(doc(firestore, 'users', user.uid), {
         username: regData.username, 
         email: regData.email,
@@ -133,7 +129,6 @@ export default function LoginPage() {
         fecha_registro: new Date().toISOString()
       });
 
-      // Sign out the user immediately after registration to force manual login and session refresh
       await signOut(auth);
       
       setLoginEmail(regData.email);
@@ -169,7 +164,7 @@ export default function LoginPage() {
       await sendPasswordResetEmail(auth, email);
       toast({
         title: 'Correo enviado',
-        description: 'Revisa tu bandeja de entrada para restablecer tu contraseña.',
+        description: 'Revisa tu bandeja de entrada para restablecer tu contraseña. Si no lo ves, revisa la carpeta SPAM.',
       });
     } catch (error) {
       toast({
@@ -178,6 +173,13 @@ export default function LoginPage() {
         description: 'No se pudo enviar el correo.',
       });
     }
+  };
+
+  const handleWhatsAppSupport = () => {
+    const email = mode === 'login' ? loginEmail : regData.email;
+    const message = `Hola Soporte CIDEE. Olvidé mi contraseña. Mi correo registrado es: ${email || '[INGRESAR CORREO]'}`;
+    const whatsappUrl = `https://wa.me/595981000000?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -261,18 +263,32 @@ export default function LoginPage() {
                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
                   Ingresar
                 </Button>
-                <div className="relative w-full text-center">
-                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-muted" /></div>
-                  <span className="relative bg-background px-4 text-[9px] font-black text-muted-foreground uppercase">O solicita tu acceso</span>
+                
+                <div className="grid grid-cols-2 gap-3 w-full">
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="border-2 font-black uppercase text-[9px] gap-2 h-10"
+                        onClick={handleWhatsAppSupport}
+                    >
+                        <MessageCircle className="h-3.5 w-3.5 text-green-600" /> Soporte WhatsApp
+                    </Button>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="border-2 font-black uppercase text-[9px] gap-2 h-10"
+                        onClick={() => setMode('register')}
+                    >
+                        <UserPlus className="h-3.5 w-3.5" /> Nuevo Jefe
+                    </Button>
                 </div>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="w-full border-2 border-primary text-primary font-black uppercase text-[10px]"
-                  onClick={() => setMode('register')}
-                >
-                  <UserPlus className="mr-2 h-4 w-4" /> Registrarse como Jefe
-                </Button>
+
+                <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 flex items-start gap-3 mt-2">
+                    <HelpCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-[9px] font-bold text-amber-800 uppercase leading-tight">
+                        Si solicitó el reseteo y no llega el correo, revise su carpeta de <b>SPAM / CORREO NO DESEADO</b> o contacte a soporte.
+                    </p>
+                </div>
               </CardFooter>
             </form>
           ) : (
