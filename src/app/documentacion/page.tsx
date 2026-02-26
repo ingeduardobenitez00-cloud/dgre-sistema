@@ -17,20 +17,18 @@ import {
   Landmark, 
   Mail, 
   ShieldAlert,
-  Dns,
   AlertCircle,
   ExternalLink,
   CheckCircle2,
   Info,
-  Settings2
+  Settings2,
+  Key
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-// Utilidad local para clases condicionales
 const cn = (...inputs: any[]) => inputs.filter(Boolean).join(' ');
 
-// Componente Separador local
 const Separator = ({ className }: { className?: string }) => <div className={cn("h-px w-full bg-border", className)} />;
 
 export default function DocumentacionPage() {
@@ -50,7 +48,7 @@ export default function DocumentacionPage() {
         <Tabs defaultValue="correo" className="space-y-8">
           <TabsList className="grid w-full grid-cols-1 md:grid-cols-4 lg:w-[800px] bg-white border shadow-sm h-auto p-1">
             <TabsTrigger value="correo" className="gap-2 font-black uppercase text-[10px] py-2">
-              <Mail className="h-3.5 w-3.5" /> Autenticación de Correo
+              <Mail className="h-3.5 w-3.5" /> Config. Correo
             </TabsTrigger>
             <TabsTrigger value="roles" className="gap-2 font-black uppercase text-[10px] py-2">
               <Users className="h-3.5 w-3.5" /> Roles y Permisos
@@ -66,76 +64,77 @@ export default function DocumentacionPage() {
           <TabsContent value="correo" className="animate-in fade-in duration-500 space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-8 space-y-6">
-                <Card className="border-t-4 border-t-[#EA4335] shadow-lg">
+                
+                <Card className="border-t-4 border-t-blue-600 shadow-lg">
                   <CardHeader className="bg-muted/5">
                     <CardTitle className="uppercase font-black text-lg flex items-center gap-2">
-                      <ShieldCheck className="h-5 w-5 text-[#EA4335]" /> Configuración de Dominio (Evitar SPAM)
+                      <Key className="h-5 w-5 text-blue-600" /> Opción B: Sin Dominio Propio (Usar Gmail SMTP)
                     </CardTitle>
                     <CardDescription className="text-[10px] font-bold uppercase">
-                      Paso crítico para que los correos de recuperación no lleguen a la carpeta de correo no deseado.
+                      Si no tienes un dominio (.com, .net), usa tu cuenta personal de forma segura.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-8 pt-6">
-                    
-                    <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
-                        <div className="flex gap-3">
-                            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-                            <p className="text-xs text-amber-800 font-bold uppercase leading-tight">
-                                Aunque ya hayas cambiado el "Nombre del Remitente", si el correo sale desde "@firebaseapp.com", Gmail lo marcará como sospechoso. Es OBLIGATORIO usar un dominio propio.
-                            </p>
-                        </div>
+                    <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+                        <p className="text-xs text-blue-800 font-bold uppercase leading-tight">
+                            Esta configuración permite que los correos salgan directamente desde tu cuenta de Gmail, eliminando casi al 100% el riesgo de caer en SPAM sin necesidad de registros DNS.
+                        </p>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-black text-white flex items-center justify-center font-black text-xs">1</div>
-                            <h3 className="font-black uppercase text-sm">Activar Dominio Personalizado</h3>
+                    <div className="space-y-6">
+                        <div className="flex items-start gap-3">
+                            <div className="h-6 w-6 rounded-full bg-black text-white flex items-center justify-center font-black text-[10px] shrink-0">1</div>
+                            <div>
+                                <h3 className="font-black uppercase text-xs mb-1">Generar Contraseña de Aplicación</h3>
+                                <p className="text-[11px] text-muted-foreground">Entra a tu Cuenta de Google > Seguridad > "Contraseñas de aplicaciones". Crea una nueva y copia el código de 16 letras.</p>
+                            </div>
                         </div>
-                        <div className="pl-11 space-y-2">
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                En la <b>Consola de Firebase</b> > <b>Authentication</b> > <b>Templates</b>, haz clic en el icono del lápiz en "Password Reset". Busca la opción que dice <b>"usar un dominio personalizado"</b>.
-                            </p>
-                        </div>
-                    </div>
 
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-black text-white flex items-center justify-center font-black text-xs">2</div>
-                            <h3 className="font-black uppercase text-sm">Vincular registros DNS</h3>
+                        <div className="flex items-start gap-3">
+                            <div className="h-6 w-6 rounded-full bg-black text-white flex items-center justify-center font-black text-[10px] shrink-0">2</div>
+                            <div>
+                                <h3 className="font-black uppercase text-xs mb-1">Habilitar SMTP en Firebase</h3>
+                                <p className="text-[11px] text-muted-foreground">En la Consola de Firebase > Authentication > Templates > Haz clic en <b>Configuración de SMTP</b> al final.</p>
+                            </div>
                         </div>
-                        <div className="pl-11 space-y-6">
-                            <p className="text-xs text-muted-foreground">Firebase te proporcionará una tabla con los siguientes registros que debes copiar:</p>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Card className="p-4 bg-white border-2 border-dashed border-blue-200">
-                                    <Badge className="bg-blue-600 mb-2">Registro TXT</Badge>
-                                    <p className="text-[10px] font-black uppercase text-primary mb-1">Verificación de Dueño:</p>
-                                    <p className="text-[11px] text-muted-foreground italic leading-tight">Le dice a Google: "Sí, yo soy el dueño legal de este dominio".</p>
-                                </Card>
-                                <Card className="p-4 bg-white border-2 border-dashed border-green-200">
-                                    <Badge className="bg-green-600 mb-2">Registros CNAME (DKIM)</Badge>
-                                    <p className="text-[10px] font-black uppercase text-primary mb-1">Autorización de Envío:</p>
-                                    <p className="text-[11px] text-muted-foreground italic leading-tight">Autoriza a los servidores de Firebase a "firmar" correos en nombre de tu institución.</p>
-                                </Card>
+
+                        <div className="pl-9">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-muted/30 rounded-xl border border-dashed">
+                                <div>
+                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Servidor (Host):</p>
+                                    <p className="text-[10px] font-bold">smtp.gmail.com</p>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Puerto:</p>
+                                    <p className="text-[10px] font-bold">465 (SSL) / 587 (TLS)</p>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Usuario:</p>
+                                    <p className="text-[10px] font-bold">tucorreo@gmail.com</p>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Contraseña:</p>
+                                    <p className="text-[10px] font-bold text-blue-600">Código de 16 letras generado</p>
+                                </div>
                             </div>
                         </div>
                     </div>
+                  </CardContent>
+                </Card>
 
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-black text-white flex items-center justify-center font-black text-xs">3</div>
-                            <h3 className="font-black uppercase text-sm">Propagación y Verificación</h3>
-                        </div>
-                        <div className="pl-11">
-                            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                                <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-                                <p className="text-[11px] text-blue-800 leading-tight">
-                                    Una vez agregados los registros en tu proveedor (GoDaddy, Namecheap, etc.), vuelve a Firebase y presiona <b>"Verificar"</b>. El estado debe cambiar a <b>"Verified"</b> para que la firma digital empiece a funcionar.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
+                <Card className="border-t-4 border-t-[#EA4335] shadow-lg opacity-60">
+                  <CardHeader className="bg-muted/5">
+                    <CardTitle className="uppercase font-black text-lg flex items-center gap-2">
+                      <Globe className="h-5 w-5 text-[#EA4335]" /> Opción A: Con Dominio Institucional
+                    </CardTitle>
+                    <CardDescription className="text-[10px] font-bold uppercase">
+                      Requiere acceso al panel DNS de tu proveedor (GoDaddy, Wix, etc.)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-6">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                        Si en el futuro adquieres un dominio (ej. <b>tsje.gov.py</b>), podrás autenticarlo agregando los registros <b>TXT</b> y <b>CNAME</b> que Firebase te proporciona automáticamente al hacer clic en "Personalizar dominio".
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -146,34 +145,23 @@ export default function DocumentacionPage() {
                     <Settings2 className="h-32 w-32" />
                   </div>
                   <h3 className="font-black uppercase text-xs mb-6 flex items-center gap-2 text-amber-400">
-                    <ShieldAlert className="h-4 w-4" /> ¿Por qué es vital?
+                    <ShieldAlert className="h-4 w-4" /> Recomendación Final
                   </h3>
                   <p className="text-xs leading-relaxed opacity-80 mb-6 font-bold uppercase">
-                    Los filtros de spam actuales (Gmail/Outlook) descartan cualquier correo que no tenga registros <b>SPF</b> y <b>DKIM</b> válidos. Al configurar el dominio personalizado, estás activando estas protecciones.
+                    Configurar el <b>SMTP de Gmail</b> es la solución más rápida si no tienes dominio. Los usuarios verán que el correo viene de tu cuenta real y Google no lo bloqueará.
                   </p>
                   <Separator className="bg-white/20 mb-6" />
                   <div className="space-y-4">
-                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">RESULTADO FINAL:</p>
+                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">ESTADO ACTUAL:</p>
                     <div className="space-y-3">
                         <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Remitente: dgre@tusistema.com
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Nombre Público OK
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Sello de "Correo Seguro"
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Entrada directa al INBOX
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-white/40">
+                            <AlertCircle className="h-3.5 w-3.5" /> Autenticación Pendiente
                         </div>
                     </div>
                   </div>
-                </Card>
-
-                <Card className="p-6 border-2 border-dashed flex flex-col items-center text-center gap-4">
-                    <ExternalLink className="h-8 w-8 text-muted-foreground opacity-20" />
-                    <p className="text-[10px] font-black uppercase text-muted-foreground">Tutorial Oficial de Firebase</p>
-                    <Button variant="outline" className="w-full font-black uppercase text-[10px]" asChild>
-                        <a href="https://firebase.google.com/docs/auth/admin/email-settings" target="_blank" rel="noopener noreferrer">Guía de Autenticación</a>
-                    </Button>
                 </Card>
               </div>
             </div>
