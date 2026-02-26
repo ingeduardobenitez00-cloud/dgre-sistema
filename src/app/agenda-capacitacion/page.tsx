@@ -8,7 +8,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador } from '@/lib/data';
-import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check, AlertTriangle, FileWarning, PackageSearch, CalendarX, Trash2 } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check, AlertTriangle, FileWarning, PackageSearch, CalendarX, Trash2, FileDown, Printer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import jsPDF from 'jspdf';
 
 export default function AgendaCapacitacionPage() {
   const { user, isUserLoading } = useUser();
@@ -34,10 +35,27 @@ export default function AgendaCapacitacionPage() {
   const [cancelReason, setCancelReason] = useState('');
   
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [divulSearch, setDivulSearch] = useState('');
   const [copied, setCopied] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   const profile = user?.profile;
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const response = await fetch('/logo.png');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setLogoBase64(reader.result as string);
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error("Error fetching logo:", error);
+      }
+    };
+    fetchLogo();
+  }, []);
 
   // Permisos de filtrado
   const hasAdminFilter = useMemo(() => 
@@ -205,6 +223,69 @@ export default function AgendaCapacitacionPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast({ title: "Enlace copiado" });
+  };
+
+  const generateQrPDF = async () => {
+    if (!qrSolicitud || !logoBase64) return;
+    setIsGeneratingPdf(true);
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Header Institucional
+        doc.addImage(logoBase64, 'PNG', 20, 10, 25, 25);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text("JUSTICIA ELECTORAL", pageWidth / 2, 20, { align: 'center' });
+        doc.setFontSize(10);
+        doc.text("SISTEMA DE GESTIÓN INTEGRAL CIDEE", pageWidth / 2, 28, { align: 'center' });
+        
+        doc.setLineWidth(0.5);
+        doc.line(20, 40, pageWidth - 20, 40);
+        
+        // Título del Documento
+        doc.setFontSize(18);
+        doc.text("CÓDIGO QR - ENCUESTA DE SATISFACCIÓN", pageWidth / 2, 55, { align: 'center' });
+        
+        // Detalles de la Actividad
+        doc.setFontSize(12);
+        doc.text(`LOCAL: ${qrSolicitud.lugar_local.toUpperCase()}`, pageWidth / 2, 75, { align: 'center' });
+        doc.text(`DISTRITO: ${qrSolicitud.distrito.toUpperCase()} | DEPTO: ${qrSolicitud.departamento.toUpperCase()}`, pageWidth / 2, 83, { align: 'center' });
+        doc.text(`FECHA: ${formatDateToDDMMYYYY(qrSolicitud.fecha)} | HORARIO: ${qrSolicitud.hora_desde} HS.`, pageWidth / 2, 91, { align: 'center' });
+
+        // Obtener el QR como Base64 para jsPDF
+        const response = await fetch(qrImageUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        const qrBase64 = await new Promise<string>((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+        
+        const qrSize = 100;
+        doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize) / 2, 105, qrSize, qrSize);
+        
+        // Pie de página con instrucciones
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Instrucciones: Escanee este código con la cámara de su teléfono", pageWidth / 2, 220, { align: 'center' });
+        doc.text("para acceder al formulario oficial de satisfacción ciudadana.", pageWidth / 2, 226, { align: 'center' });
+        
+        doc.setLineWidth(0.2);
+        doc.setDrawColor(200);
+        doc.line(40, 240, pageWidth - 40, 240);
+        doc.setFontSize(8);
+        doc.text("CUSTODIO DE LA VOLUNTAD POPULAR - REPÚBLICA DEL PARAGUAY", pageWidth / 2, 250, { align: 'center' });
+
+        doc.save(`QR-Encuesta-${qrSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
+        toast({ title: "PDF Generado con éxito" });
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: "Error al generar PDF" });
+    } finally {
+        setIsGeneratingPdf(false);
+    }
   };
 
   if (isUserLoading || isLoadingSolicitudes || isLoadingDivul) {
@@ -511,14 +592,25 @@ export default function AgendaCapacitacionPage() {
             </div>
 
             <div className="w-full space-y-3">
-                <Button 
-                    variant="outline" 
-                    className="w-full h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2"
-                    onClick={copyToClipboard}
-                >
-                    {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                    {copied ? "COPIADO" : "COPIAR ENLACE MANUAL"}
-                </Button>
+                <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                        variant="outline" 
+                        className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2"
+                        onClick={copyToClipboard}
+                    >
+                        {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        {copied ? "COPIADO" : "COPIAR ENLACE"}
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2 text-primary border-primary/20 hover:bg-primary/5"
+                        onClick={generateQrPDF}
+                        disabled={isGeneratingPdf}
+                    >
+                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                        IMPRIMIR QR
+                    </Button>
+                </div>
                 <Button 
                     className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white hover:bg-black/90"
                     onClick={() => setQrSolicitud(null)}
