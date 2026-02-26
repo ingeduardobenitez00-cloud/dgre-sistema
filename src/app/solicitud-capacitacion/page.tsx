@@ -36,7 +36,7 @@ import { type PartidoPolitico } from '@/lib/data';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { recordAuditLog } from '@/lib/audit'; // IMPORTACIÓN DEL MOTOR DE AUDITORÍA
+import { recordAuditLog } from '@/lib/audit';
 import {
   Command,
   CommandEmpty,
@@ -63,7 +63,6 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Importación dinámica del Mapa
 const MapModule = dynamic(() => import('@/components/map-module'), { 
   ssr: false,
   loading: () => (
@@ -181,7 +180,6 @@ export default function SolicitudCapacitacionPage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Estados para Cámara
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -245,7 +243,8 @@ export default function SolicitudCapacitacionPage() {
   };
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
-    const cleanTerm = (cedulaInput || '').trim().replace(/\D/g, ''); 
+    // MODIFICACIÓN: Permitir letras en el término de búsqueda para cédulas alfanuméricas
+    const cleanTerm = (cedulaInput || '').trim().toUpperCase(); 
     if (!firestore || cleanTerm.length < 4) return;
     setIsSearchingCedula(true);
     try {
@@ -257,13 +256,13 @@ export default function SolicitudCapacitacionPage() {
         setPadronFound(true);
       } else { 
         setPadronFound(false);
-        toast({ variant: "destructive", title: "No encontrado" });
+        toast({ variant: "destructive", title: "No encontrado", description: "Verifique si el número ingresado es correcto." });
       }
     } catch (error) { setPadronFound(false); } finally { setIsSearchingCedula(false); }
   }, [firestore, toast]);
 
   const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, cedula: e.target.value, nombre_completo: '' }));
+    setFormData(prev => ({ ...prev, cedula: e.target.value.toUpperCase(), nombre_completo: '' }));
     setPadronFound(false);
   };
 
@@ -288,21 +287,19 @@ export default function SolicitudCapacitacionPage() {
     }
     setIsSubmitting(true);
     
-    // 1. Preparamos los datos con metadatos de auditoría básica
     const docData = { 
       ...formData, 
       departamento: profile?.departamento || '', 
       distrito: profile?.distrito || '', 
       foto_firma: photoDataUri || '', 
       usuario_id: user.uid, 
-      creado_por: profile?.username || user.email, // Metadatos Nivel 1
+      creado_por: profile?.username || user.email,
       fecha_creacion: new Date().toISOString(), 
       server_timestamp: serverTimestamp() 
     };
     
     addDoc(collection(firestore, 'solicitudes-capacitacion'), docData)
       .then((docRef) => {
-        // 2. REGISTRO EN MOTOR DE AUDITORÍA (Nivel 2)
         recordAuditLog(firestore, {
           usuario_id: user.uid,
           usuario_nombre: profile?.username || user.email || 'Usuario Desconocido',
@@ -327,7 +324,6 @@ export default function SolicitudCapacitacionPage() {
   const generatePDF = () => {
     if (!logoBase64) return;
     
-    // AUDITORÍA: Registrar generación de PDF
     if (user && firestore) {
         recordAuditLog(firestore, {
             usuario_id: user.uid,
@@ -348,7 +344,6 @@ export default function SolicitudCapacitacionPage() {
     doc.setFontSize(18);
     doc.text("Justicia Electoral", pageWidth / 2, 15, { align: "center" });
     
-    // ... resto del código de generación de PDF idéntico ...
     doc.save(`Solicitud-${formData.lugar_local.replace(/\s+/g, '-') || 'AnexoV'}.pdf`);
   };
 
@@ -499,7 +494,7 @@ export default function SolicitudCapacitacionPage() {
                     <div className="space-y-2">
                         <Label className="text-[9px] font-black uppercase text-muted-foreground">C.I.C. N°</Label>
                         <div className="flex gap-2">
-                            <Input value={formData.cedula} onChange={handleCedulaChange} className="h-11 font-black border-2" />
+                            <Input value={formData.cedula} onChange={handleCedulaChange} className="h-11 font-black border-2 uppercase" />
                             <Button variant="secondary" size="icon" className="h-11 w-11 shrink-0" onClick={() => searchCedulaInPadron(formData.cedula)} disabled={isSearchingCedula}>
                                 {isSearchingCedula ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
                             </Button>

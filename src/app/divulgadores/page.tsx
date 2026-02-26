@@ -116,7 +116,7 @@ export default function DivulgadoresPage() {
   const filteredDivul = useMemo(() => {
     if (!divulgadores) return [];
     const term = searchTerm.toLowerCase().trim();
-    return divulgadores.filter(d => d.nombre.toLowerCase().includes(term) || d.cedula.includes(term));
+    return divulgadores.filter(d => d.nombre.toLowerCase().includes(term) || d.cedula.toLowerCase().includes(term));
   }, [divulgadores, searchTerm]);
 
   const handleRegister = (e: React.FormEvent<HTMLFormElement>) => {
@@ -135,7 +135,7 @@ export default function DivulgadoresPage() {
     const formData = new FormData(e.currentTarget);
     const docData = {
       nombre: (formData.get('nombre') as string).toUpperCase(),
-      cedula: formData.get('cedula') as string,
+      cedula: (formData.get('cedula') as string).toUpperCase(),
       vinculo: formData.get('vinculo') as any,
       departamento: finalDept,
       distrito: finalDist,
@@ -166,7 +166,6 @@ export default function DivulgadoresPage() {
     });
   };
 
-  // Lógica de Importación Reforzada
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -192,7 +191,6 @@ export default function DivulgadoresPage() {
             throw new Error("El archivo Excel parece estar vacío.");
         }
 
-        // Validación de encabezados
         const firstRow = json[0];
         const headers = Object.keys(firstRow).map(h => h.toUpperCase().trim());
         const requiredColumns = ['CEDULA', 'DISTRITO', 'DEPARTAMENTO'];
@@ -209,7 +207,8 @@ export default function DivulgadoresPage() {
 
         let skippedRows = 0;
         const mappedData: Omit<Divulgador, 'id' | 'fecha_registro'>[] = json.map((row, index) => {
-          const cedulaRaw = String(row.CEDULA || '').trim();
+          // Aseguramos que la cédula se lea como string para permitir letras
+          const cedulaRaw = String(row.CEDULA || '').trim().toUpperCase();
           const nombreRaw = String(row['NOMBRES Y APELLIDOS'] || row.NOMBRE || '').trim();
           
           if (!cedulaRaw || !nombreRaw) {
@@ -314,7 +313,7 @@ export default function DivulgadoresPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Cédula</Label>
-                  <Input name="cedula" required className="font-black h-11 border-2" />
+                  <Input name="cedula" required className="font-black h-11 border-2 uppercase" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Vínculo</Label>
@@ -430,7 +429,7 @@ export default function DivulgadoresPage() {
               <div>
                 <DialogTitle className="text-2xl font-black uppercase leading-none">Importar Divulgadores</DialogTitle>
                 <DialogDescription className="text-white/60 font-bold uppercase text-[9px] tracking-widest mt-2">
-                  Cargue masivamente el personal operativo desde Excel
+                  Cargue masivamente el personal operativo desde Excel (Soporta Cédulas Alfanuméricas)
                 </DialogDescription>
               </div>
             </div>
@@ -493,7 +492,7 @@ export default function DivulgadoresPage() {
                     <TableBody>
                       {importPreview.slice(0, 10).map((row, idx) => (
                         <TableRow key={idx} className="border-b last:border-0">
-                          <TableCell className="px-6 py-3 font-bold text-[11px]">{row.cedula}</TableCell>
+                          <TableCell className="px-6 py-3 font-bold text-[11px] uppercase">{row.cedula}</TableCell>
                           <TableCell className="px-6 py-3 font-black text-[11px] uppercase text-primary">{row.nombre}</TableCell>
                           <TableCell className="px-6 py-3">
                             <p className="text-[9px] font-black uppercase leading-none">{row.departamento}</p>
