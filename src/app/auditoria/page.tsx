@@ -30,14 +30,19 @@ export default function AuditoriaPage() {
   const { firestore } = useFirebase();
   const [search, setSearch] = useState('');
 
+  const isAdmin = useMemo(() => 
+    currentUser?.profile?.role === 'admin' || currentUser?.profile?.role === 'director',
+    [currentUser]
+  );
+
   const auditQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading) return null;
+    if (!firestore || isUserLoading || !isAdmin) return null;
     return query(
         collection(firestore, 'auditoria'), 
         orderBy('fecha_servidor', 'desc'),
         limit(200)
     );
-  }, [firestore, isUserLoading]);
+  }, [firestore, isUserLoading, isAdmin]);
 
   const { data: logs, isLoading } = useCollection<AuditLog>(auditQuery);
 
@@ -52,11 +57,9 @@ export default function AuditoriaPage() {
     );
   }, [logs, search]);
 
-  if (isUserLoading || isLoading) {
+  if (isUserLoading) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
-
-  const isAdmin = currentUser?.profile?.role === 'admin' || currentUser?.profile?.role === 'director';
 
   if (!isAdmin) {
     return (
@@ -105,64 +108,70 @@ export default function AuditoriaPage() {
                 <CardDescription className="text-[10px] font-bold uppercase">Listado cronológico de las últimas 200 acciones realizadas</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader className="bg-muted/30">
-                            <TableRow>
-                                <TableHead className="text-[9px] font-black uppercase tracking-widest px-8">Fecha y Hora</TableHead>
-                                <TableHead className="text-[9px] font-black uppercase tracking-widest">Usuario</TableHead>
-                                <TableHead className="text-[9px] font-black uppercase tracking-widest">Módulo</TableHead>
-                                <TableHead className="text-[9px] font-black uppercase tracking-widest">Acción</TableHead>
-                                <TableHead className="text-[9px] font-black uppercase tracking-widest px-8">Detalle de la Operación</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredLogs.map((log) => (
-                                <TableRow key={log.id} className="hover:bg-muted/20 transition-colors border-b">
-                                    <TableCell className="px-8 py-6">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-black text-primary">
-                                                {log.fecha_servidor ? format(log.fecha_servidor.toDate(), "dd/MM/yyyy", { locale: es }) : '---'}
-                                            </span>
-                                            <span className="text-[9px] font-bold text-muted-foreground">
-                                                {log.fecha_servidor ? format(log.fecha_servidor.toDate(), "HH:mm:ss", { locale: es }) : '---'}
-                                            </span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <User className="h-3 w-3 opacity-30" />
-                                            <div>
-                                                <p className="font-black text-[10px] uppercase leading-tight">{log.usuario_nombre}</p>
-                                                <p className="text-[8px] font-bold text-muted-foreground uppercase">{log.usuario_rol}</p>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="bg-muted/20 text-[8px] font-black uppercase border-primary/10">
-                                            {log.modulo.replace('-', ' ')}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <span className={cn(
-                                            "text-[10px] font-black uppercase",
-                                            log.accion === 'CREAR' ? "text-green-600" : 
-                                            log.accion === 'BORRAR' ? "text-destructive" : 
-                                            log.accion === 'EDITAR' ? "text-amber-600" : "text-primary"
-                                        )}>
-                                            {log.accion}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="px-8 max-w-md">
-                                        <p className="text-[10px] font-medium leading-relaxed italic text-muted-foreground">
-                                            {log.detalles || 'Sin detalles adicionales'}
-                                        </p>
-                                    </TableCell>
+                {isLoading ? (
+                    <div className="flex justify-center items-center py-20">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader className="bg-muted/30">
+                                <TableRow>
+                                    <TableHead className="text-[9px] font-black uppercase tracking-widest px-8">Fecha y Hora</TableHead>
+                                    <TableHead className="text-[9px] font-black uppercase tracking-widest">Usuario</TableHead>
+                                    <TableHead className="text-[9px] font-black uppercase tracking-widest">Módulo</TableHead>
+                                    <TableHead className="text-[9px] font-black uppercase tracking-widest">Acción</TableHead>
+                                    <TableHead className="text-[9px] font-black uppercase tracking-widest px-8">Detalle de la Operación</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredLogs.map((log) => (
+                                    <TableRow key={log.id} className="hover:bg-muted/20 transition-colors border-b">
+                                        <TableCell className="px-8 py-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-black text-primary">
+                                                    {log.fecha_servidor ? format(log.fecha_servidor.toDate(), "dd/MM/yyyy", { locale: es }) : '---'}
+                                                </span>
+                                                <span className="text-[9px] font-bold text-muted-foreground">
+                                                    {log.fecha_servidor ? format(log.fecha_servidor.toDate(), "HH:mm:ss", { locale: es }) : '---'}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <User className="h-3 w-3 opacity-30" />
+                                                <div>
+                                                    <p className="font-black text-[10px] uppercase leading-tight">{log.usuario_nombre}</p>
+                                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">{log.usuario_rol}</p>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="bg-muted/20 text-[8px] font-black uppercase border-primary/10">
+                                                {log.modulo.replace('-', ' ')}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={cn(
+                                                "text-[10px] font-black uppercase",
+                                                log.accion === 'CREAR' ? "text-green-600" : 
+                                                log.accion === 'BORRAR' ? "text-destructive" : 
+                                                log.accion === 'EDITAR' ? "text-amber-600" : "text-primary"
+                                            )}>
+                                                {log.accion}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="px-8 max-w-md">
+                                            <p className="text-[10px] font-medium leading-relaxed italic text-muted-foreground">
+                                                {log.detalles || 'Sin detalles adicionales'}
+                                            </p>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
             </CardContent>
         </Card>
 

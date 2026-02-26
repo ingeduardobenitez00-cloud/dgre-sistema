@@ -23,6 +23,18 @@ service cloud.firestore {
       return isSignedIn() && data != null && data.role == 'director';
     }
 
+    /** Regla para Auditoría **/
+    match /auditoria/{logId} {
+      allow read: if isAdmin() || isDirector();
+      allow create: if isSignedIn();
+    }
+
+    /** Regla para Presencia **/
+    match /presencia/{userId} {
+      allow read: if isAdmin() || isDirector();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
     /** Regla para el Padrón Electoral **/
     match /padron/{document=**} {
       allow read: if isSignedIn();
