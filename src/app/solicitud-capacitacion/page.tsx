@@ -243,7 +243,6 @@ export default function SolicitudCapacitacionPage() {
   };
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
-    // MODIFICACIÓN: Permitir letras en el término de búsqueda para cédulas alfanuméricas
     const cleanTerm = (cedulaInput || '').trim().toUpperCase(); 
     if (!firestore || cleanTerm.length < 4) return;
     setIsSearchingCedula(true);
@@ -311,7 +310,7 @@ export default function SolicitudCapacitacionPage() {
         });
 
         toast({ title: "¡Solicitud Registrada!" });
-        setFormData(p => ({ ...p, solicitante_entidad: '', otra_entidad: '', lugar_local: '', nombre_completo: '', cedula: '', gps: '' }));
+        setFormData(p => ({ ...p, solicitante_entidad: '', otra_entidad: '', lugar_local: '', nombre_completo: '', cedula: '', gps: '', telefono: '' }));
         setPhotoDataUri(null);
         setIsSubmitting(false);
       })
@@ -499,6 +498,15 @@ export default function SolicitudCapacitacionPage() {
                                 {isSearchingCedula ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
                             </Button>
                         </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Número de Celular</Label>
+                        <Input 
+                            value={formData.telefono} 
+                            onChange={(e) => setFormData(prev => ({ ...prev, telefono: e.target.value }))} 
+                            placeholder="EJ: 09xx 123 456"
+                            className="h-11 font-bold border-2" 
+                        />
                     </div>
                 </div>
               </div>
