@@ -23,7 +23,7 @@ import {
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, UserPlus, LogIn, MapPin, HelpCircle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, UserPlus, LogIn, MapPin } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type Dato } from '@/lib/data';
 
@@ -265,13 +265,6 @@ export default function LoginPage() {
                     >
                         <UserPlus className="h-4 w-4" /> Registrarse como Jefe
                     </Button>
-                </div>
-
-                <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 flex items-start gap-3 mt-2">
-                    <HelpCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[9px] font-bold text-amber-800 uppercase leading-tight">
-                        Si solicitó el reseteo y no llega el correo, revise su carpeta de <b>SPAM / CORREO NO DESEADO</b> o contacte a soporte.
-                    </p>
                 </div>
               </CardFooter>
             </form>
