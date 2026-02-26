@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -24,7 +23,7 @@ import {
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, UserPlus, LogIn, MapPin, MessageCircle, HelpCircle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, UserPlus, LogIn, MapPin, HelpCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type Dato } from '@/lib/data';
 
@@ -175,13 +174,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleWhatsAppSupport = () => {
-    const email = mode === 'login' ? loginEmail : regData.email;
-    const message = `Hola Soporte CIDEE. Olvidé mi contraseña. Mi correo registrado es: ${email || '[INGRESAR CORREO]'}`;
-    const whatsappUrl = `https://wa.me/595981000000?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
        <div className="w-full max-w-md space-y-8">
@@ -264,22 +256,14 @@ export default function LoginPage() {
                   Ingresar
                 </Button>
                 
-                <div className="grid grid-cols-2 gap-3 w-full">
+                <div className="w-full">
                     <Button 
                         type="button" 
                         variant="outline" 
-                        className="border-2 font-black uppercase text-[9px] gap-2 h-10"
-                        onClick={handleWhatsAppSupport}
-                    >
-                        <MessageCircle className="h-3.5 w-3.5 text-green-600" /> Soporte WhatsApp
-                    </Button>
-                    <Button 
-                        type="button" 
-                        variant="outline" 
-                        className="border-2 font-black uppercase text-[9px] gap-2 h-10"
+                        className="w-full border-2 font-black uppercase text-[10px] gap-2 h-11"
                         onClick={() => setMode('register')}
                     >
-                        <UserPlus className="h-3.5 w-3.5" /> Nuevo Jefe
+                        <UserPlus className="h-4 w-4" /> Registrarse como Jefe
                     </Button>
                 </div>
 
