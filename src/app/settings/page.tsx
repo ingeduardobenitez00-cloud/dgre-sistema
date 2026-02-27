@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -432,15 +433,15 @@ export default function SettingsPage() {
                                             <AccordionContent className="pb-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                                                     {dept.districts.map(d => (
-                                                        <div key={d.id} className="flex items-center justify-between p-3 rounded-xl bg-primary/[0.03] border-2 border-primary/5 hover:border-primary/20 transition-all group">
-                                                            <div className="flex flex-col">
-                                                                <div className="flex items-center gap-2">
+                                                        <div key={d.id} className="flex items-start justify-between p-3 rounded-xl bg-primary/[0.03] border-2 border-primary/5 hover:border-primary/20 transition-all group">
+                                                            <div className="flex flex-col flex-1 min-w-0 mr-2">
+                                                                <div className="flex items-center gap-2 mb-1">
                                                                     <span className="text-[8px] font-black text-primary/40 uppercase">CÓD: {d.distrito_codigo || '??'}</span>
                                                                 </div>
-                                                                <span className="text-[10px] font-black uppercase truncate">{d.name}</span>
+                                                                <span className="text-[10px] font-black uppercase leading-tight break-words">{d.name}</span>
                                                             </div>
                                                             
-                                                            <div className="flex items-center gap-1">
+                                                            <div className="flex items-center gap-1 shrink-0">
                                                                 <Button 
                                                                     variant="ghost" 
                                                                     size="icon" 
