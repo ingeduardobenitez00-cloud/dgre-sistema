@@ -87,11 +87,25 @@ export default function DivulgadoresPage() {
   const { data: datosData } = useCollection<Dato>(datosQuery);
 
   const departments = useMemo(() => {
-    if (!datosData) return [];
-    return [...new Set(datosData.map(d => d.departamento))].sort();
-  }, [datosData]);
+    let depts = datosData ? [...new Set(datosData.map(d => d.departamento))] : [];
+    // Asegurar que SEDE CENTRAL esté disponible para administración
+    if (hasAdminFilter && !depts.includes('SEDE CENTRAL')) {
+        depts.push('SEDE CENTRAL');
+    }
+    return depts.sort();
+  }, [datosData, hasAdminFilter]);
 
   const districts = useMemo(() => {
+    if (selectedDept === 'SEDE CENTRAL') {
+        return [
+            'CIDEE (CENTRO DE INFORMACIÓN)',
+            'DIRECCIÓN DE RECURSOS ELECTORALES',
+            'DIRECCIÓN DE LOGÍSTICA ELECTORAL',
+            'DIRECCIÓN GENERAL DEL REGISTRO ELECTORAL',
+            'COORDINACIÓN NACIONAL',
+            'OFICINA CENTRAL - TSJE'
+        ].sort();
+    }
     if (!datosData || !selectedDept) return [];
     return [...new Set(datosData.filter(d => d.departamento === selectedDept).map(d => d.distrito))].sort();
   }, [datosData, selectedDept]);
@@ -336,7 +350,7 @@ export default function DivulgadoresPage() {
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-primary">Departamento</Label>
                     {hasAdminFilter ? (
-                      <Select name="departamento" required onValueChange={setSelectedDept} value={selectedDept}>
+                      <Select name="departamento" required onValueChange={(v) => { setSelectedDept(v); setSelectedDist(''); }} value={selectedDept}>
                         <SelectTrigger className="font-bold h-11"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                         <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                       </Select>
@@ -345,7 +359,7 @@ export default function DivulgadoresPage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-primary">Distrito</Label>
+                    <Label className="text-[10px] font-black uppercase text-primary">Distrito / Oficina</Label>
                     {hasDistFilter ? (
                       <div className="h-11 flex items-center px-3 font-black uppercase text-sm bg-muted/50 border-2 rounded-md">{profile?.distrito}</div>
                     ) : (
