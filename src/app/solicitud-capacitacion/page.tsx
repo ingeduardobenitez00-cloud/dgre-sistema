@@ -336,12 +336,158 @@ export default function SolicitudCapacitacionPage() {
     const doc = new jsPDF();
     const margin = 20;
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    doc.addImage(logoBase64, 'PNG', margin, 5, 22, 22);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text("Justicia Electoral", pageWidth / 2, 15, { align: "center" });
+    // 1. Logos and Header
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text("REPÚBLICA DEL PARAGUAY", margin + 15, 10);
+    doc.setFontSize(10);
+    doc.text("Justicia Electoral", margin + 15, 14);
     
+    doc.addImage(logoBase64, 'PNG', margin, 8, 12, 12);
+
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Justicia Electoral", pageWidth / 2, 18, { align: "center" });
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Custodio de la Voluntad Popular", pageWidth / 2, 25, { align: "center" });
+
+    // Right side tricolor bars
+    const barWidth = 3;
+    const barHeight = 15;
+    const barX = pageWidth - margin - 10;
+    doc.setFillColor(200, 0, 0); // Red
+    doc.rect(barX, 10, barWidth, barHeight, 'F');
+    doc.setFillColor(240, 240, 240); // Whiteish
+    doc.rect(barX + barWidth, 10, barWidth, barHeight, 'F');
+    doc.setFillColor(0, 0, 200); // Blue
+    doc.rect(barX + (barWidth * 2), 10, barWidth, barHeight, 'F');
+
+    // 2. Title Box
+    doc.setFillColor(230, 230, 210); 
+    doc.rect(margin, 35, pageWidth - (margin * 2), 8, 'F');
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text("ANEXO V – PROFORMA DE SOLICITUD", pageWidth / 2, 40.5, { align: "center" });
+
+    // 3. Date Line
+    let y = 55;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text("________________, _____ de ________________ de 2026", pageWidth - margin, y, { align: 'right' });
+
+    // 4. Recipient
+    y += 15;
+    doc.text("Señor/a", margin, y);
+    y += 6;
+    doc.text("__________________________________________________________", margin, y);
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text("Presente:", margin, y);
+
+    // 5. Body Text
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    const bodyText = "Tengo el agrado de dirigirme a usted/es, en virtud a las próximas Elecciones Internas simultáneas de las Organizaciones Políticas del 07 de junio del 2026, a los efectos de solicitar:";
+    const splitBody = doc.splitTextToSize(bodyText, pageWidth - (margin * 2) - 10);
+    doc.text(splitBody, margin + 10, y);
+    y += (splitBody.length * 5);
+
+    // 6. Checkboxes
+    y += 5;
+    const drawCheckbox = (label: string, checked: boolean, yPos: number) => {
+      doc.rect(margin + 15, yPos - 4, 5, 5);
+      if (checked) {
+        doc.setFont('helvetica', 'bold');
+        doc.text("X", margin + 16, yPos);
+        doc.setFont('helvetica', 'normal');
+      }
+      doc.text(label, margin + 25, yPos);
+    };
+
+    drawCheckbox("Divulgación sobre el uso de la Máquina de Votación Electrónica.", formData.tipo_solicitud === 'divulgacion', y);
+    y += 7;
+    drawCheckbox("Capacitación sobre las funciones de los miembros de mesa receptora de votos.", formData.tipo_solicitud === 'capacitacion', y);
+
+    // 7. Activity Table
+    y += 10;
+    const tableData = [
+      ["FECHA", `:  ${formData.fecha ? formData.fecha.split('-').reverse().join(' / ') : '/  /'}  /2026`],
+      ["HORARIO", `DESDE:  ${formData.hora_desde}  :  horas\nHASTA:  ${formData.hora_hasta}  :  horas`],
+      ["LUGAR Y/O LOCAL", `: ${formData.lugar_local.toUpperCase()}`],
+      ["DIRECCIÓN", `CALLE: ${formData.direccion_calle.toUpperCase()}`],
+      ["BARRIO - COMPAÑIA", `: ${formData.barrio_compania.toUpperCase()}`],
+      ["DISTRITO", `: ${profile?.distrito?.toUpperCase() || ''}`]
+    ];
+
+    autoTable(doc, {
+      startY: y,
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
+      columnStyles: {
+        0: { cellWidth: 45, fontStyle: 'bold' },
+        1: { cellWidth: 'auto' }
+      },
+      margin: { left: margin, right: margin }
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 5;
+
+    // 8. Solicitante Section Header
+    doc.setFont('helvetica', 'normal');
+    doc.text("DATOS DEL SOLICITANTE – APODERADO", margin + 5, y);
+    doc.rect(margin + 75, y - 4, 5, 5);
+    if(formData.rol_solicitante === 'apoderado') doc.text("X", margin + 76, y);
+    doc.text("OTRO", margin + 85, y);
+    doc.rect(margin + 98, y - 4, 5, 5);
+    if(formData.rol_solicitante === 'otro') doc.text("X", margin + 99, y);
+
+    y += 5;
+    // 9. Solicitante Table
+    const applicantData = [
+      ["NOMBRE COMPLETO", `: ${formData.nombre_completo.toUpperCase()}`],
+      ["C.I.C. N.º", `: ${formData.cedula}`],
+      ["NÚMERO DE CONTACTO\n(CELULAR – LÍNEA BAJA)", `: ${formData.telefono}`]
+    ];
+
+    autoTable(doc, {
+      startY: y,
+      body: applicantData,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
+      columnStyles: {
+        0: { cellWidth: 45, fontStyle: 'bold' },
+        1: { cellWidth: 'auto' }
+      },
+      margin: { left: margin, right: margin }
+    });
+
+    y = (doc as any).lastAutoTable.finalY;
+
+    // 10. Observation Box
+    doc.setFillColor(230, 230, 210);
+    doc.rect(margin, y, pageWidth - (margin * 2), 15, 'F');
+    doc.rect(margin, y, pageWidth - (margin * 2), 15, 'S');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text("OBSERVACIÓN", pageWidth / 2, y + 4, { align: 'center' });
+    doc.setFont('helvetica', 'bolditalic');
+    doc.text("La recepción de solicitudes se realiza hasta 48 horas de antelación a la fecha del evento.", pageWidth / 2, y + 8, { align: 'center' });
+    doc.text("En caso de cancelación de la actividad debe informarse con 24 horas de anticipación.", pageWidth / 2, y + 12, { align: 'center' });
+
+    // 11. Closing
+    y += 25;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Se hace propicia la ocasión para saludarle muy cordialmente.", margin, y);
+
+    // 12. Signature
+    y += 30;
+    doc.text("Firma del Solicitante: ________________________________________________", margin, y);
+
     doc.save(`Solicitud-${formData.lugar_local.replace(/\s+/g, '-') || 'AnexoV'}.pdf`);
   };
 
@@ -534,7 +680,7 @@ export default function SolicitudCapacitacionPage() {
                 {photoDataUri ? (
                     <div className="relative aspect-video w-full rounded-2xl overflow-hidden border-4 border-white shadow-xl group">
                         <Image src={photoDataUri} alt="Respaldo" fill className="object-cover" />
-                        <Button variant="destructive" size="icon" className="absolute top-4 right-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setPhotoDataUri(null)}>
+                        <Button variant="destructive" size="icon" className="absolute top-4 right-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setPhotoDataUri(null)}>
                             <Trash2 className="h-5 w-5" />
                         </Button>
                     </div>
