@@ -23,6 +23,7 @@ export type AppUser = User & {
 export interface UserHookResult {
   user: AppUser | null;
   isUserLoading: boolean;
+  isProfileLoading: boolean;
   userError: Error | null;
 }
 
@@ -44,12 +45,12 @@ export const useUser = (): UserHookResult => {
     };
   }, [authUser, profileData]);
 
-  // Cargando solo si el auth está cargando o si hay un usuario pero su perfil aún se está buscando
-  const loading = isAuthLoading || (!!authUser && isProfileLoading);
-
+  // OPTIMIZACIÓN: Solo bloqueamos el inicio global con isAuthLoading.
+  // El perfil se carga de forma asíncrona para que la UI responda de inmediato.
   return {
     user: enrichedUser,
-    isUserLoading: loading,
+    isUserLoading: isAuthLoading,
+    isProfileLoading: isProfileLoading,
     userError: authError || profileError,
   };
 };

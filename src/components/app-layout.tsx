@@ -22,7 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // SISTEMA DE PRESENCIA (HEARTBEAT) - MEMOIZADO PARA ESTABILIDAD
+  // SISTEMA DE PRESENCIA (HEARTBEAT)
   const updatePresence = useCallback(async () => {
     if (!user || !firestore) return;
     
@@ -41,7 +41,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     try {
       await setDoc(presenceRef, presenceData, { merge: true });
     } catch (err) {
-      // Error silencioso en presencia para no interrumpir la UX
+      // Error silencioso
     }
   }, [user, firestore, pathname]);
 
@@ -56,7 +56,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted || isUserLoading) return;
 
-    // Definir rutas que no requieren login
     const publicRoutes = ['/login', '/encuesta-satisfaccion'];
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
@@ -84,7 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Splash screen mejorado: solo se muestra si el sistema realmente está en un estado de carga inicial crítico
+  // OPTIMIZACIÓN: Mostramos la pantalla de carga solo durante el check de Auth
   if (!mounted || (isUserLoading && pathname !== '/login' && !pathname.startsWith('/encuesta-satisfaccion'))) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">

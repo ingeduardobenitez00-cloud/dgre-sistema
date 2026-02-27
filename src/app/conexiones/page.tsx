@@ -25,15 +25,17 @@ type PresenceRecord = {
   ruta_actual: string;
 };
 
-// Margen de 15 minutos para considerar a un usuario ONLINE (más flexible para clock skew)
-const ONLINE_THRESHOLD_MS = 900000;
+/**
+ * AJUSTE DE TOLERANCIA HORARIA:
+ * Se amplía a 75 minutos (1h 15m) para compensar desfases de zona horaria (Paraguay UTC-4 vs Server).
+ */
+const ONLINE_THRESHOLD_MS = 4500000;
 
 export default function ConexionesPage() {
   const { user: currentUser, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const [now, setNow] = useState(Date.now());
 
-  // Actualizador de tiempo local para que el estado Online/Offline sea reactivo
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(timer);
@@ -119,7 +121,6 @@ export default function ConexionesPage() {
                 <CardTitle className="uppercase font-black text-sm tracking-widest flex items-center gap-3">
                     <UserCheck className="h-5 w-5 text-primary" /> LISTADO DE ACTIVIDAD RECIENTE
                 </CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase">Estado de conexión actualizado automáticamente por telemetría</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
                 <div className="overflow-x-auto">
