@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -67,7 +68,6 @@ export default function AgendaCapacitacionPage() {
     fetchLogo();
   }, []);
 
-  // Permisos de filtrado
   const hasAdminFilter = useMemo(() => 
     ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
     [profile]
@@ -83,7 +83,6 @@ export default function AgendaCapacitacionPage() {
     [profile, hasAdminFilter, hasDeptFilter]
   );
 
-  // Queries
   const solicitudesQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
@@ -119,26 +118,18 @@ export default function AgendaCapacitacionPage() {
 
   const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
-  // Agrupación jerárquica con LÓGICA DE ALERTA Y ARCHIVO
   const groupedData = useMemo(() => {
     if (!rawSolicitudes || !datosData) return [];
 
     const today = new Date().toISOString().split('T')[0];
 
-    // LÓGICA: Mostrar si es futura O si es pasada pero le falta algo (Devolución o Informe)
-    // EXCLUIR CANCELADAS
     const activeSolicitudes = rawSolicitudes.filter(sol => {
         if (sol.cancelada) return false;
-
         const mov = movimientosData?.find(m => m.solicitud_id === sol.id);
         const inf = informesData?.find(i => i.solicitud_id === sol.id);
-        
         const isPast = sol.fecha < today;
         const isClosed = mov?.devolucion && inf;
-
-        // Se ARCHIVA (no se muestra aquí) si pasó la fecha Y está todo cerrado
-        const shouldArchive = isPast && isClosed;
-        return !shouldArchive;
+        return !(isPast && isClosed);
     });
 
     const depts: Record<string, { label: string, code: string, dists: Record<string, { label: string, code: string, items: SolicitudCapacitacion[] }> }> = {};
@@ -166,7 +157,6 @@ export default function AgendaCapacitacionPage() {
   const filteredDivul = useMemo(() => {
     if (!rawDivulgadores || !assigningSolicitud) return [];
     const term = divulSearch.toLowerCase().trim();
-    // RESTRICCIÓN CRÍTICA: Solo mostrar divulgadores del distrito de la actividad
     return rawDivulgadores.filter(d => 
       d.distrito === assigningSolicitud.distrito &&
       (d.nombre.toLowerCase().includes(term) || d.cedula.includes(term))
@@ -199,19 +189,16 @@ export default function AgendaCapacitacionPage() {
   const handleConfirmCancel = () => {
     if (!cancellingSolicitud || !firestore || !cancelReason.trim()) return;
     setIsUpdating(true);
-    
     const updateData = {
         cancelada: true,
         motivo_cancelacion: cancelReason.toUpperCase(),
         fecha_cancelacion: new Date().toISOString(),
         usuario_cancelacion: user?.profile?.username || ''
     };
-
     const docRef = doc(firestore, 'solicitudes-capacitacion', cancellingSolicitud.id);
-    
     updateDoc(docRef, updateData)
         .then(() => {
-            toast({ title: "Actividad Cancelada", description: "El registro se ha movido al archivo." });
+            toast({ title: "Actividad Cancelada" });
             setCancellingSolicitud(null);
             setCancelReason('');
             setIsUpdating(false);
@@ -225,12 +212,10 @@ export default function AgendaCapacitacionPage() {
   const handleConfirmDelete = () => {
     if (!deletingSolicitud || !firestore) return;
     setIsUpdating(true);
-    
     const docRef = doc(firestore, 'solicitudes-capacitacion', deletingSolicitud.id);
-    
     deleteDoc(docRef)
         .then(() => {
-            toast({ title: "Actividad Eliminada", description: "El registro ha sido borrado permanentemente." });
+            toast({ title: "Actividad Eliminada" });
             setDeletingSolicitud(null);
             setIsUpdating(false);
         })
@@ -260,60 +245,44 @@ export default function AgendaCapacitacionPage() {
   const generateQrPDF = async () => {
     if (!qrSolicitud || !logoBase64) return;
     setIsGeneratingPdf(true);
-    
     try {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-        
-        // Header Institucional
         doc.addImage(logoBase64, 'PNG', 20, 10, 25, 25);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
         doc.text("JUSTICIA ELECTORAL", pageWidth / 2, 20, { align: 'center' });
         doc.setFontSize(10);
         doc.text("SISTEMA DE DIVULGACION", pageWidth / 2, 28, { align: 'center' });
-        
         doc.setLineWidth(0.5);
         doc.line(20, 40, pageWidth - 20, 40);
-        
-        // Título del Documento
         doc.setFontSize(18);
         doc.text("CÓDIGO QR - ENCUESTA DE SATISFACCIÓN", pageWidth / 2, 55, { align: 'center' });
-        
-        // Detalles de la Actividad
         doc.setFontSize(12);
         doc.text(`LOCAL: ${qrSolicitud.lugar_local.toUpperCase()}`, pageWidth / 2, 75, { align: 'center' });
         doc.text(`DISTRITO: ${qrSolicitud.distrito.toUpperCase()} | DEPTO: ${qrSolicitud.departamento.toUpperCase()}`, pageWidth / 2, 83, { align: 'center' });
         doc.text(`FECHA: ${formatDateToDDMMYYYY(qrSolicitud.fecha)} | HORARIO: ${qrSolicitud.hora_desde} HS.`, pageWidth / 2, 91, { align: 'center' });
-
-        // Obtener el QR como Base64 para jsPDF
         const response = await fetch(qrImageUrl);
         const blob = await response.blob();
-        const reader = new FileReader();
         const qrBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
             reader.readAsDataURL(blob);
         });
-        
         const qrSize = 100;
         doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize) / 2, 105, qrSize, qrSize);
-        
-        // Pie de página con instrucciones
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text("Instrucciones: Escanee este código con la cámara de su teléfono", pageWidth / 2, 220, { align: 'center' });
         doc.text("para acceder al formulario oficial de satisfacción ciudadana.", pageWidth / 2, 226, { align: 'center' });
-        
         doc.setLineWidth(0.2);
         doc.setDrawColor(200);
         doc.line(40, 240, pageWidth - 40, 240);
         doc.setFontSize(8);
         doc.text("CUSTODIO DE LA VOLUNTAD POPULAR - REPÚBLICA DEL PARAGUAY", pageWidth / 2, 250, { align: 'center' });
-
         doc.save(`QR-Encuesta-${qrSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
         toast({ title: "PDF Generado con éxito" });
     } catch (error) {
-        console.error(error);
         toast({ variant: 'destructive', title: "Error al generar PDF" });
     } finally {
         setIsGeneratingPdf(false);
@@ -340,7 +309,7 @@ export default function AgendaCapacitacionPage() {
             </div>
             <div className="bg-white px-4 py-2 rounded-full border border-dashed flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-                <span className="text-[9px] font-black uppercase text-muted-foreground">ALERTAS DE INCUMPLIMIENTO ACTIVAS</span>
+                <span className="text-[9px] font-black uppercase text-muted-foreground">ALERTAS ACTIVAS</span>
             </div>
         </div>
 
@@ -387,65 +356,42 @@ export default function AgendaCapacitacionPage() {
                                 const isPast = item.fecha < today;
                                 const mov = movimientosData?.find(m => m.solicitud_id === item.id);
                                 const inf = informesData?.find(i => i.solicitud_id === item.id);
-                                
-                                const missingReturn = !mov?.devolucion;
-                                const missingReport = !inf;
-                                const hasAlert = isPast && (missingReturn || missingReport);
+                                const hasAlert = isPast && (!mov?.devolucion || !inf);
 
                                 return (
-                                    <Card 
-                                        key={item.id} 
-                                        className={cn(
-                                            "border-2 shadow-sm rounded-2xl transition-all relative overflow-hidden",
-                                            hasAlert ? "border-destructive/40 bg-destructive/[0.02] ring-1 ring-destructive/20" : "border-muted/20 bg-white"
-                                        )}
-                                    >
+                                    <Card key={item.id} className={cn("border-2 shadow-sm rounded-2xl relative overflow-hidden", hasAlert ? "border-destructive/40 bg-destructive/[0.02]" : "border-muted/20 bg-white")}>
                                         <CardContent className="p-8">
                                             {hasAlert && (
-                                                <div className="mb-6 bg-destructive text-white px-4 py-2 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                                                <div className="mb-6 bg-destructive text-white px-4 py-2 rounded-xl flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
                                                         <FileWarning className="h-5 w-5" />
-                                                        <span className="font-black uppercase text-[10px] tracking-widest">ALERTA DE INCUMPLIMIENTO: ACTIVIDAD VENCIDA</span>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        {missingReturn && <Badge className="bg-white text-destructive font-black text-[8px] uppercase">PENDIENTE DEVOLUCIÓN</Badge>}
-                                                        {missingReport && <Badge className="bg-white text-destructive font-black text-[8px] uppercase">PENDIENTE INFORME</Badge>}
+                                                        <span className="font-black uppercase text-[10px] tracking-widest">ALERTA: ACTIVIDAD VENCIDA SIN CERRAR</span>
                                                     </div>
                                                 </div>
                                             )}
 
                                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                                                
-                                                {/* Columna 1: Solicitante */}
                                                 <div className="lg:col-span-4 space-y-3">
                                                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE</p>
                                                     <p className="font-black text-base uppercase leading-tight text-[#1A1A1A]">{item.solicitante_entidad || item.otra_entidad}</p>
-                                                    <Badge variant="secondary" className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[9px] tracking-widest px-3 py-1 rounded-md">
-                                                        {item.tipo_solicitud}
-                                                    </Badge>
+                                                    <Badge variant="secondary" className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[9px] tracking-widest px-3 py-1 rounded-md">{item.tipo_solicitud}</Badge>
                                                 </div>
 
-                                                {/* Columna 2: Ubicación y Fecha */}
                                                 <div className="lg:col-span-3 space-y-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center">
-                                                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                                                        </div>
+                                                        <MapPin className="h-4 w-4 text-muted-foreground" />
                                                         <p className="font-black text-[12px] uppercase text-[#1A1A1A]">{item.lugar_local}</p>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", hasAlert ? "bg-destructive/20" : "bg-muted/30")}>
-                                                            <Calendar className={cn("h-4 w-4", hasAlert ? "text-destructive" : "text-muted-foreground")} />
-                                                        </div>
+                                                        <Calendar className={cn("h-4 w-4", hasAlert ? "text-destructive" : "text-muted-foreground")} />
                                                         <p className={cn("font-black text-[12px] uppercase", hasAlert ? "text-destructive" : "text-[#1A1A1A]")}>
                                                             {formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} HS
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                {/* Columna 3: Divulgador */}
                                                 <div className="lg:col-span-2 space-y-2">
-                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR ASIGNADO</p>
+                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR</p>
                                                     {item.divulgador_nombre ? (
                                                         <div className="flex items-center gap-2 text-[#16A34A]">
                                                             <UserCheck className="h-5 w-5" />
@@ -456,57 +402,27 @@ export default function AgendaCapacitacionPage() {
                                                     )}
                                                 </div>
 
-                                                {/* Columna 4: Acciones */}
                                                 <div className="lg:col-span-3 flex flex-col items-end gap-3">
                                                     <div className="flex gap-2 w-full max-w-[180px]">
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="h-11 flex-1 rounded-xl font-black uppercase text-[11px] border-2 gap-2 bg-white hover:bg-muted/10"
-                                                            onClick={() => setAssigningSolicitud(item)}
-                                                        >
+                                                        <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[11px] border-2" onClick={() => setAssigningSolicitud(item)}>
                                                             <UserPlus className="h-4 w-4" /> {item.divulgador_nombre ? 'REASIGNAR' : 'ASIGNAR'}
                                                         </Button>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="icon" 
-                                                            className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition-all"
-                                                            onClick={() => setCancellingSolicitud(item)}
-                                                            title="Anular Actividad"
-                                                        >
+                                                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive" onClick={() => setCancellingSolicitud(item)}>
                                                             <CalendarX className="h-4 w-4" />
                                                         </Button>
                                                         {profile?.role === 'admin' && (
-                                                            <Button 
-                                                                variant="outline" 
-                                                                size="icon" 
-                                                                className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition-all"
-                                                                onClick={() => setDeletingSolicitud(item)}
-                                                                title="Eliminar Permanente"
-                                                            >
+                                                            <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive" onClick={() => setDeletingSolicitud(item)}>
                                                                 <Trash2 className="h-4 w-4" />
                                                             </Button>
                                                         )}
                                                     </div>
                                                     
                                                     <div className="flex gap-2 w-full max-w-[180px]">
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2 gap-2 bg-white hover:bg-muted/10"
-                                                            onClick={() => setQrSolicitud(item)}
-                                                        >
+                                                        <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2" onClick={() => setQrSolicitud(item)}>
                                                             <QrCode className="h-4 w-4" />
                                                         </Button>
-
                                                         <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
-                                                            <Button className={cn(
-                                                                "h-11 w-full rounded-xl font-black uppercase text-[11px] shadow-lg gap-2",
-                                                                inf 
-                                                                    ? "bg-[#16A34A] hover:bg-[#15803D] text-white" 
-                                                                    : (missingReport && isPast ? "bg-destructive hover:bg-destructive/90 text-white" : "bg-black hover:bg-black/90 text-white")
-                                                            )}>
-                                                                {inf && <Check className="h-4 w-4" />}
+                                                            <Button className={cn("h-11 w-full rounded-xl font-black uppercase text-[11px] shadow-lg", inf ? "bg-[#16A34A] hover:bg-[#15803D]" : "bg-black hover:bg-black/90")}>
                                                                 {inf ? 'CUMPLIDO' : 'INFORME'}
                                                             </Button>
                                                         </Link>
@@ -539,30 +455,21 @@ export default function AgendaCapacitacionPage() {
           <div className="p-6 space-y-4 bg-white">
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    placeholder="Buscar por nombre o cédula..." 
-                    value={divulSearch} 
-                    onChange={e => setDivulSearch(e.target.value)} 
-                    className="h-12 pl-10 font-bold border-2 rounded-xl"
-                />
+                <Input placeholder="Buscar por nombre o cédula..." value={divulSearch} onChange={e => setDivulSearch(e.target.value)} className="h-12 pl-10 font-bold border-2 rounded-xl" />
             </div>
             <ScrollArea className="h-[350px] pr-2">
               {filteredDivul.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 opacity-20 text-center">
                     <UserPlus className="h-12 w-12 mb-2 mx-auto" />
-                    <p className="text-[10px] font-black uppercase">No se encontró personal registrado en {assigningSolicitud?.distrito || 'este distrito'}</p>
+                    <p className="text-[10px] font-black uppercase">No hay personal en este distrito</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                     {filteredDivul.map(d => (
-                    <div 
-                        key={d.id} 
-                        className="p-4 border-2 rounded-2xl cursor-pointer hover:bg-black hover:text-white hover:border-black transition-all group" 
-                        onClick={() => handleAssignDivulgador(d)}
-                    >
+                    <div key={d.id} className="p-4 border-2 rounded-2xl cursor-pointer hover:bg-black hover:text-white transition-all group" onClick={() => handleAssignDivulgador(d)}>
                         <p className="font-black text-xs uppercase">{d.nombre}</p>
                         <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="secondary" className="text-[8px] font-black bg-muted group-hover:bg-white/20 group-hover:text-white">C.I. {d.cedula}</Badge>
+                            <Badge variant="secondary" className="text-[8px] font-black bg-muted group-hover:bg-white/20">C.I. {d.cedula}</Badge>
                             <span className="text-[9px] font-bold text-muted-foreground uppercase group-hover:text-white/60">{d.vinculo}</span>
                         </div>
                     </div>
@@ -578,29 +485,17 @@ export default function AgendaCapacitacionPage() {
       <Dialog open={!!cancellingSolicitud} onOpenChange={(o) => !o && setCancellingSolicitud(null)}>
         <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-destructive text-white p-8">
-            <DialogTitle className="font-black uppercase tracking-widest text-center text-sm flex items-center justify-center gap-3">
-                <CalendarX className="h-5 w-5" /> ANULAR ACTIVIDAD DE AGENDA
-            </DialogTitle>
-            <DialogDescription className="text-white/60 text-[10px] font-bold text-center uppercase mt-2">Esta acción moverá el registro al archivo con estado suspendido</DialogDescription>
+            <DialogTitle className="font-black uppercase tracking-widest text-center text-sm">ANULAR ACTIVIDAD</DialogTitle>
           </DialogHeader>
           <div className="p-8 space-y-6 bg-white">
             <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">MOTIVO DE LA ANULACIÓN (OBLIGATORIO)</Label>
-                <Textarea 
-                    placeholder="Ej: Suspensión por inclemencia del tiempo, pedido del apoderado, etc..." 
-                    className="min-h-[120px] font-bold border-2 rounded-xl uppercase"
-                    value={cancelReason}
-                    onChange={e => setCancelReason(e.target.value)}
-                />
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">MOTIVO (OBLIGATORIO)</Label>
+                <Textarea placeholder="Ej: Suspensión por inclemencia del tiempo..." className="min-h-[120px] font-bold border-2 rounded-xl uppercase" value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px] border-2" onClick={() => setCancellingSolicitud(null)}>CANCELAR</Button>
-                <Button 
-                    className="h-12 rounded-xl font-black uppercase text-[10px] bg-destructive hover:bg-destructive/90 shadow-lg" 
-                    disabled={!cancelReason.trim() || isUpdating}
-                    onClick={handleConfirmCancel}
-                >
-                    {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "CONFIRMAR ANULACIÓN"}
+                <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px]" onClick={() => setCancellingSolicitud(null)}>CANCELAR</Button>
+                <Button className="h-12 rounded-xl font-black uppercase text-[10px] bg-destructive hover:bg-destructive/90 shadow-lg" disabled={!cancelReason.trim() || isUpdating} onClick={handleConfirmCancel}>
+                    {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "CONFIRMAR"}
                 </Button>
             </div>
           </div>
@@ -615,16 +510,12 @@ export default function AgendaCapacitacionPage() {
                 <Trash2 className="h-6 w-6 text-destructive" /> ¿ELIMINAR DEFINITIVAMENTE?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground pt-2">
-                Esta acción es irreversible. Se borrarán todos los datos vinculados a la actividad de {deletingSolicitud?.lugar_local}. Use esta opción solo para corregir errores de carga.
+                Esta acción es irreversible. Se borrarán todos los datos vinculados a la actividad de {deletingSolicitud?.lugar_local}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6">
             <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
-            <AlertDialogAction 
-                onClick={handleConfirmDelete} 
-                className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8"
-                disabled={isUpdating}
-            >
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8" disabled={isUpdating}>
                 {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "SÍ, ELIMINAR REGISTRO"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -636,54 +527,27 @@ export default function AgendaCapacitacionPage() {
         <DialogContent className="max-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-primary p-8 text-white">
             <DialogTitle className="font-black uppercase text-center tracking-widest text-lg">ENCUESTA DE SATISFACCIÓN</DialogTitle>
-            <DialogDescription className="text-white/60 font-bold text-[10px] text-center uppercase mt-2">Escanee para registrar feedback ciudadano vinculado a esta actividad</DialogDescription>
           </DialogHeader>
           <div className="p-10 flex flex-col items-center bg-white space-y-8">
-            <div className="p-4 bg-white border-4 border-muted/20 rounded-[2rem] shadow-inner relative group">
+            <div className="p-4 bg-white border-4 border-muted/20 rounded-[2rem] shadow-inner">
                 {qrSolicitud && (
-                    <Image 
-                        src={qrImageUrl} 
-                        alt="QR Encuesta" 
-                        width={220} 
-                        height={220} 
-                        className="rounded-xl"
-                    />
+                    <Image src={qrImageUrl} alt="QR Encuesta" width={220} height={220} className="rounded-xl" />
                 )}
             </div>
-            
             <div className="text-center space-y-2">
                 <p className="font-black uppercase text-sm text-primary">{qrSolicitud?.lugar_local}</p>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                    {qrSolicitud ? formatDateToDDMMYYYY(qrSolicitud.fecha) : ''} | {qrSolicitud?.hora_desde} HS.
-                </p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{qrSolicitud ? formatDateToDDMMYYYY(qrSolicitud.fecha) : ''} HS.</p>
             </div>
-
             <div className="w-full space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                    <Button 
-                        variant="outline" 
-                        className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2"
-                        onClick={copyToClipboard}
-                    >
-                        {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                        {copied ? "COPIADO" : "COPIAR ENLACE"}
+                    <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2" onClick={copyToClipboard}>
+                        {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />} {copied ? "COPIADO" : "COPIAR ENLACE"}
                     </Button>
-                    <Button 
-                        variant="outline" 
-                        className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2 text-primary border-primary/20 hover:bg-primary/5"
-                        onClick={generateQrPDF}
-                        disabled={isGeneratingPdf}
-                    >
-                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-                        IMPRIMIR QR
+                    <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2 text-primary border-primary/20" onClick={generateQrPDF} disabled={isGeneratingPdf}>
+                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />} IMPRIMIR QR
                     </Button>
                 </div>
-                <Button 
-                    className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white hover:bg-black/90"
-                    onClick={() => setQrSolicitud(null)}
-                >
-                    CERRAR VENTANA
-                </Button>
+                <Button className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white hover:bg-black/90" onClick={() => setQrSolicitud(null)}>CERRAR VENTANA</Button>
             </div>
           </div>
         </DialogContent>
