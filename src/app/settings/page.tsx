@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { FileUp, Loader2, CheckCircle2, Database, Cpu, Search, Trash, AlertTriangle, TableIcon, Plus, Trash2, X } from 'lucide-react';
+import { FileUp, Loader2, CheckCircle2, Database, Cpu, Search, Trash, AlertTriangle, TableIcon, Plus, Trash2, X, Edit } from 'lucide-react';
 import Header from '@/components/header';
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -145,7 +145,7 @@ export default function SettingsPage() {
       };
       await addDoc(collection(firestore, 'datos'), docData);
       toast({ title: 'Ubicación agregada con éxito' });
-      setManualGeo({ departamento: '', departamento_codigo: '', distrito: '', distrito_codigo: '' });
+      setManualGeo({ ...manualGeo, distrito: '', distrito_codigo: '' });
     } catch (err) {
       toast({ variant: 'destructive', title: 'Error al guardar' });
     } finally {
@@ -381,13 +381,33 @@ export default function SettingsPage() {
                                 <Accordion type="single" collapsible className="w-full">
                                     {departmentsWithDistricts.map((dept) => (
                                         <AccordionItem key={dept.id} value={dept.id} className="px-6 border-b hover:bg-muted/5 transition-colors">
-                                            <AccordionTrigger className="hover:no-underline font-black uppercase text-xs py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <Badge variant="outline" className="h-6 w-10 justify-center font-black text-primary border-primary/20">{datosData.find(d => d.departamento === dept.name)?.departamento_codigo || '??'}</Badge>
-                                                    {dept.name} 
-                                                    <span className="ml-2 text-[9px] text-muted-foreground font-bold">({dept.districts.length} REGISTROS)</span>
-                                                </div>
-                                            </AccordionTrigger>
+                                            <div className="flex items-center justify-between">
+                                                <AccordionTrigger className="hover:no-underline font-black uppercase text-xs py-4 flex-1">
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge variant="outline" className="h-6 w-10 justify-center font-black text-primary border-primary/20">{datosData.find(d => d.departamento === dept.name)?.departamento_codigo || '??'}</Badge>
+                                                        {dept.name} 
+                                                        <span className="ml-2 text-[9px] text-muted-foreground font-bold">({dept.districts.length} REGISTROS)</span>
+                                                    </div>
+                                                </AccordionTrigger>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-8 px-3 font-black uppercase text-[9px] gap-2 border-primary/20 text-primary hover:bg-primary/5 mr-4"
+                                                    onClick={(e) => {
+                                                        const firstMatch = datosData.find(d => d.departamento === dept.name);
+                                                        setManualGeo({
+                                                            departamento: dept.name,
+                                                            departamento_codigo: firstMatch?.departamento_codigo || '',
+                                                            distrito: '',
+                                                            distrito_codigo: ''
+                                                        });
+                                                        toast({ title: "Modo Edición", description: `Agregando oficinas a: ${dept.name}` });
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                    }}
+                                                >
+                                                    <Edit className="h-3.5 w-3.5" /> AGREGAR OFICINAS
+                                                </Button>
+                                            </div>
                                             <AccordionContent className="pb-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                                                     {dept.districts.map(d => (
