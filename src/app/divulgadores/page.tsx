@@ -49,6 +49,7 @@ export default function DivulgadoresPage() {
   
   const [selectedDept, setSelectedDept] = useState<string>('');
   const [selectedDist, setSelectedDist] = useState<string>('');
+  const [editingDivulgador, setEditingDivulgador] = useState<Divulgador | null>(null);
 
   // States para Importación
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -77,11 +78,11 @@ export default function DivulgadoresPage() {
   );
 
   useEffect(() => {
-    if (profile) {
+    if (profile && !editingDivulgador) {
       if (hasDeptFilter || hasDistFilter) setSelectedDept(profile.departamento || '');
       if (hasDistFilter) setSelectedDist(profile.distrito || '');
     }
-  }, [profile, hasDeptFilter, hasDistFilter]);
+  }, [profile, hasDeptFilter, hasDistFilter, editingDivulgador]);
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData } = useCollection<Dato>(datosQuery);
@@ -131,7 +132,7 @@ export default function DivulgadoresPage() {
     setSkippedDetails([]);
   }, []);
 
-  const handleRegister = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore || !profile) return;
     
@@ -139,7 +140,7 @@ export default function DivulgadoresPage() {
     const finalDist = (hasAdminFilter || hasDeptFilter) ? selectedDist : (profile.distrito || '');
 
     if (!finalDept || !finalDist) {
-      toast({ variant: 'destructive', title: "Faltan datos" });
+      toast({ variant: 'destructive', title: "Faltan datos de ubicación" });
       return;
     }
 
@@ -151,24 +152,53 @@ export default function DivulgadoresPage() {
       vinculo: formData.get('vinculo') as any,
       departamento: finalDept,
       distrito: finalDist,
-      fecha_registro: new Date().toISOString()
     };
 
-    addDoc(collection(firestore, 'divulgadores'), docData)
-      .then(() => {
-        toast({ title: "¡Registrado!" });
-        (e.target as HTMLFormElement).reset();
-        setIsSubmitting(false);
-      })
-      .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'divulgadores',
-          operation: 'create',
-          requestResourceData: docData
-        }));
-        setIsSubmitting(false);
-      });
+    if (editingDivulgador) {
+      const docRef = doc(firestore, 'divulgadores', editingDivulgador.id);
+      updateDoc(docRef, docData)
+        .then(() => {
+          toast({ title: "¡Actualizado!" });
+          setEditingDivulgador(null);
+          setIsSubmitting(false);
+          (e.target as HTMLFormElement).reset();
+        })
+        .catch(async (error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: docData
+          }));
+          setIsSubmitting(false);
+        });
+    } else {
+      const newDocData = { 
+        ...docData, 
+        fecha_registro: new Date().toISOString() 
+      };
+      addDoc(collection(firestore, 'divulgadores'), newDocData)
+        .then(() => {
+          toast({ title: "¡Registrado!" });
+          (e.target as HTMLFormElement).reset();
+          setIsSubmitting(false);
+        })
+        .catch(async (error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'divulgadores',
+            operation: 'create',
+            requestResourceData: newDocData
+          }));
+          setIsSubmitting(false);
+        });
+    }
   };
+
+  const handleEditClick = useCallback((d: Divulgador) => {
+    setEditingDivulgador(d);
+    setSelectedDept(d.departamento);
+    setSelectedDist(d.distrito);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   const handleDelete = useCallback((id: string) => {
     if (!firestore) return;
@@ -344,13 +374,23 @@ export default function DivulgadoresPage() {
                     <TableCell className="py-4 px-6"><p className="text-[10px] font-black uppercase">{d.departamento}</p><p className="text-[9px] font-bold text-muted-foreground">{d.distrito}</p></TableCell>
                     <TableCell className="py-4 px-6"><Badge variant="secondary" className="text-[8px] font-black uppercase bg-primary/5 text-primary border-none">{d.vinculo}</Badge></TableCell>
                     <TableCell className="text-right px-6">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription className="text-xs">Esta acción es permanente y revocará al personal de las agendas futuras.</AlertDialogDescription></AlertDialogHeader>
-                          <AlertDialogFooter><AlertDialogCancel className="font-bold text-[10px] uppercase">Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(d.id)} className="bg-destructive text-white font-black text-[10px] uppercase">Confirmar Eliminación</AlertDialogAction></AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-primary/40 hover:text-primary"
+                          onClick={() => handleEditClick(d)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription className="text-xs">Esta acción es permanente y revocará al personal de las agendas futuras.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel className="font-bold text-[10px] uppercase">Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(d.id)} className="bg-destructive text-white font-black text-[10px] uppercase">Confirmar Eliminación</AlertDialogAction></AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -359,7 +399,7 @@ export default function DivulgadoresPage() {
           </Table>
       </CardContent>
     </Card>
-  ), [isLoadingDivul, filteredDivul, searchTerm, resetImport, handleDelete]);
+  ), [isLoadingDivul, filteredDivul, searchTerm, resetImport, handleDelete, handleEditClick]);
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
@@ -368,25 +408,31 @@ export default function DivulgadoresPage() {
       <Header title="Directorio de Divulgadores" />
       <main className="flex-1 p-4 md:p-8 max-7xl mx-auto w-full space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <Card className="lg:col-span-1 border-t-4 border-t-primary shadow-lg h-fit">
-            <form onSubmit={handleRegister}>
-              <CardHeader className="bg-muted/30 border-b">
-                <CardTitle className="uppercase font-black text-sm flex items-center gap-2 text-primary">
-                  <UserPlus className="h-4 w-4" /> Registro Individual
-                </CardTitle>
+          <Card className={cn("lg:col-span-1 border-t-4 shadow-lg h-fit", editingDivulgador ? "border-t-black" : "border-t-primary")}>
+            <form key={editingDivulgador?.id || 'new'} onSubmit={handleSave}>
+              <CardHeader className="bg-muted/30 border-b flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="uppercase font-black text-sm flex items-center gap-2 text-primary">
+                    {editingDivulgador ? <Edit className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                    {editingDivulgador ? 'Editar Personal' : 'Registro Individual'}
+                  </CardTitle>
+                </div>
+                {editingDivulgador && (
+                  <Button variant="ghost" size="icon" onClick={() => { setEditingDivulgador(null); setSelectedDept(profile?.departamento || ''); setSelectedDist(profile?.distrito || ''); }} className="h-8 w-8"><X className="h-4 w-4"/></Button>
+                )}
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Nombre Completo</Label>
-                  <Input name="nombre" required className="font-bold uppercase h-11 border-2" />
+                  <Input name="nombre" required defaultValue={editingDivulgador?.nombre || ''} className="font-bold uppercase h-11 border-2" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Cédula</Label>
-                  <Input name="cedula" required className="font-black h-11 border-2 uppercase" />
+                  <Input name="cedula" required defaultValue={editingDivulgador?.cedula || ''} className="font-black h-11 border-2 uppercase" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Vínculo</Label>
-                  <Select name="vinculo" required defaultValue="CONTRATADO">
+                  <Select name="vinculo" required defaultValue={editingDivulgador?.vinculo || "CONTRATADO"}>
                     <SelectTrigger className="font-bold h-11 border-2"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PERMANENTE">PERMANENTE</SelectItem>
@@ -427,9 +473,14 @@ export default function DivulgadoresPage() {
                 </div>
               </CardContent>
               <CardFooter className="bg-muted/30 border-t p-4">
-                <Button type="submit" className="w-full font-black uppercase h-12" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "GUARDAR PERSONAL"}
-                </Button>
+                <div className="flex gap-2 w-full">
+                  {editingDivulgador && (
+                    <Button variant="outline" type="button" onClick={() => { setEditingDivulgador(null); setSelectedDept(profile?.departamento || ''); setSelectedDist(profile?.distrito || ''); }} className="flex-1 font-black uppercase h-12 border-2">CANCELAR</Button>
+                  )}
+                  <Button type="submit" className="flex-[2] font-black uppercase h-12" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : editingDivulgador ? "ACTUALIZAR" : "GUARDAR PERSONAL"}
+                  </Button>
+                </div>
               </CardFooter>
             </form>
           </Card>
