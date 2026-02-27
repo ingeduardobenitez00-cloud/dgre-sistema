@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from '@/components/header';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -88,7 +88,6 @@ export default function DivulgadoresPage() {
 
   const departments = useMemo(() => {
     let depts = datosData ? [...new Set(datosData.map(d => d.departamento))] : [];
-    // Asegurar que SEDE CENTRAL esté disponible para administración
     if (hasAdminFilter && !depts.includes('SEDE CENTRAL')) {
         depts.push('SEDE CENTRAL');
     }
@@ -97,7 +96,6 @@ export default function DivulgadoresPage() {
 
   const districts = useMemo(() => {
     if (!datosData || !selectedDept) return [];
-    // Ahora los distritos (u oficinas si es SEDE CENTRAL) se leen directamente de la DB configurada
     return [...new Set(datosData.filter(d => d.departamento === selectedDept).map(d => d.distrito))].sort();
   }, [datosData, selectedDept]);
 
@@ -125,6 +123,13 @@ export default function DivulgadoresPage() {
     const term = searchTerm.toLowerCase().trim();
     return divulgadores.filter(d => d.nombre.toLowerCase().includes(term) || d.cedula.toLowerCase().includes(term));
   }, [divulgadores, searchTerm]);
+
+  const resetImport = useCallback(() => {
+    setImportPreview([]);
+    setImportFileName(null);
+    setImportErrors([]);
+    setSkippedDetails([]);
+  }, []);
 
   const handleRegister = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -165,13 +170,13 @@ export default function DivulgadoresPage() {
       });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'divulgadores', id);
     deleteDoc(docRef).catch(async () => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
     });
-  };
+  }, [firestore]);
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -215,7 +220,7 @@ export default function DivulgadoresPage() {
 
         const errors: {row: number, reason: string}[] = [];
         const mappedData: Omit<Divulgador, 'id' | 'fecha_registro'>[] = json.map((row, index) => {
-          const excelRow = index + 2; // +1 por base 0, +1 por encabezado
+          const excelRow = index + 2; 
           const cedulaRaw = String(row.CEDULA || '').trim().toUpperCase();
           const nombreRaw = String(row['NOMBRES Y APELLIDOS'] || row.NOMBRE || '').trim();
           
@@ -296,12 +301,65 @@ export default function DivulgadoresPage() {
     }
   };
 
-  const resetImport = () => {
-    setImportPreview([]);
-    setImportFileName(null);
-    setImportErrors([]);
-    setSkippedDetails([]);
-  };
+  // MEMOIZED SECTIONS TO IMPROVE PERFORMANCE
+  const userTableSection = useMemo(() => (
+    <Card className="lg:col-span-2 shadow-lg overflow-hidden border-none">
+      <CardHeader className="bg-primary px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex flex-col">
+          <CardTitle className="uppercase font-black text-xs text-white">LISTA DE PERSONAL ({filteredDivul.length})</CardTitle>
+          <CardDescription className="text-white/60 text-[9px] uppercase font-bold">Personal operativo habilitado para capacitaciones</CardDescription>
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-black uppercase text-[10px] gap-2 h-9"
+            onClick={() => { resetImport(); setIsImportModalOpen(true); }}
+          >
+            <FileUp className="h-3.5 w-3.5" /> Importar Excel
+          </Button>
+          <div className="relative flex-1 md:w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
+            <Input 
+              placeholder="Buscar..." 
+              className="h-9 pl-9 text-[10px] bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-full focus-visible:ring-white/30" 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)} 
+            />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0 bg-white">
+          <Table>
+            <TableHeader className="bg-muted/50"><TableRow><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Divulgador</TableHead><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Jurisdicción</TableHead><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Vínculo</TableHead><TableHead className="text-right text-[9px] font-black uppercase tracking-widest px-6">Acción</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {isLoadingDivul ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              ) : filteredDivul.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-20"><Users className="h-12 w-12 mx-auto mb-2"/><p className="text-[10px] font-black uppercase">No hay personal registrado</p></TableCell></TableRow>
+              ) : (
+                filteredDivul.map(d => (
+                  <TableRow key={d.id} className="border-b hover:bg-muted/30 transition-colors">
+                    <TableCell className="py-4 px-6"><p className="font-black text-xs uppercase text-primary">{d.nombre}</p><p className="text-[9px] text-muted-foreground font-bold">C.I. {d.cedula}</p></TableCell>
+                    <TableCell className="py-4 px-6"><p className="text-[10px] font-black uppercase">{d.departamento}</p><p className="text-[9px] font-bold text-muted-foreground">{d.distrito}</p></TableCell>
+                    <TableCell className="py-4 px-6"><Badge variant="secondary" className="text-[8px] font-black uppercase bg-primary/5 text-primary border-none">{d.vinculo}</Badge></TableCell>
+                    <TableCell className="text-right px-6">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription className="text-xs">Esta acción es permanente y revocará al personal de las agendas futuras.</AlertDialogDescription></AlertDialogHeader>
+                          <AlertDialogFooter><AlertDialogCancel className="font-bold text-[10px] uppercase">Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(d.id)} className="bg-destructive text-white font-black text-[10px] uppercase">Confirmar Eliminación</AlertDialogAction></AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+      </CardContent>
+    </Card>
+  ), [isLoadingDivul, filteredDivul, searchTerm, resetImport, handleDelete]);
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
@@ -376,62 +434,7 @@ export default function DivulgadoresPage() {
             </form>
           </Card>
 
-          <Card className="lg:col-span-2 shadow-lg overflow-hidden border-none">
-            <CardHeader className="bg-primary px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex flex-col">
-                <CardTitle className="uppercase font-black text-xs text-white">LISTA DE PERSONAL ({filteredDivul.length})</CardTitle>
-                <CardDescription className="text-white/60 text-[9px] uppercase font-bold">Personal operativo habilitado para capacitaciones</CardDescription>
-              </div>
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-black uppercase text-[10px] gap-2 h-9"
-                  onClick={() => { resetImport(); setIsImportModalOpen(true); }}
-                >
-                  <FileUp className="h-3.5 w-3.5" /> Importar Excel
-                </Button>
-                <div className="relative flex-1 md:w-48">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
-                  <Input 
-                    placeholder="Buscar..." 
-                    className="h-9 pl-9 text-[10px] bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-full focus-visible:ring-white/30" 
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)} 
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0 bg-white">
-                <Table>
-                  <TableHeader className="bg-muted/50"><TableRow><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Divulgador</TableHead><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Jurisdicción</TableHead><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Vínculo</TableHead><TableHead className="text-right text-[9px] font-black uppercase tracking-widest px-6">Acción</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {isLoadingDivul ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                    ) : filteredDivul.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-20"><Users className="h-12 w-12 mx-auto mb-2"/><p className="text-[10px] font-black uppercase">No hay personal registrado</p></TableCell></TableRow>
-                    ) : (
-                      filteredDivul.map(d => (
-                        <TableRow key={d.id} className="border-b hover:bg-muted/30 transition-colors">
-                          <TableCell className="py-4 px-6"><p className="font-black text-xs uppercase text-primary">{d.nombre}</p><p className="text-[9px] text-muted-foreground font-bold">C.I. {d.cedula}</p></TableCell>
-                          <TableCell className="py-4 px-6"><p className="text-[10px] font-black uppercase">{d.departamento}</p><p className="text-[9px] font-bold text-muted-foreground">{d.distrito}</p></TableCell>
-                          <TableCell className="py-4 px-6"><Badge variant="secondary" className="text-[8px] font-black uppercase bg-primary/5 text-primary border-none">{d.vinculo}</Badge></TableCell>
-                          <TableCell className="text-right px-6">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription className="text-xs">Esta acción es permanente y revocará al personal de las agendas futuras.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel className="font-bold text-[10px] uppercase">Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(d.id)} className="bg-destructive text-white font-black text-[10px] uppercase">Confirmar Eliminación</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-            </CardContent>
-          </Card>
+          {userTableSection}
         </div>
       </main>
 
