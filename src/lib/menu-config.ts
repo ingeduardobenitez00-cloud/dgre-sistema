@@ -28,8 +28,8 @@ export const dashboardMenuItems = [
   },
   {
     href: '/informe-movimientos-denuncias',
-    label: 'Trazabilidad y Alertas',
-    icon: ShieldAlert,
+    label: 'Trazabilidad Logística',
+    icon: ArrowLeftRight,
     description: 'Monitor central de movimientos con detección de irregularidades.',
   },
   {

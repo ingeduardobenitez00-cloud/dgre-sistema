@@ -64,6 +64,7 @@ export default function AppSidebar() {
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
         { href: "/control-movimiento-maquinas", label: "Movimiento de Máquinas", icon: ArrowLeftRight },
         { href: "/denuncia-lacres", label: "Denuncia de Lacres", icon: ShieldAlert },
+        { href: "/informe-movimientos-denuncias", label: "Trazabilidad Logística", icon: ArrowLeftRight },
         { href: "/informe-divulgador", label: "Informe del Divulgador", icon: UserCheck },
         { href: "/galeria-capacitaciones", label: "Galería Evidencias", icon: Images },
         { href: "/informe-semanal-puntos-fijos", label: "Informe Semanal (Anexo IV)", icon: TableProperties },

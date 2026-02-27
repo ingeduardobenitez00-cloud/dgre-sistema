@@ -81,6 +81,7 @@ const MODULE_STRUCTURE = [
       { id: 'agenda-capacitacion', label: 'AGENDA DE ACTIVIDADES' },
       { id: 'control-movimiento-maquinas', label: 'MOVIMIENTO DE MÁQUINAS' },
       { id: 'denuncia-lacres', label: 'DENUNCIA DE LACRES' },
+      { id: 'informe-movimientos-denuncias', label: 'TRAZABILIDAD LOGÍSTICA' },
       { id: 'informe-divulgador', label: 'ANEXO III - INFORME DIV.' },
       { id: 'informe-semanal-puntos-fijos', label: 'ANEXO IV - INF. SEMANAL' },
       { id: 'divulgadores', label: 'DIRECTORIO DIVULGADORES' },
