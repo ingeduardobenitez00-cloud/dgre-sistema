@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
