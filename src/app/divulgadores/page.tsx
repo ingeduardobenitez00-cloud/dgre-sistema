@@ -96,17 +96,8 @@ export default function DivulgadoresPage() {
   }, [datosData, hasAdminFilter]);
 
   const districts = useMemo(() => {
-    if (selectedDept === 'SEDE CENTRAL') {
-        return [
-            'CIDEE (CENTRO DE INFORMACIÓN)',
-            'DIRECCIÓN DE RECURSOS ELECTORALES',
-            'DIRECCIÓN DE LOGÍSTICA ELECTORAL',
-            'DIRECCIÓN GENERAL DEL REGISTRO ELECTORAL',
-            'COORDINACIÓN NACIONAL',
-            'OFICINA CENTRAL - TSJE'
-        ].sort();
-    }
     if (!datosData || !selectedDept) return [];
+    // Ahora los distritos (u oficinas si es SEDE CENTRAL) se leen directamente de la DB configurada
     return [...new Set(datosData.filter(d => d.departamento === selectedDept).map(d => d.distrito))].sort();
   }, [datosData, selectedDept]);
 
@@ -365,7 +356,13 @@ export default function DivulgadoresPage() {
                     ) : (
                       <Select name="distrito" required onValueChange={setSelectedDist} value={selectedDist} disabled={!selectedDept && hasAdminFilter}>
                         <SelectTrigger className="font-bold h-11"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                        <SelectContent>{districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                        <SelectContent>
+                          {districts.length === 0 ? (
+                            <div className="p-4 text-center text-[10px] font-black uppercase text-muted-foreground">No hay oficinas registradas</div>
+                          ) : (
+                            districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)
+                          )}
+                        </SelectContent>
                       </Select>
                     )}
                   </div>
