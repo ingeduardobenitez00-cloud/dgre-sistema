@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -281,7 +282,6 @@ export default function SolicitudCapacitacionPage() {
     if (!firestore || !user) return;
     const entidadFinal = formData.solicitante_entidad || formData.otra_entidad;
     
-    // Validación de campos obligatorios incluyendo la foto de respaldo
     if (!entidadFinal || !formData.lugar_local || !formData.nombre_completo || !photoDataUri) {
       toast({ 
         variant: "destructive", 
@@ -345,17 +345,14 @@ export default function SolicitudCapacitacionPage() {
     const margin = 20;
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Lógica de Fecha Dinámica
     const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
     const hoy = new Date();
     const dia = hoy.getDate().toString().padStart(2, '0');
     const mesEscrito = meses[hoy.getMonth()].toUpperCase();
     
-    // Limpieza de nombres para la proforma (sin códigos)
     const deptoNombre = (profile?.departamento || '').replace(/^\d+\s*-\s*/, '').toUpperCase();
     const distritoNombre = (profile?.distrito || '').replace(/^\d+\s*-\s*/, '').toUpperCase();
 
-    // 1. Logos and Header
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.text("REPÚBLICA DEL PARAGUAY", margin + 15, 10);
@@ -381,29 +378,25 @@ export default function SolicitudCapacitacionPage() {
     doc.setFillColor(0, 0, 200); 
     doc.rect(barX + (barWidth * 2), 10, barWidth, barHeight, 'F');
 
-    // 2. Title Box
     doc.setFillColor(230, 230, 210); 
     doc.rect(margin, 35, pageWidth - (margin * 2), 8, 'F');
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.text("ANEXO V – PROFORMA DE SOLICITUD", pageWidth / 2, 40.5, { align: "center" });
 
-    // 3. Date Line Actualizada (Solo Nombre Depto)
     let y = 55;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`${deptoNombre}, ${dia} de ${mesEscrito} de 2026`, pageWidth - margin, y, { align: 'right' });
 
-    // 4. Recipient Actualizado (En Mayúsculas)
     y += 15;
     doc.text("Señor/a", margin, y);
     y += 6;
     doc.setFont('helvetica', 'bold');
-    doc.text(`JEFES DEL REGISTRO ELECTORAL de ${distritoNombre}`, margin, y);
+    doc.text(`JEFES DEL REGISTRO ELECTORAL DE ${distritoNombre}`, margin, y);
     y += 10;
     doc.text("Presente:", margin, y);
 
-    // 5. Body Text
     y += 8;
     doc.setFont('helvetica', 'normal');
     const bodyText = "Tengo el agrado de dirigirme a usted/es, en virtud a las próximas Elecciones Internas simultáneas de las Organizaciones Políticas del 07 de junio del 2026, a los efectos de solicitar:";
@@ -411,7 +404,6 @@ export default function SolicitudCapacitacionPage() {
     doc.text(splitBody, margin + 10, y);
     y += (splitBody.length * 5);
 
-    // 6. Checkboxes
     y += 5;
     const drawCheckbox = (label: string, checked: boolean, yPos: number) => {
       doc.rect(margin + 15, yPos - 4, 5, 5);
@@ -427,7 +419,6 @@ export default function SolicitudCapacitacionPage() {
     y += 7;
     drawCheckbox("Capacitación sobre las funciones de los miembros de mesa receptora de votos.", formData.tipo_solicitud === 'capacitacion', y);
 
-    // 7. Activity Table
     y += 10;
     const tableData = [
       ["FECHA", `:  ${formData.fecha ? formData.fecha.split('-').reverse().join(' / ') : '/  /'}  /2026`],
@@ -452,7 +443,6 @@ export default function SolicitudCapacitacionPage() {
 
     y = (doc as any).lastAutoTable.finalY + 5;
 
-    // 8. Solicitante Section Header
     doc.setFont('helvetica', 'normal');
     doc.text("DATOS DEL SOLICITANTE – APODERADO", margin + 5, y);
     doc.rect(margin + 75, y - 4, 5, 5);
@@ -739,3 +729,5 @@ export default function SolicitudCapacitacionPage() {
     </div>
   );
 }
+
+    
