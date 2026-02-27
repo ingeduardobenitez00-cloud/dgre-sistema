@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -517,12 +516,6 @@ export default function SolicitudCapacitacionPage() {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="p-0 border-t bg-black overflow-hidden">
-              <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full h-16 bg-black hover:bg-black/90 text-white text-xl font-black uppercase rounded-none tracking-widest">
-                {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <CheckCircle2 className="mr-3 h-6 w-6" />}
-                GUARDAR Y AGENDAR ACTIVIDAD
-              </Button>
-            </CardFooter>
           </Card>
 
           <div className="space-y-8">
@@ -560,6 +553,11 @@ export default function SolicitudCapacitacionPage() {
                 )}
               </CardContent>
             </Card>
+
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full h-20 bg-black hover:bg-black/90 text-white text-xl font-black uppercase rounded-2xl tracking-widest shadow-2xl">
+              {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <CheckCircle2 className="mr-3 h-6 w-6" />}
+              GUARDAR Y AGENDAR ACTIVIDAD
+            </Button>
           </div>
         </div>
       </main>
