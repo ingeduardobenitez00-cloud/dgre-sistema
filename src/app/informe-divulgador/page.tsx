@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, Suspense, useMemo } from 'react';
+import { useState, useEffect, Suspense, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '@/components/header';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,14 @@ import Image from 'next/image';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 function InformeContent() {
   const { user, isUserLoading } = useUser();
@@ -34,6 +42,11 @@ function InformeContent() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [selectedAgendaId, setSelectedAgendaId] = useState<string | null>(agendaIdFromUrl);
   
+  // Camera States
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const [formData, setFormData] = useState({
     lugar_divulgacion: '',
     fecha: '',
@@ -132,6 +145,43 @@ function InformeContent() {
         }));
     }
   }, [agendaDoc, selectedAgendaId, user]);
+
+  const startCamera = async () => {
+    setIsCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment', aspectRatio: { ideal: 0.75 } } 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; }
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error de Cámara", description: "No se pudo acceder a la cámara del dispositivo." });
+      setIsCameraOpen(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+        setRespaldoPhoto(dataUri);
+        stopCamera();
+      }
+    }
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -469,11 +519,20 @@ function InformeContent() {
                             </Button>
                         </div>
                     ) : (
-                        <label className="flex flex-col items-center justify-center aspect-video border-4 border-dashed border-primary/20 rounded-2xl cursor-pointer hover:bg-primary/[0.02] transition-all group bg-white shadow-inner">
-                            <Camera className="h-12 w-12 text-primary opacity-20 group-hover:opacity-100 transition-all mb-2" />
-                            <span className="text-[10px] font-black uppercase text-primary/40 group-hover:text-primary transition-colors text-center px-4">ADJUNTAR FOTO FORMULARIO</span>
-                            <Input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleRespaldoUpload} />
-                        </label>
+                        <div className="space-y-4">
+                            <div 
+                                className="flex flex-col items-center justify-center aspect-video border-4 border-dashed border-primary/20 rounded-2xl cursor-pointer hover:bg-primary/[0.02] transition-all group bg-white shadow-inner"
+                                onClick={startCamera}
+                            >
+                                <Camera className="h-12 w-12 text-primary opacity-20 group-hover:opacity-100 transition-all mb-2" />
+                                <span className="text-[10px] font-black uppercase text-primary/40 group-hover:text-primary transition-colors text-center px-4">ADJUNTAR FOTO FORMULARIO</span>
+                            </div>
+                            <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted transition-all text-muted-foreground hover:text-primary">
+                                <ImageIcon className="h-4 w-4" />
+                                <span className="text-[10px] font-black uppercase">SUBIR DESDE GALERÍA</span>
+                                <Input type="file" accept="image/*" className="hidden" onChange={handleRespaldoUpload} />
+                            </label>
+                        </div>
                     )}
                     <div className="flex items-center p-6 bg-muted/20 rounded-2xl border-2 border-dashed border-black/5">
                         <p className="text-[10px] font-bold uppercase text-muted-foreground italic leading-relaxed">
@@ -533,6 +592,19 @@ function InformeContent() {
           </CardFooter>
         </Card>
       </main>
+
+      <Dialog open={isCameraOpen} onOpenChange={(o) => !o && stopCamera()}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-black rounded-[2rem]">
+          <div className="relative aspect-[3/4] w-full bg-black flex items-center justify-center">
+            <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+            <div className="absolute inset-8 border-2 border-white/20 rounded-xl pointer-events-none border-dashed" />
+          </div>
+          <DialogFooter className="p-8 bg-black/80 flex flex-row items-center justify-between gap-4">
+            <Button variant="outline" className="rounded-full h-14 w-14 border-white/20 bg-white/10 text-white" onClick={stopCamera}><X className="h-6 w-6" /></Button>
+            <Button className="flex-1 h-16 rounded-full bg-white text-black font-black uppercase text-sm shadow-2xl" onClick={takePhoto}>CAPTURAR</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <style jsx global>{`
         .grid-cols-13 {
