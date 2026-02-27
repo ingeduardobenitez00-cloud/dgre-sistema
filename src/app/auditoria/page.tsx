@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -174,12 +173,6 @@ export default function AuditoriaPage() {
                 )}
             </CardContent>
         </Card>
-
-        <div className="text-center pb-10">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] opacity-40 italic">
-                * El registro de auditoría es inmutable y cumple con los estándares de seguridad institucional.
-            </p>
-        </div>
       </main>
     </div>
   );
