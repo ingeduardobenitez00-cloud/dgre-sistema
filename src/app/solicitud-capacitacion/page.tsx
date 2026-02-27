@@ -338,6 +338,14 @@ export default function SolicitudCapacitacionPage() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
+    // Lógica de Fecha Dinámica
+    const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const hoy = new Date();
+    const dia = hoy.getDate().toString().padStart(2, '0');
+    const mesEscrito = meses[hoy.getMonth()].toUpperCase();
+    const departamentoConCodigo = (profile?.departamento || '').toUpperCase();
+    const distritoNombre = (profile?.distrito || '').toUpperCase();
+
     // 1. Logos and Header
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
@@ -372,17 +380,17 @@ export default function SolicitudCapacitacionPage() {
     doc.setFont('helvetica', 'bold');
     doc.text("ANEXO V – PROFORMA DE SOLICITUD", pageWidth / 2, 40.5, { align: "center" });
 
-    // 3. Date Line
+    // 3. Date Line Actualizada
     let y = 55;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text("________________, _____ de ________________ de 2026", pageWidth - margin, y, { align: 'right' });
+    doc.text(`${departamentoConCodigo}, ${dia} de ${mesEscrito} de 2026`, pageWidth - margin, y, { align: 'right' });
 
-    // 4. Recipient
+    // 4. Recipient Actualizado
     y += 15;
     doc.text("Señor/a", margin, y);
     y += 6;
-    doc.text("__________________________________________________________", margin, y);
+    doc.text(`Jefes del Registro Electoral de ${distritoNombre}`, margin, y);
     y += 10;
     doc.setFont('helvetica', 'bold');
     doc.text("Presente:", margin, y);
