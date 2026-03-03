@@ -41,7 +41,8 @@ import {
   Images,
   Activity,
   ScrollText,
-  ClipboardList
+  ClipboardList,
+  CalendarCog
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -81,6 +82,7 @@ export default function AppSidebar() {
         { href: "/ficha", label: "Vista de Ficha", icon: FileText },
         { href: "/fotos", label: "Imágenes", icon: ImageIcon },
         { href: "/cargar-ficha", label: "Cargar Ficha", icon: UploadCloud },
+        { href: "/configuracion-semanal", label: "Configuración de Fechas", icon: CalendarCog },
         { href: "/informe-semanal-registro", label: "Informe Semanal Registro", icon: ClipboardList },
         { href: "/reporte-semanal-registro", label: "Monitor de Informes", icon: History },
       ]

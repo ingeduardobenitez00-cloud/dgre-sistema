@@ -23,6 +23,12 @@ service cloud.firestore {
       return isSignedIn() && data != null && data.role == 'director';
     }
 
+    /** Regla para Configuración Global **/
+    match /config/{configId} {
+      allow read: if isSignedIn() || configId == 'reporte_semanal'; 
+      allow write: if isAdmin();
+    }
+
     /** Regla para Auditoría **/
     match /auditoria/{logId} {
       allow read: if isAdmin() || isDirector();

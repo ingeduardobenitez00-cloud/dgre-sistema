@@ -8,9 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, MapPin, Building2, Landmark, FileDown, CheckCircle2, Plus, Trash2, Camera, ImageIcon, ClipboardList, X, FileUp } from 'lucide-react';
-import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
+import { Loader2, Calendar as CalendarIcon, MapPin, Building2, Landmark, FileDown, CheckCircle2, Plus, Trash2, Camera, ImageIcon, ClipboardList, X, FileUp, Lock } from 'lucide-react';
+import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, addDoc, serverTimestamp, query, where, doc } from 'firebase/firestore';
 import { type Dato, type InformeSemanalRegistro } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDateToDDMMYYYY, cn } from '@/lib/utils';
@@ -60,6 +60,10 @@ export default function InformeSemanalRegistroPage() {
     to: undefined,
   });
 
+  // CARGAR CONFIGURACIÓN GLOBAL (ADMIN)
+  const configRef = useMemoFirebase(() => firestore ? doc(firestore, 'config', 'reporte_semanal') : null, [firestore]);
+  const { data: configData, isLoading: isLoadingConfig } = useDoc<any>(configRef);
+
   const [formData, setFormData] = useState({
     departamento: '',
     distrito: '',
@@ -95,6 +99,16 @@ export default function InformeSemanalRegistroPage() {
     };
     fetchLogo();
   }, [isUserLoading, profile]);
+
+  // Sincronizar fechas con la configuración del administrador
+  useEffect(() => {
+    if (configData) {
+      setDateRange({
+        from: configData.fecha_desde ? new Date(configData.fecha_desde + 'T12:00:00') : undefined,
+        to: configData.fecha_hasta ? new Date(configData.fecha_hasta + 'T12:00:00') : undefined,
+      });
+    }
+  }, [configData]);
 
   // Manejar el cambio en la cantidad de organizaciones
   useEffect(() => {
@@ -279,7 +293,9 @@ export default function InformeSemanalRegistroPage() {
     doc.save(`Informe-Operativo-${formData.distrito.replace(/\s+/g, '-')}.pdf`);
   };
 
-  if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
+  if (isUserLoading || isLoadingConfig) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
+
+  const isDateLocked = !!configData;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
@@ -303,21 +319,30 @@ export default function InformeSemanalRegistroPage() {
             {/* Header Filtros */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Fecha del Informe</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                        Fecha del Informe {isDateLocked && <Lock className="h-3 w-3 text-primary" />}
+                    </Label>
                     <Popover>
-                        <PopoverTrigger asChild>
-                            <div className="h-12 w-full flex items-center px-4 font-bold border-2 rounded-xl bg-muted/20 cursor-pointer hover:bg-muted/30 transition-colors">
+                        <PopoverTrigger asChild disabled={isDateLocked}>
+                            <div className={cn(
+                                "h-12 w-full flex items-center px-4 font-bold border-2 rounded-xl transition-colors",
+                                isDateLocked ? "bg-primary/5 border-primary/20 text-primary cursor-default" : "bg-muted/20 cursor-pointer hover:bg-muted/30"
+                            )}>
                                 <CalendarIcon className="mr-2 h-4 w-4 opacity-40" />
                                 {dateRange?.from ? (
                                     dateRange.to ? `${format(dateRange.from, "dd/MM/yy")} - ${format(dateRange.to, "dd/MM/yy")}` : format(dateRange.from, "dd/MM/yy")
                                 ) : <span className="text-muted-foreground/50">No configurado</span>}
                             </div>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" align="start">
-                            <Calendar mode="range" selected={dateRange} onSelect={setDateRange} locale={es} initialFocus className="bg-white" />
-                        </PopoverContent>
+                        {!isDateLocked && (
+                            <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" align="start">
+                                <Calendar mode="range" selected={dateRange} onSelect={setDateRange} locale={es} initialFocus className="bg-white" />
+                            </PopoverContent>
+                        )}
                     </Popover>
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">Rango de fechas de configuración.</p>
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">
+                        {isDateLocked ? "Rango establecido por la Administración Nacional." : "Rango de fechas de configuración."}
+                    </p>
                 </div>
 
                 <div className="space-y-2">
@@ -432,7 +457,7 @@ export default function InformeSemanalRegistroPage() {
 
           </CardContent>
           <CardFooter className="p-0 border-t bg-black overflow-hidden">
-            <Button onClick={handleSave} disabled={isSubmitting} className="w-full h-20 text-xl font-black uppercase rounded-none tracking-[0.2em] bg-black hover:bg-black/90 text-white">
+            <Button onClick={handleSave} disabled={isSubmitting || !dateRange?.from} className="w-full h-20 text-xl font-black uppercase rounded-none tracking-[0.2em] bg-black hover:bg-black/90 text-white">
                 {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <ClipboardList className="mr-3 h-6 w-6" />}
                 ENVIAR INFORME SEMANAL
             </Button>
