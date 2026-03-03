@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText, ClipboardList, CalendarCog } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText, ClipboardList, CalendarCog, Archive } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -121,6 +121,12 @@ export const dashboardMenuItems = [
     label: 'Monitor de Informes Registro',
     icon: History,
     description: 'Supervisión de cumplimiento de informes operativos por distrito.',
+  },
+  {
+    href: '/archivo-semanal-registro',
+    label: 'Archivo de Informes Registro',
+    icon: Archive,
+    description: 'Historial de semanas cerradas y exportación a Excel.',
   },
   {
     href: '/resumen',

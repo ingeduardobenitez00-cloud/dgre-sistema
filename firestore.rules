@@ -103,6 +103,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /archivos-semanales-registro/{archivoId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /movimientos-maquinas/{movimientoId} {
       allow get, list: if isSignedIn();
       allow create, update: if isSignedIn();
