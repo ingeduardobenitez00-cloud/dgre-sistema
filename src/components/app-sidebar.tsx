@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -81,6 +82,7 @@ export default function AppSidebar() {
         { href: "/fotos", label: "Imágenes", icon: ImageIcon },
         { href: "/cargar-ficha", label: "Cargar Ficha", icon: UploadCloud },
         { href: "/informe-semanal-registro", label: "Informe Semanal Registro", icon: ClipboardList },
+        { href: "/reporte-semanal-registro", label: "Monitor de Informes", icon: History },
       ]
     },
     {

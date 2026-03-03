@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -23,7 +24,7 @@ const MODULE_GROUPS = [
   {
     label: "Registros Electorales",
     description: "Administración edilicia, visualización de fichas técnicas, galerías fotográficas e informes operativos semanales.",
-    modules: ['ficha', 'fotos', 'cargar-ficha', 'informe-semanal-registro']
+    modules: ['ficha', 'fotos', 'cargar-ficha', 'informe-semanal-registro', 'reporte-semanal-registro']
   },
   {
     label: "Análisis y Reportes",

@@ -111,6 +111,12 @@ export const dashboardMenuItems = [
     description: 'Reporte semanal de inscripciones y trámites del Registro Electoral.',
   },
   {
+    href: '/reporte-semanal-registro',
+    label: 'Monitor de Informes Registro',
+    icon: History,
+    description: 'Supervisión de cumplimiento de informes operativos por distrito.',
+  },
+  {
     href: '/resumen',
     label: 'Resumen',
     icon: BarChart3,
