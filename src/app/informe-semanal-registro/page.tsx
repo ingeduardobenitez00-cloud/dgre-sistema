@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, MapPin, Building2, Landmark, FileDown, CheckCircle2, Plus, Trash2, Camera, ImageIcon, ClipboardList, X } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, MapPin, Building2, Landmark, FileDown, CheckCircle2, Plus, Trash2, Camera, ImageIcon, ClipboardList, X, FileUp } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { type Dato, type InformeSemanalRegistro } from '@/lib/data';
@@ -447,7 +447,7 @@ export default function InformeSemanalRegistroPage() {
       </main>
 
       <Dialog open={isCameraOpen} onOpenChange={(o) => !o && stopCamera()}>
-        <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-black rounded-[2.5rem]">
+        <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-black rounded-[2rem]">
           <div className="relative aspect-[3/4] w-full bg-black flex items-center justify-center">
             <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
             <div className="absolute inset-8 border-2 border-white/20 rounded-xl pointer-events-none border-dashed" />
