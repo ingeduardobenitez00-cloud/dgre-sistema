@@ -33,7 +33,11 @@ import {
   TableProperties,
   Download,
   Loader2,
-  FileDown
+  FileDown,
+  Camera,
+  Layers,
+  Search,
+  Database
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -90,7 +94,7 @@ export default function DocumentacionPage() {
         
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(24);
-        doc.text("MANUAL DE USUARIO", pageWidth / 2, 100, { align: 'center' });
+        doc.text("MANUAL DE USUARIO DETALLADO", pageWidth / 2, 100, { align: 'center' });
         doc.setFontSize(18);
         doc.text("SISTEMA DE GESTIÓN INTEGRAL", pageWidth / 2, 115, { align: 'center' });
         doc.setFontSize(14);
@@ -104,92 +108,127 @@ export default function DocumentacionPage() {
         doc.text("Dirección General del Registro Electoral", pageWidth / 2, 150, { align: 'center' });
         doc.text("Centro de Información, Documentación y Educación Electoral (CIDEE)", pageWidth / 2, 156, { align: 'center' });
         
+        doc.text(`Versión: 2.0 (Actualizada)`, pageWidth / 2, 254, { align: 'center' });
         doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, pageWidth / 2, 260, { align: 'center' });
         doc.text("República del Paraguay", pageWidth / 2, 266, { align: 'center' });
 
-        // --- MÓDULO CIDEE ---
+        // --- INTRODUCCIÓN ---
         doc.addPage();
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
-        doc.text("1. MÓDULO CIDEE - CAPACITACIONES", margin, 30);
-        
-        doc.setFontSize(12);
-        doc.text("1.1 Registro de Solicitud (Anexo V)", margin, 45);
+        doc.text("INTRODUCCIÓN AL SISTEMA", margin, 30);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        const textAnexoV = "Este módulo permite digitalizar las solicitudes de organizaciones políticas. Es CRÍTICO realizar el DOBLE CLIC en el mapa para capturar las coordenadas GPS, lo que garantiza la veracidad del lugar de la capacitación. Al finalizar, el sistema genera una proforma pre-llenada para la firma del solicitante.";
-        doc.text(doc.splitTextToSize(textAnexoV, pageWidth - (margin * 2)), margin, 52);
+        const introText = "El Sistema de Gestión Integral de la Justicia Electoral es una plataforma centralizada diseñada para optimizar los procesos de la Dirección General del Registro Electoral y el CIDEE. Este manual detalla los pasos obligatorios para garantizar la integridad de los datos, la trazabilidad logística y el cumplimiento de los informes semanales.";
+        doc.text(doc.splitTextToSize(introText, pageWidth - (margin * 2)), margin, 40);
+
+        // --- MÓDULO CIDEE DETALLADO ---
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text("1. MÓDULO CIDEE - CAPACITACIONES", margin, 65);
+        
+        doc.setFontSize(11);
+        doc.text("1.1 Anexo V - Solicitud de Capacitación", margin, 75);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const anexoVSteps = [
+            "• Selector de Partido: Use el buscador para elegir la organización. Si no existe, use 'Otra Entidad'.",
+            "• Georreferenciación CRÍTICA: Es obligatorio hacer DOBLE CLIC en el mapa sobre la ubicación exacta. Esto captura las coordenadas GPS necesarias para auditoría.",
+            "• Datos del Solicitante: Use la lupa de búsqueda para validar el número de cédula contra el Padrón Electoral Nacional.",
+            "• Respaldo Documental: Capture la foto del pedido físico firmado antes de guardar.",
+            "• Generación PDF: Descargue la proforma oficial para que el solicitante firme el documento físico de respaldo."
+        ];
+        doc.text(anexoVSteps, margin + 5, 82);
 
         doc.setFont('helvetica', 'bold');
-        doc.text("1.2 Control de Movimiento de Máquinas", margin, 75);
+        doc.text("1.2 Movimiento de Máquinas (F01 y F02)", margin, 115);
         doc.setFont('helvetica', 'normal');
-        const textMov = "Gestión de los formularios F01 (Salida) y F02 (Devolución). El sistema requiere obligatoriamente la captura fotográfica del respaldo documental firmado. Si se detecta un lacre violentado, el sistema bloquea el reingreso y obliga al registro de una denuncia oficial.";
-        doc.text(doc.splitTextToSize(textMov, pageWidth - (margin * 2)), margin, 82);
+        const movSteps = [
+            "• Salida (F01): Vincule la actividad de la agenda. Registre el Nro. de Serie de la MV y del Pendrive.",
+            "• Kits Técnicos: Marque la entrega de Auriculares, Credencial, Acrílico y las 5 Boletas de práctica.",
+            "• Respaldo F01: Adjunte foto del formulario de salida firmado por el Jefe de Oficina.",
+            "• Devolución (F02): Verifique el estado de los LACRES. Si están 'Violentados', el sistema bloquea el reingreso y exige una Denuncia Oficial.",
+            "• Cierre de Ciclo: La actividad desaparece de la agenda pendiente una vez registrado el F02."
+        ];
+        doc.text(movSteps, margin + 5, 122);
 
         doc.setFont('helvetica', 'bold');
-        doc.text("1.3 Informe del Divulgador (Anexo III)", margin, 105);
+        doc.text("1.3 Anexo III - Informe Individual", margin, 155);
         doc.setFont('helvetica', 'normal');
-        const textAnexoIII = "Registro de productividad mediante el tablero táctil de 104 celdas. Se debe vincular a una actividad de la agenda para auto-completar los datos del funcionario. Requiere evidencias fotográficas del evento y del formulario firmado.";
-        doc.text(doc.splitTextToSize(textAnexoIII, pageWidth - (margin * 2)), margin, 112);
-
-        doc.setFont('helvetica', 'bold');
-        doc.text("1.4 Informe Semanal (Anexo IV)", margin, 135);
-        doc.setFont('helvetica', 'normal');
-        const textAnexoIV = "Consolidado automático. El sistema extrae los datos de todos los Anexos III registrados en el distrito para el rango de fechas seleccionado, eliminando el error humano en la transcripción de datos.";
-        doc.text(doc.splitTextToSize(textAnexoIV, pageWidth - (margin * 2)), margin, 142);
+        const anexoIIISteps = [
+            "• Vínculo con Agenda: Al seleccionar la actividad, se completan automáticamente los datos del divulgador.",
+            "• Tablero Táctil: Marque una 'X' por cada ciudadano capacitado (hasta 104 marcaciones por informe).",
+            "• Evidencias del Evento: Suba hasta 5 fotografías de la actividad en campo.",
+            "• Respaldo Documental: Es obligatorio adjuntar la foto del Anexo III físico firmado y sellado."
+        ];
+        doc.text(anexoIIISteps, margin + 5, 162);
 
         // --- MÓDULO REGISTROS ELECTORALES ---
         doc.addPage();
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text("2. MÓDULO REGISTROS ELECTORALES", margin, 30);
+        doc.setFontSize(14);
+        doc.text("2. MÓDULO REGISTROS ELECTORALES (EDILICIO)", margin, 30);
         
-        doc.setFontSize(12);
-        doc.text("2.1 Ficha Técnica Edilicia", margin, 45);
+        doc.setFontSize(11);
+        doc.text("2.1 Ficha Técnica y Relevamiento", margin, 40);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        const textFicha = "Documentación del estado físico de la oficina, cantidad de habitaciones, dimensiones de la habitación segura y lugar de resguardo de equipos de votación.";
-        doc.text(doc.splitTextToSize(textFicha, pageWidth - (margin * 2)), margin, 52);
+        doc.setFontSize(9);
+        const fichaSteps = [
+            "• Datos Estructurales: Se debe informar el estado físico, cantidad de habitaciones y dimensiones exactas de la Habitación Segura.",
+            "• Resguardo de Equipos: Indique el lugar exacto donde se guardan las MV (debe coincidir con la foto #5).",
+            "• Galería de 8 Fotos Obligatorias:",
+            "  1. Frente del Registro.",
+            "  2. Costado Derecho.",
+            "  3. Costado Izquierdo.",
+            "  4. Fondo del Registro.",
+            "  5. Habitación Segura (Interior).",
+            "  6. Habitación Segura (Techo).",
+            "  7. Vista General de Habitaciones.",
+            "  8. Formulario de Relevamiento firmado y sellado."
+        ];
+        doc.text(fichaSteps, margin + 5, 47);
 
         doc.setFont('helvetica', 'bold');
-        doc.text("2.2 Galería Fotográfica Obligatoria", margin, 70);
+        doc.text("2.2 Informe Semanal Operativo (Registro)", margin, 105);
         doc.setFont('helvetica', 'normal');
-        const textFotos = "Cada registro debe contar con las 8 categorías de fotos obligatorias: Frente, Costados, Fondo, Habitación Segura (Interior y Techo) y el Formulario de Relevamiento firmado.";
-        doc.text(doc.splitTextToSize(textFotos, pageWidth - (margin * 2)), margin, 77);
+        const infRegSteps = [
+            "• Trámites Cuantitativos: Ingrese la cantidad de Inscripciones 1ra Vez, Actualizaciones y Traslados realizados.",
+            "• Organizaciones Asistidas: Detalle el Tipo (Comisión, Cooperativa, etc.) y el Nombre de cada entidad asistida.",
+            "• Respaldo de Boletas: Adjunte capturas de las boletas de inscripción procesadas durante la semana.",
+            "• Monitor de Cumplimiento: La Dirección Nacional supervisa en tiempo real qué distritos han enviado su reporte."
+        ];
+        doc.text(infRegSteps, margin + 5, 112);
 
-        doc.setFont('helvetica', 'bold');
-        doc.text("2.3 Informe Semanal de Registro", margin, 95);
-        doc.setFont('helvetica', 'normal');
-        const textInfReg = "Reporte cuantitativo de trámites realizados en la oficina: Inscripciones por primera vez, actualizaciones de datos, cambios de local y cambios de distrito. Incluye el detalle de organizaciones intermedias asistidas.";
-        doc.text(doc.splitTextToSize(textInfReg, pageWidth - (margin * 2)), margin, 102);
-
-        // --- SEGURIDAD Y SISTEMA ---
+        // --- ADMINISTRACIÓN Y AUDITORÍA ---
         doc.addPage();
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text("3. SEGURIDAD Y ADMINISTRACIÓN", margin, 30);
+        doc.setFontSize(14);
+        doc.text("3. SEGURIDAD Y ADMINISTRACIÓN DEL SISTEMA", margin, 30);
         
-        doc.setFontSize(12);
-        doc.text("3.1 Roles y Permisos", margin, 45);
+        doc.setFontSize(11);
+        doc.text("3.1 Gestión de Usuarios y Matriz de Permisos", margin, 40);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        const textRoles = "El sistema utiliza una matriz de permisos granulares. Los Administradores gestionan accesos, mientras que los Jefes y Funcionarios operan bajo filtros de jurisdicción (Departamental o Distrital) que restringen la visibilidad de los datos a su zona autorizada.";
-        doc.text(doc.splitTextToSize(textRoles, pageWidth - (margin * 2)), margin, 52);
+        doc.setFontSize(9);
+        const userSteps = [
+            "• Roles Institucionales: Admin, Director, Jefe de Oficina, Funcionario y Viewer.",
+            "• Filtros Territoriales: El sistema aplica automáticamente restricciones por Departamento o Distrito.",
+            "• Matriz de Permisos: Los administradores asignan acceso a módulos específicos (Ver, Guardar, Editar, Borrar, PDF).",
+            "• Monitoreo de Conexiones: Visualización en tiempo real de usuarios activos y su ubicación dentro del sistema."
+        ];
+        doc.text(userSteps, margin + 5, 47);
 
         doc.setFont('helvetica', 'bold');
-        doc.text("3.2 Auditoría y Trazabilidad", margin, 80);
+        doc.text("3.2 Auditoría Técnica (Bitácora)", margin, 80);
         doc.setFont('helvetica', 'normal');
-        const textAuditoria = "Todas las acciones críticas (Crear, Editar, Borrar, Generar PDF) son registradas en la Bitácora Técnica del sistema, incluyendo el usuario, la fecha, la hora y el módulo afectado.";
-        doc.text(doc.splitTextToSize(textAuditoria, pageWidth - (margin * 2)), margin, 87);
+        const auditSteps = [
+            "• Trazabilidad Total: Cada creación, edición o borrado de datos queda registrado con Usuario, Fecha y Hora.",
+            "• Registro de Reportes: Se audita quién genera cada PDF oficial.",
+            "• Integridad de Datos: El sistema previene el borrado accidental mediante diálogos de confirmación obligatorios."
+        ];
+        doc.text(auditSteps, margin + 5, 87);
 
-        doc.setFont('helvetica', 'bold');
-        doc.text("3.3 Monitoreo de Conexiones", margin, 110);
-        doc.setFont('helvetica', 'normal');
-        const textConex = "Permite a la Dirección Nacional visualizar en tiempo real qué funcionarios están activos en el sistema y en qué módulo específico se encuentran trabajando.";
-        doc.text(doc.splitTextToSize(textConex, pageWidth - (margin * 2)), margin, 117);
-
-        doc.save("Manual-Usuario-Sistema-Gestion-Integral.pdf");
-        toast({ title: "Manual Generado", description: "El documento se ha descargado correctamente." });
+        doc.save("Manual-Detallado-Sistema-Gestion-Integral.pdf");
+        toast({ title: "Manual Generado", description: "El documento detallado se ha descargado correctamente." });
     } catch (error) {
         toast({ variant: 'destructive', title: "Error al generar manual" });
     } finally {
@@ -199,141 +238,145 @@ export default function DocumentacionPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/5">
-      <Header title="Documentación del Sistema" />
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+      <Header title="Documentación Detallada" />
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8">
         
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight uppercase text-primary">Documentación Institucional</h1>
-            <p className="text-muted-foreground text-sm font-medium flex items-center gap-2 mt-1">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black tracking-tight uppercase text-primary">Base de Conocimiento</h1>
+            <p className="text-muted-foreground text-sm font-medium flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
-              Guía técnica y operativa del Sistema de Gestión Integral.
+              Guía técnica, operativa y de seguridad del Sistema de Gestión.
             </p>
           </div>
           <Button 
-            className="font-black uppercase text-xs h-12 px-8 shadow-xl bg-black hover:bg-black/90 gap-3 rounded-xl"
+            className="font-black uppercase text-xs h-14 px-10 shadow-2xl bg-black hover:bg-black/90 gap-3 rounded-2xl transition-all hover:scale-105"
             onClick={handleDownloadManual}
             disabled={isGeneratingPdf}
           >
-            {isGeneratingPdf ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileDown className="h-5 w-5" />}
-            DESCARGAR MANUAL COMPLETO PDF
+            {isGeneratingPdf ? <Loader2 className="h-6 w-6 animate-spin" /> : <FileDown className="h-6 w-6" />}
+            DESCARGAR MANUAL DETALLADO PDF
           </Button>
         </div>
 
-        <Tabs defaultValue="manual-cidee" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-1 md:grid-cols-5 lg:w-[1000px] bg-white border shadow-sm h-auto p-1">
-            <TabsTrigger value="manual-cidee" className="gap-2 font-black uppercase text-[10px] py-2">
-              <ClipboardCheck className="h-3.5 w-3.5" /> Manual CIDEE
+        <Tabs defaultValue="flujo-capacitacion" className="space-y-8">
+          <TabsList className="flex flex-wrap w-full bg-white border shadow-sm h-auto p-1 rounded-xl">
+            <TabsTrigger value="flujo-capacitacion" className="flex-1 gap-2 font-black uppercase text-[10px] py-3 rounded-lg">
+              <Layers className="h-3.5 w-3.5" /> Flujo CIDEE
             </TabsTrigger>
-            <TabsTrigger value="correo" className="gap-2 font-black uppercase text-[10px] py-2">
+            <TabsTrigger value="registros" className="flex-1 gap-2 font-black uppercase text-[10px] py-3 rounded-lg">
+              <Building2 className="h-3.5 w-3.5" /> Registros
+            </TabsTrigger>
+            <TabsTrigger value="correo" className="flex-1 gap-2 font-black uppercase text-[10px] py-3 rounded-lg">
               <Mail className="h-3.5 w-3.5" /> Autenticación
             </TabsTrigger>
-            <TabsTrigger value="roles" className="gap-2 font-black uppercase text-[10px] py-2">
-              <Users className="h-3.5 w-3.5" /> Roles y Permisos
+            <TabsTrigger value="roles" className="flex-1 gap-2 font-black uppercase text-[10px] py-3 rounded-lg">
+              <Users className="h-3.5 w-3.5" /> Seguridad
             </TabsTrigger>
-            <TabsTrigger value="cidee" className="gap-2 font-black uppercase text-[10px] py-2">
-              <FileText className="h-3.5 w-3.5" /> Módulo CIDEE
-            </TabsTrigger>
-            <TabsTrigger value="tecnico" className="gap-2 font-black uppercase text-[10px] py-2">
-              <Cpu className="h-3.5 w-3.5" /> Arquitectura
+            <TabsTrigger value="tecnico" className="flex-1 gap-2 font-black uppercase text-[10px] py-3 rounded-lg">
+              <Cpu className="h-3.5 w-3.5" /> Soporte Técnico
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="manual-cidee" className="animate-in fade-in duration-500 space-y-8">
+          <TabsContent value="flujo-capacitacion" className="animate-in fade-in duration-500 space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-8 space-y-6">
-                <Card className="border-t-4 border-t-primary shadow-lg">
-                  <CardHeader className="bg-muted/10">
-                    <CardTitle className="uppercase font-black text-lg flex items-center gap-2 text-primary">
-                      <BookOpen className="h-5 w-5" /> Guía de Operación Paso a Paso
+                <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden">
+                  <CardHeader className="bg-primary text-white p-8">
+                    <CardTitle className="uppercase font-black text-xl flex items-center gap-3">
+                      <ClipboardCheck className="h-6 w-6" /> Proceso de Capacitaciones
                     </CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase">
-                      Procedimientos estándar para el Módulo de Capacitaciones.
+                    <CardDescription className="text-white/60 text-[10px] font-bold uppercase tracking-widest">
+                      Guía paso a paso desde la recepción hasta la rendición.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="pt-8">
+                  <CardContent className="pt-8 bg-white">
                     <Accordion type="single" collapsible className="w-full space-y-4">
                       
-                      <AccordionItem value="item-1" className="border rounded-2xl px-6 bg-white shadow-sm overflow-hidden">
+                      <AccordionItem value="anexo-v" className="border-2 rounded-[1.5rem] px-6 bg-white overflow-hidden transition-all hover:border-primary/20">
                         <AccordionTrigger className="hover:no-underline py-6">
                           <div className="flex items-center gap-4 text-left">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black">1</div>
+                            <div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-lg">1</div>
                             <div>
-                              <p className="font-black uppercase text-sm">Registro de Solicitudes (Anexo V)</p>
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase">Entrada de datos y georreferenciación</p>
+                              <p className="font-black uppercase text-sm">Registro de Solicitud (Anexo V)</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">Captura de datos y georreferenciación obligatoria</p>
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="pb-8 text-xs font-medium space-y-4 text-muted-foreground leading-relaxed">
-                          <p>Al recibir un pedido de una organización política:</p>
-                          <ul className="list-disc pl-5 space-y-2 uppercase text-[10px] font-bold">
-                            <li>Seleccione el Partido del buscador oficial.</li>
-                            <li>Defina Fecha, Hora y Local exacto.</li>
-                            <li><b>IMPORTANTE:</b> Haga doble clic en el mapa para capturar las coordenadas GPS.</li>
-                            <li>Adjunte la foto de la solicitud física.</li>
-                            <li>Descargue la Proforma PDF para archivo del Registro.</li>
-                          </ul>
+                        <AccordionContent className="pb-8 space-y-6">
+                          <div className="p-5 bg-muted/30 rounded-2xl space-y-4">
+                            <p className="text-[11px] font-black uppercase text-primary">CAMPOS A COMPLETAR:</p>
+                            <ul className="space-y-3">
+                                <li className="flex gap-3 text-xs font-medium">
+                                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                                    <span><b>Entidad Solicitante:</b> Seleccione el Partido Político del buscador oficial o ingrese el nombre manualmente.</span>
+                                </li>
+                                <li className="flex gap-3 text-xs font-medium">
+                                    <MapPin className="h-4 w-4 text-primary shrink-0" />
+                                    <span><b>Mapa GPS:</b> Es MANDATORIO hacer doble clic en el mapa. Esto vincula la ubicación exacta del evento para auditoría nacional.</span>
+                                </li>
+                                <li className="flex gap-3 text-xs font-medium">
+                                    <Search className="h-4 w-4 text-blue-600 shrink-0" />
+                                    <span><b>Cédula:</b> Use el botón de búsqueda para validar los datos del apoderado contra el Padrón Nacional.</span>
+                                </li>
+                                <li className="flex gap-3 text-xs font-medium">
+                                    <Camera className="h-4 w-4 text-amber-600 shrink-0" />
+                                    <span><b>Respaldo:</b> Capture la foto del pedido físico firmado por la organización política.</span>
+                                </li>
+                            </ul>
+                          </div>
                         </AccordionContent>
                       </AccordionItem>
 
-                      <AccordionItem value="item-2" className="border rounded-2xl px-6 bg-white shadow-sm overflow-hidden">
+                      <AccordionItem value="logistica" className="border-2 rounded-[1.5rem] px-6 bg-white overflow-hidden transition-all hover:border-primary/20">
                         <AccordionTrigger className="hover:no-underline py-6">
                           <div className="flex items-center gap-4 text-left">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black">2</div>
+                            <div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-lg">2</div>
                             <div>
                               <p className="font-black uppercase text-sm">Control Logístico (F01 / F02)</p>
                               <p className="text-[10px] font-bold text-muted-foreground uppercase">Movimiento de Máquinas de Votación</p>
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="pb-8 text-xs font-medium space-y-4 text-muted-foreground leading-relaxed">
-                          <p>Para garantizar la seguridad de los equipos:</p>
-                          <ul className="list-disc pl-5 space-y-2 uppercase text-[10px] font-bold">
-                            <li><b>Salida:</b> Registre serie de la MV y Pendrive. Adjunte F01 firmado (obligatorio).</li>
-                            <li><b>Retorno:</b> Verifique estado de lacres.</li>
-                            <li><b>Denuncia:</b> Si el lacre está violentado, registre la denuncia con evidencia fotográfica antes de cerrar.</li>
-                            <li>Adjunte F02 firmado para cerrar el ciclo de la máquina.</li>
-                          </ul>
+                        <AccordionContent className="pb-8 space-y-6">
+                          <div className="p-5 bg-muted/30 rounded-2xl space-y-4">
+                            <p className="text-[11px] font-black uppercase text-primary">PASOS PARA LA SALIDA (F01):</p>
+                            <ul className="space-y-2 text-xs font-medium">
+                                <li>1. Registre el <b>Nro. de Serie</b> de la Máquina de Votación.</li>
+                                <li>2. Ingrese el <b>Nro. de Serie del Pendrive</b> de capacitación.</li>
+                                <li>3. Verifique la entrega de: Credencial, Auricular, Acrílico y 5 Boletas.</li>
+                                <li>4. Adjunte foto del F01 físico firmado por el Jefe.</li>
+                            </ul>
+                            <Separator />
+                            <p className="text-[11px] font-black uppercase text-destructive">PROTOCOLO DE DEVOLUCIÓN (F02):</p>
+                            <p className="text-xs font-medium leading-relaxed italic">
+                                Al retornar, el sistema exige verificar los <b>LACRES DE SEGURIDAD</b>. Si el lacre fue violentado, el sistema bloquea el reingreso y genera una alerta automática que obliga a registrar la denuncia con evidencia fotográfica.
+                            </p>
+                          </div>
                         </AccordionContent>
                       </AccordionItem>
 
-                      <AccordionItem value="item-3" className="border rounded-2xl px-6 bg-white shadow-sm overflow-hidden">
+                      <AccordionItem value="productividad" className="border-2 rounded-[1.5rem] px-6 bg-white overflow-hidden transition-all hover:border-primary/20">
                         <AccordionTrigger className="hover:no-underline py-6">
                           <div className="flex items-center gap-4 text-left">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black">3</div>
+                            <div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-lg">3</div>
                             <div>
                               <p className="font-black uppercase text-sm">Informe de Productividad (Anexo III)</p>
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase">Carga de marcaciones individuales</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">Carga de marcaciones individuales por ciudadano</p>
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="pb-8 text-xs font-medium space-y-4 text-muted-foreground leading-relaxed">
-                          <p>Al terminar la capacitación:</p>
-                          <ul className="list-disc pl-5 space-y-2 uppercase text-[10px] font-bold">
-                            <li>Vincule la actividad agendada (se completarán datos automáticamente).</li>
-                            <li>Use el tablero táctil para marcar cada ciudadano capacitado.</li>
-                            <li>Adjunte fotos de respaldo del evento y del formulario físico firmado.</li>
-                          </ul>
-                        </AccordionContent>
-                      </AccordionItem>
-
-                      <AccordionItem value="item-4" className="border rounded-2xl px-6 bg-white shadow-sm overflow-hidden">
-                        <AccordionTrigger className="hover:no-underline py-6">
-                          <div className="flex items-center gap-4 text-left">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black">4</div>
-                            <div>
-                              <p className="font-black uppercase text-sm">Consolidado Semanal (Anexo IV)</p>
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase">Generación automática de rendición</p>
-                            </div>
+                        <AccordionContent className="pb-8 space-y-6">
+                          <div className="p-5 bg-muted/30 rounded-2xl space-y-4">
+                            <p className="text-[11px] font-black uppercase text-primary">USO DEL TABLERO TÁCTIL:</p>
+                            <p className="text-xs font-medium leading-relaxed">
+                                El sistema presenta un tablero de 104 celdas. Por cada ciudadano que practique con la máquina, el divulgador debe tocar una celda para marcarla con una "X".
+                            </p>
+                            <p className="text-[11px] font-black uppercase text-primary">EVIDENCIAS FOTOGRÁFICAS:</p>
+                            <p className="text-xs font-medium leading-relaxed">
+                                Se deben subir fotografías que demuestren la ejecución de la actividad. Además, es <b>OBLIGATORIO</b> adjuntar la foto del Anexo III físico firmado y sellado por la jefatura del Registro Electoral.
+                            </p>
                           </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="pb-8 text-xs font-medium space-y-4 text-muted-foreground leading-relaxed">
-                          <p>Al cierre de la semana:</p>
-                          <ul className="list-disc pl-5 space-y-2 uppercase text-[10px] font-bold">
-                            <li>El sistema extrae todos los Anexos III del periodo.</li>
-                            <li>No requiere carga manual de filas.</li>
-                            <li>Genere el PDF horizontal (Landscape) listo para remitir a la Coordinación.</li>
-                          </ul>
                         </AccordionContent>
                       </AccordionItem>
 
@@ -348,111 +391,144 @@ export default function DocumentacionPage() {
                     <ShieldCheck className="h-32 w-32" />
                   </div>
                   <h3 className="font-black uppercase text-xs mb-6 flex items-center gap-2 text-primary-foreground">
-                    <AlertCircle className="h-4 w-4" /> Recordatorio Crítico
+                    <AlertCircle className="h-4 w-4" /> REGLAS CRÍTICAS
                   </h3>
-                  <p className="text-xs leading-relaxed opacity-80 mb-6 font-bold uppercase">
-                    La veracidad de los datos está respaldada por las coordenadas GPS y las fotografías de los formularios firmados.
-                  </p>
-                  <Separator className="bg-white/20 mb-6" />
-                  <p className="text-[10px] leading-relaxed font-medium opacity-60 italic uppercase">
-                    Todo registro sin respaldo documental fotográfico será considerado inválido durante las auditorías nacionales.
-                  </p>
+                  <div className="space-y-6">
+                    <div>
+                        <p className="text-[10px] font-black uppercase text-primary leading-none mb-2">GEORREFERENCIACIÓN</p>
+                        <p className="text-[11px] leading-relaxed opacity-80 font-medium uppercase">
+                            Todo registro sin coordenadas GPS capturadas mediante doble clic será invalidado por la Dirección Nacional.
+                        </p>
+                    </div>
+                    <Separator className="bg-white/20" />
+                    <div>
+                        <p className="text-[10px] font-black uppercase text-primary leading-none mb-2">RESPALDOS FÍSICOS</p>
+                        <p className="text-[11px] leading-relaxed opacity-80 font-medium uppercase">
+                            Las fotografías de los formularios firmados (Anexo V, F01, F02, Anexo III) son requerimientos obligatorios de carga.
+                        </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-8 border-none shadow-xl bg-white rounded-[2.5rem]">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Info className="h-5 w-5 text-primary" />
+                            <span className="font-black uppercase text-xs">Asistencia Ciudadana</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                            En cada capacitación, invite a los ciudadanos a escanear el <b>CÓDIGO QR</b> de encuesta generado en la agenda. Esto alimenta automáticamente el tablero de estadísticas del CIDEE.
+                        </p>
+                    </div>
                 </Card>
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="registros" className="animate-in fade-in duration-500 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
+                    <CardHeader className="bg-muted/10 p-8 border-b">
+                        <CardTitle className="uppercase font-black text-lg flex items-center gap-2">
+                            <Layers className="h-5 w-5 text-primary" /> Ficha Edilicia Técnica
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-6">
+                        <p className="text-xs font-medium text-muted-foreground leading-relaxed">
+                            Este módulo documenta la infraestructura física de cada oficina del Registro Electoral. Es fundamental para la planificación de seguridad.
+                        </p>
+                        <div className="space-y-4">
+                            <p className="text-[10px] font-black uppercase text-primary">DATOS OBLIGATORIOS:</p>
+                            <ul className="text-xs font-medium space-y-2">
+                                <li>• Dimensiones exactas de la habitación segura.</li>
+                                <li>• Tipo de cerramiento y techo de la zona de resguardo.</li>
+                                <li>• Cantidad de máquinas de votación en stock permanente.</li>
+                                <li>• Descripción general de la situación edilicia.</li>
+                            </ul>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
+                    <CardHeader className="bg-muted/10 p-8 border-b">
+                        <CardTitle className="uppercase font-black text-lg flex items-center gap-2">
+                            <Camera className="h-5 w-5 text-primary" /> Galería Obligatoria
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-6">
+                        <p className="text-xs font-medium text-muted-foreground leading-relaxed">
+                            Cada registro debe contener exactamente las 8 fotos reglamentarias del protocolo institucional.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <Badge variant="outline" className="text-[8px] font-black uppercase p-2 border-primary/10">1. FRENTE DEL REGISTRO</Badge>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase p-2 border-primary/10">2. COSTADO DERECHO</Badge>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase p-2 border-primary/10">3. COSTADO IZQUIERDO</Badge>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase p-2 border-primary/10">4. FONDO DEL LOCAL</Badge>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase p-2 border-primary/10">5. HAB. SEGURA (INTERIOR)</Badge>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase p-2 border-primary/10">6. HAB. SEGURA (TECHO)</Badge>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase p-2 border-primary/10">7. OTRAS HABITACIONES</Badge>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase p-2 border-primary/10">8. FORMULARIO FIRMADO</Badge>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="correo" className="animate-in fade-in duration-500 space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-8 space-y-6">
-                <Card className="border-t-4 border-t-blue-600 shadow-lg">
-                  <CardHeader className="bg-blue-50/50">
+                <Card className="border-t-4 border-t-blue-600 shadow-lg bg-white rounded-3xl overflow-hidden">
+                  <CardHeader className="bg-blue-50/50 p-8">
                     <CardTitle className="uppercase font-black text-lg flex items-center gap-2 text-blue-700">
-                      <LockKeyhole className="h-5 w-5" /> Recuperación Alternativa
+                      <LockKeyhole className="h-5 w-5" /> Autenticación y Recuperación
                     </CardTitle>
                     <CardDescription className="text-[10px] font-bold uppercase">
-                      Métodos para cuando el correo de reseteo llega a SPAM o no es recibido.
+                      Procedimientos para el acceso seguro al sistema.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6 pt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-5 border-2 border-dashed rounded-2xl bg-white space-y-3">
+                  <CardContent className="space-y-8 p-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-6 border-2 border-dashed rounded-[2rem] bg-white space-y-3 shadow-sm">
                             <div className="flex items-center gap-2">
                                 <MessageCircle className="h-5 w-5 text-green-600" />
                                 <span className="font-black uppercase text-xs">Vía WhatsApp Soporte</span>
                             </div>
-                            <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
-                                El sistema incluye un botón de <b>"Soporte WhatsApp"</b> en el Login. Esto permite al usuario contactar al administrador para que este verifique su cuenta manualmente en la Consola.
+                            <p className="text-[10px] font-medium text-muted-foreground leading-relaxed uppercase">
+                                Use el botón de <b>"Soporte WhatsApp"</b> en el Login. El administrador nacional puede verificar su identidad y resetear su cuenta manualmente.
                             </p>
                         </div>
-                        <div className="p-5 border-2 border-dashed rounded-2xl bg-white space-y-3">
+                        <div className="p-6 border-2 border-dashed rounded-[2rem] bg-white space-y-3 shadow-sm">
                             <div className="flex items-center gap-2">
                                 <ShieldAlert className="h-5 w-5 text-amber-600" />
-                                <span className="font-black uppercase text-xs">Acción del Administrador</span>
+                                <span className="font-black uppercase text-xs">Reseteo por Correo</span>
                             </div>
-                            <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
-                                El administrador puede entrar a <b>Firebase Console > Auth</b>, buscar al usuario y usar la opción <b>"Restablecer contraseña"</b>. Esto envía un nuevo correo que el administrador puede monitorear.
+                            <p className="text-[10px] font-medium text-muted-foreground leading-relaxed uppercase">
+                                Si no recibe el correo, verifique siempre la carpeta <b>SPAM</b>. El remitente oficial es el motor de seguridad de Google Cloud.
                             </p>
                         </div>
                     </div>
                     <Separator />
-                    <div className="space-y-4">
-                        <h3 className="font-black uppercase text-sm">¿Cómo evitar el SPAM definitivamente?</h3>
-                        <Accordion type="single" collapsible className="w-full space-y-4">
-                            <AccordionItem value="obtener-dominio" className="border rounded-xl px-4 bg-white shadow-sm">
-                                <AccordionTrigger className="hover:no-underline">
-                                    <div className="flex items-center gap-3">
-                                        <ShoppingCart className="h-5 w-5 text-green-600" />
-                                        <span className="font-black uppercase text-sm">Opción A: Comprar un Dominio</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-4 pb-6">
-                                    <p className="text-xs text-muted-foreground leading-relaxed font-medium">
-                                        Firebase no vende dominios. Debes comprar uno (ej. <code className="bg-muted px-1">tsje-gestion.com</code>) en proveedores como GoDaddy o Namecheap. 
-                                        <b> Sin un dominio propio, los correos siempre tendrán riesgo de SPAM.</b>
-                                    </p>
-                                </AccordionContent>
-                            </AccordionItem>
-                            <AccordionItem value="sin-dominio-smtp" className="border rounded-xl px-4 bg-white shadow-sm">
-                                <AccordionTrigger className="hover:no-underline">
-                                    <div className="flex items-center gap-3">
-                                        <Settings2 className="h-5 w-5 text-amber-600" />
-                                        <span className="font-black uppercase text-sm">Opción B: Usar Gmail como Remitente (Relay SMTP)</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-4 pb-6">
-                                    <p className="text-xs text-muted-foreground mb-4">Si no tienes dominio, puedes hacer que Firebase use tu Gmail personal para enviar los mensajes:</p>
-                                    <div className="bg-amber-50 p-4 rounded-xl space-y-3 border border-amber-100">
-                                        <p className="text-[11px] font-bold text-amber-900 uppercase">PASOS CONFIGURACIÓN SMTP:</p>
-                                        <ol className="text-[10px] space-y-2 list-decimal pl-4 font-medium uppercase">
-                                            <li>Entra a tu Cuenta de Google {">"} Seguridad {">"} **Contraseña de Aplicaciones**.</li>
-                                            <li>Genera una clave de 16 caracteres para "Correo".</li>
-                                            <li>En Firebase Console {">"} Authentication {">"} Templates {">"} **Configuración de SMTP**.</li>
-                                            <li>Servidor: <code className="bg-white px-1">smtp.gmail.com</code> | Puerto: <code className="bg-white px-1">465</code>.</li>
-                                            <li>Usa tu correo y la clave de 16 caracteres.</li>
-                                        </ol>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
+                    <div className="bg-amber-50 border border-amber-200 p-6 rounded-[2rem] space-y-4">
+                        <h3 className="font-black uppercase text-xs flex items-center gap-2 text-amber-800">
+                            <Settings2 className="h-4 w-4" /> Recomendación de Infraestructura
+                        </h3>
+                        <p className="text-[11px] text-amber-900 font-medium leading-relaxed uppercase">
+                            Para evitar problemas de SPAM definitivamente, la Dirección de Informática debe configurar un <b>Relay SMTP</b> institucional o un <b>Subdominio Validado</b> para el sistema.
+                        </p>
                     </div>
                   </CardContent>
                 </Card>
               </div>
-              <div className="lg:col-span-4 space-y-6">
-                <Card className="bg-black text-white p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
+              <div className="lg:col-span-4">
+                <Card className="bg-black text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <div className="absolute -right-4 -top-4 opacity-10">
                     <Globe className="h-32 w-32" />
                   </div>
                   <h3 className="font-black uppercase text-xs mb-6 flex items-center gap-2 text-amber-400">
-                    <AlertCircle className="h-4 w-4" /> Recomendación VIP
+                    <ShieldCheck className="h-4 w-4" /> Acceso Restringido
                   </h3>
                   <p className="text-xs leading-relaxed opacity-80 mb-6 font-bold uppercase">
-                    La forma más profesional de operar es solicitar a la Dirección de Informática un <b>Subdominio Institucional</b>.
-                  </p>
-                  <Separator className="bg-white/20 mb-6" />
-                  <p className="text-[10px] leading-relaxed font-medium opacity-60 italic uppercase">
-                    Esto permite validar el sistema ante los servidores de Google, asegurando que el 100% de los correos lleguen a la bandeja de entrada principal.
+                    El sistema detecta automáticamente la ubicación del usuario. Los intentos de acceso desde IPs no autorizadas quedan registrados en la bitácora de auditoría nacional.
                   </p>
                 </Card>
               </div>
@@ -462,56 +538,58 @@ export default function DocumentacionPage() {
           <TabsContent value="roles" className="animate-in fade-in duration-500">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
-                <Card className="border-t-4 border-t-primary shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="uppercase font-black text-lg">Jerarquía de Usuarios</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase">Definición de accesos según el cargo institucional.</CardDescription>
+                <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
+                  <CardHeader className="bg-primary text-white p-8">
+                    <CardTitle className="uppercase font-black text-lg">Jerarquía Institucional de Usuarios</CardTitle>
+                    <CardDescription className="text-white/60 text-[10px] font-bold uppercase">Niveles de acceso y capacidades operativas.</CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
                     <Accordion type="single" collapsible className="w-full">
                       {[
                         { 
-                          rol: "Administrador", 
-                          desc: "Control total del sistema y seguridad.", 
-                          acceso: "Total (Global)",
+                          rol: "Administrador Nacional", 
+                          desc: "Control total del sistema, gestión de la estructura geográfica, importaciones masivas y control de seguridad nacional.", 
+                          acceso: "Acceso Total (Global)",
                           icon: ShieldCheck,
                           color: "text-red-600"
                         },
                         { 
-                          rol: "Director", 
-                          desc: "Supervisión nacional de reportes y estadísticas.", 
-                          acceso: "Nacional (Lectura/PDF)",
+                          rol: "Director / Coordinador", 
+                          desc: "Supervisión de estadísticas nacionales, descarga de informes generales PDF y monitoreo de cumplimiento regional.", 
+                          acceso: "Nacional (Lectura / Auditoría)",
                           icon: Globe,
                           color: "text-blue-600"
                         },
                         { 
-                          rol: "Jefe de Oficina", 
-                          desc: "Gestión de agenda, asignación de personal y validación de informes.", 
-                          acceso: "Regional (Gestión)",
+                          rol: "Jefe de Oficina Distrital", 
+                          desc: "Gestión de agenda, asignación de divulgadores, validación administrativa de Anexos III y firma del Consolidado Semanal.", 
+                          acceso: "Regional (Gestión / Validación)",
                           icon: Landmark,
                           color: "text-amber-600"
                         },
                         { 
-                          rol: "Funcionario / Divulgador", 
-                          desc: "Carga de datos operativos, ejecución de campo y reportes edilicios.", 
-                          acceso: "Local (Operativo)",
+                          rol: "Funcionario Operativo", 
+                          desc: "Carga de solicitudes (Anexo V), informes de productividad (Anexo III), movimientos logísticos y ficha edilicia.", 
+                          acceso: "Local (Operativo / Carga)",
                           icon: Navigation,
                           color: "text-green-600"
                         }
                       ].map((item, i) => (
-                        <AccordionItem key={i} value={`item-${i}`} className="border-b px-6">
+                        <AccordionItem key={i} value={`item-${i}`} className="border-b px-8 py-2 last:border-0 hover:bg-muted/5 transition-colors">
                           <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center gap-3">
-                              <item.icon className={cn("h-5 w-5", item.color)} />
-                              <span className="font-black uppercase text-sm">{item.rol}</span>
+                            <div className="flex items-center gap-4">
+                              <div className={cn("h-10 w-10 rounded-xl bg-muted flex items-center justify-center", item.color.replace('text', 'bg').replace('600', '100'))}>
+                                <item.icon className={cn("h-5 w-5", item.color)} />
+                              </div>
+                              <span className="font-black uppercase text-sm tracking-tight">{item.rol}</span>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="pb-6">
-                            <div className="space-y-4 pt-2">
-                              <p className="text-xs font-medium text-muted-foreground">{item.desc}</p>
+                            <div className="space-y-4 pt-2 border-l-2 border-muted pl-6 ml-5">
+                              <p className="text-xs font-medium text-muted-foreground leading-relaxed uppercase">{item.desc}</p>
                               <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-black uppercase text-muted-foreground">Nivel de Acceso:</span>
-                                <Badge variant="secondary" className="text-[9px] font-black uppercase bg-primary/5 text-primary border-none">
+                                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Nivel de Seguridad:</span>
+                                <Badge variant="secondary" className="text-[9px] font-black uppercase bg-primary/5 text-primary border-none px-3">
                                   {item.acceso}
                                 </Badge>
                               </div>
@@ -522,58 +600,25 @@ export default function DocumentacionPage() {
                     </Accordion>
                   </CardContent>
                 </Card>
-                <Card className="border-t-4 border-t-primary shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="uppercase font-black text-lg">Jerarquía de Filtros Territoriales</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase">Lógica de visibilidad de datos implementada.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {[
-                      { 
-                        title: "Filtro Nacional (admin_filter)", 
-                        desc: "Permite visualizar datos de todos los departamentos y distritos del país simultáneamente. Ignora las restricciones geográficas del perfil.",
-                        icon: Globe
-                      },
-                      { 
-                        title: "Filtro Departamental (department_filter)", 
-                        desc: "Limita la visibilidad a todos los distritos pertenecientes al departamento asignado en el perfil del usuario.",
-                        icon: Landmark
-                      },
-                      { 
-                        title: "Filtro Distrital (district_filter)", 
-                        desc: "Restricción máxima. El usuario solo visualiza y gestiona información de su oficina local específica.",
-                        icon: MapPin
-                      }
-                    ].map((f, i) => (
-                      <div key={i} className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-dashed">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <f.icon className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <h4 className="font-black uppercase text-xs text-primary mb-1">{f.title}</h4>
-                          <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">{f.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
               </div>
               <div className="space-y-6">
-                <Card className="bg-primary text-white shadow-xl border-none overflow-hidden">
-                  <CardHeader>
-                    <CardTitle className="uppercase font-black text-sm">Estado de Seguridad</CardTitle>
+                <Card className="bg-primary text-white shadow-2xl border-none overflow-hidden rounded-[2.5rem]">
+                  <CardHeader className="p-8">
+                    <CardTitle className="uppercase font-black text-sm tracking-widest flex items-center gap-2">
+                        <ShieldAlert className="h-5 w-5 text-amber-400" /> Auditoría Centralizada
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="p-8 pt-0 space-y-6">
                     <div className="flex items-center gap-3">
-                      <ShieldCheck className="h-8 w-8 text-green-400" />
+                      <Database className="h-8 w-8 text-green-400" />
                       <div>
-                        <p className="text-[10px] font-black uppercase opacity-70">Firestore Rules</p>
-                        <p className="text-sm font-black uppercase">Protección Activa</p>
+                        <p className="text-[10px] font-black uppercase opacity-70">Firestore Security Rules</p>
+                        <p className="text-sm font-black uppercase">Blindaje Activo</p>
                       </div>
                     </div>
                     <Separator className="bg-white/20" />
-                    <p className="text-[10px] leading-relaxed font-bold opacity-80 uppercase">
-                      Cada petición a la base de datos es validada en el servidor. El sistema impide el acceso a datos fuera de la jurisdicción autorizada, incluso si se intenta modificar el código del navegador.
+                    <p className="text-[10px] leading-relaxed font-bold opacity-80 uppercase italic">
+                      Cada acción (CREAR, EDITAR, BORRAR) es validada en el servidor contra la matriz de permisos. Cualquier intento de vulneración queda registrado con la IP y el Usuario en la bitácora de seguridad.
                     </p>
                   </CardContent>
                 </Card>
@@ -581,71 +626,30 @@ export default function DocumentacionPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="cidee" className="animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {[
-                {
-                  title: "Anexo V - Solicitud",
-                  desc: "Digitaliza el pedido de las organizaciones políticas. Incluye mapa interactivo para coordenadas GPS y captura de firma/documento físico.",
-                  modules: ["Georreferenciación", "Validación en Padrón", "Generación de PDF"]
-                },
-                {
-                  title: "Anexo III - Informe Individual",
-                  desc: "Registro por sesión de capacitación. Incluye tablero de marcaciones táctil para hasta 104 ciudadanos y registro fotográfico de respaldo.",
-                  modules: ["Auto-completado desde Agenda", "Tablero de Marcación", "Galería de Evento"]
-                },
-                {
-                  title: "Anexo IV - Informe Semanal",
-                  desc: "Motor de Inteligencia de Datos que consolida automáticamente todos los Anexos III del distrito en un resumen tabular horizontal.",
-                  modules: ["Sincronización Automática", "Validación de Firmas", "Exportación Landscape"]
-                },
-                {
-                  title: "Movimiento de Máquinas",
-                  desc: "Control de trazabilidad de los equipos de votación. Registra salida (F01) y devolución (F02) con control de estado de lacres.",
-                  modules: ["Formulario 01/02", "Alerta de Lacres", "Denuncia Automática"]
-                }
-              ].map((mod, i) => (
-                <Card key={i} className="shadow-lg hover:border-primary transition-all">
-                  <CardHeader className="bg-muted/30 border-b">
-                    <CardTitle className="uppercase font-black text-primary text-sm">{mod.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 space-y-4">
-                    <p className="text-xs font-medium text-muted-foreground leading-relaxed">{mod.desc}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {mod.modules.map(m => (
-                        <Badge key={m} variant="outline" className="text-[8px] font-black uppercase border-primary/20">
-                          {m}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="tecnico" className="animate-in fade-in duration-500">
-            <Card className="shadow-xl">
-              <CardHeader>
-                <CardTitle className="uppercase font-black">Stack Tecnológico</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase">Componentes del núcleo del sistema.</CardDescription>
+          <TabsContent value="tecnico" className="animate-in fade-in duration-500 space-y-8">
+            <Card className="shadow-2xl border-none rounded-[2.5rem] overflow-hidden bg-white">
+              <CardHeader className="bg-muted/10 p-8 border-b">
+                <CardTitle className="uppercase font-black text-xl flex items-center gap-3">
+                    <Settings className="h-6 w-6" /> Arquitectura del Sistema
+                </CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase">Tecnología de última generación al servicio de la democracia.</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y">
+                <div className="divide-y-2 divide-muted/30">
                   {[
-                    { label: "Frontend", value: "Next.js 14 (App Router) + React 18", desc: "Interfaz moderna, rápida y con renderizado optimizado." },
-                    { label: "Estilos", value: "Tailwind CSS + ShadCN UI", desc: "Diseño institucional, profesional y totalmente responsivo." },
-                    { label: "Backend", value: "Firebase Firestore & Auth", desc: "Base de datos NoSQL en tiempo real con seguridad a nivel de registro." },
-                    { label: "Reportes", value: "jsPDF + AutoTable + html2canvas", desc: "Generación dinámica de documentos oficiales en el navegador." },
-                    { label: "Mapas", value: "Leaflet + OpenStreetMap", desc: "Geolocalización de actividades sin costos de licencias externas." }
+                    { label: "Core de Desarrollo", value: "Next.js 14 + React 18", desc: "Motor de alto rendimiento con carga optimizada para conexiones móviles inestables." },
+                    { label: "Persistencia de Datos", value: "Firebase Firestore NoSQL", desc: "Base de datos en tiempo real con capacidad offline para trabajo de campo." },
+                    { label: "Motor de Reportes", value: "jsPDF + AutoTable + html2canvas", desc: "Generación dinámica de proformas institucionales sin necesidad de servidores externos." },
+                    { label: "Geolocalización", value: "Leaflet + OpenStreetMap", desc: "Cartografía interactiva para auditoría de eventos sin dependencia de licencias pagas." },
+                    { label: "Interfaz de Usuario", value: "Tailwind CSS + ShadCN UI", desc: "Diseño institucional, limpio y totalmente responsivo (Mobile-First)." }
                   ].map((tech, i) => (
-                    <div key={i} className="p-6 flex flex-col md:flex-row md:items-center gap-4">
+                    <div key={i} className="p-8 flex flex-col md:flex-row md:items-center gap-6 hover:bg-muted/5 transition-colors">
                       <div className="md:w-1/3">
-                        <p className="text-[10px] font-black uppercase text-primary mb-1">{tech.label}</p>
-                        <p className="font-bold text-sm">{tech.value}</p>
+                        <p className="text-[10px] font-black uppercase text-primary mb-1 tracking-widest">{tech.label}</p>
+                        <p className="font-black text-sm uppercase">{tech.value}</p>
                       </div>
-                      <div className="md:w-2/3">
-                        <p className="text-xs text-muted-foreground font-medium">{tech.desc}</p>
+                      <div className="md:w-2/3 border-l-2 border-muted pl-6">
+                        <p className="text-xs text-muted-foreground font-medium leading-relaxed">{tech.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -655,8 +659,8 @@ export default function DocumentacionPage() {
           </TabsContent>
         </Tabs>
 
-        <div className="mt-12 text-center pb-8">
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Justicia Electoral - República del Paraguay</p>
+        <div className="mt-12 text-center pb-12">
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] opacity-40">Justicia Electoral - República del Paraguay - 2026</p>
         </div>
       </main>
     </div>
