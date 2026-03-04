@@ -139,7 +139,7 @@ export default function ControlMovimientoMaquinasPage() {
     return query(collection(firestore, 'movimientos-maquinas'), where('solicitud_id', '==', selectedSolicitudId));
   }, [firestore, user, selectedSolicitudId]);
 
-  const { data: movimientosData } = useCollection<MovimientoMaquina>(movementsQuery);
+  const { data: movimientosData } = useCollection<MovimientoMaquina>(movimientosQuery);
   const currentMovimiento = movimientosData && movimientosData.length > 0 ? movimientosData[0] : null;
 
   const selectedSolicitud = useMemo(() => {
@@ -654,7 +654,7 @@ export default function ControlMovimientoMaquinasPage() {
                             devolucionData.lacre_estado === 'violentado' ? "bg-muted text-muted-foreground" : "bg-primary hover:bg-primary/90"
                         )}
                     >
-                        {isSubmitting ? <Loader2 className="animate-spin mr-3" /> : <Undo2 className="mr-3" />}
+                        {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Undo2 className="mr-3 h-6 w-6" />}
                         {devolucionData.lacre_estado === 'violentado' ? 'BLOQUEADO POR ADULTERACIÓN' : 'REGISTRAR DEVOLUCIÓN Y GENERAR F02'}
                     </Button>
                 </CardFooter>
