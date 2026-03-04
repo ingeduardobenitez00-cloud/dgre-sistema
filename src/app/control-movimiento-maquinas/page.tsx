@@ -35,12 +35,13 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Link from 'next/link';
 
 export default function ControlMovimientoMaquinasPage() {
-  const { user, isUserLoading } = userUser();
+  const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<string | null>(null);
   
   // States para Kits
@@ -81,18 +82,24 @@ export default function ControlMovimientoMaquinasPage() {
   }, []);
 
   useEffect(() => {
-    const fetchLogo = async () => {
+    const fetchLogos = async () => {
       try {
-        const response = await fetch('/logo.png');
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => setLogoBase64(reader.result as string);
-        reader.readAsDataURL(blob);
+        const r1 = await fetch('/logo.png');
+        const b1 = await r1.blob();
+        const reader1 = new FileReader();
+        reader1.onloadend = () => setLogoBase64(reader1.result as string);
+        reader1.readAsDataURL(b1);
+
+        const r2 = await fetch('/logo1.png');
+        const b2 = await r2.blob();
+        const reader2 = new FileReader();
+        reader2.onloadend = () => setLogo1Base64(reader2.result as string);
+        reader2.readAsDataURL(b2);
       } catch (error) {
-        console.error("Error fetching logo:", error);
+        console.error("Error fetching logos:", error);
       }
     };
-    fetchLogo();
+    fetchLogos();
   }, []);
 
   const agendaQuery = useMemoFirebase(() => {
@@ -113,19 +120,16 @@ export default function ControlMovimientoMaquinasPage() {
 
   const { data: rawAgendaItems, isLoading: isLoadingAgenda } = useCollection<SolicitudCapacitacion>(agendaQuery);
 
-  // Carga de movimientos para filtrar el selector
   const movimientosQueryAll = useMemoFirebase(() => firestore ? collection(firestore, 'movimientos-maquinas') : null, [firestore]);
   const { data: allMovimientos } = useCollection<MovimientoMaquina>(movimientosQueryAll);
 
   const agendaItems = useMemo(() => {
     if (!rawAgendaItems) return null;
     
-    // FILTRADO: Si ya se cumplió con la devolución, no mostrar en el vinculador
     return [...rawAgendaItems]
       .filter(item => {
         const mov = allMovimientos?.find(m => m.solicitud_id === item.id);
         const hasReturn = !!mov?.devolucion;
-        // Solo mostrar si NO tiene devolución O si es la que está seleccionada actualmente (para ver o imprimir)
         return !hasReturn || item.id === selectedSolicitudId;
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -172,7 +176,6 @@ export default function ControlMovimientoMaquinasPage() {
                 boletas: d.boletas || false,
             });
         } else if (s) {
-            // Si hay salida pero no devolución registrada aún, pre-cargar el pendrive de la salida automáticamente
             setDevolucionData(prev => ({
                 ...prev,
                 pendrive_serie: s.pendrive_serie || ''
@@ -240,88 +243,156 @@ export default function ControlMovimientoMaquinasPage() {
       });
   };
 
-  const generatePDF = (type: 'salida' | 'devolucion') => {
-    if (!selectedSolicitud || !logoBase64) return;
+  const generatePDF = () => {
+    if (!selectedSolicitud || !logoBase64 || !logo1Base64) return;
     const doc = new jsPDF();
-    const margin = 20;
+    const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    doc.addImage(logoBase64, 'PNG', margin, 10, 20, 20);
-    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MÁQUINAS", 105, 20, { align: "center" });
-    doc.text("DE VOTACIÓN PARA DIVULGACIÓN", 105, 26, { align: "center" });
+    // Logos
+    doc.addImage(logoBase64, 'PNG', margin, 5, 15, 15);
+    doc.addImage(logo1Base64, 'PNG', pageWidth - margin - 25, 5, 25, 12);
+    
+    // Header Texts
+    doc.setFontSize(6); doc.setFont('helvetica', 'normal');
+    doc.text("REPÚBLICA DEL PARAGUAY", margin + 1, 23);
+    doc.text("Justicia Electoral", margin + 1, 26);
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text("DGRE", pageWidth - margin - 18, 20);
+    doc.setFontSize(6); doc.setFont('helvetica', 'normal');
+    doc.text("DIRECCIÓN GENERAL DEL", pageWidth - margin - 22, 23);
+    doc.text("REGISTRO ELECTORAL", pageWidth - margin - 22, 26);
 
-    let y = 45;
-    const data = type === 'salida' ? (currentMovimiento?.salida || salidaData) : (currentMovimiento?.devolucion || devolucionData);
-    
-    // Header Seccion
-    doc.circle(margin + 5, y, 4);
-    doc.text(type === 'salida' ? "A" : "B", margin + 5, y + 1.5, { align: 'center' });
-    doc.text(type === 'salida' ? "SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN" : "DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 15, y + 1);
-    
-    y += 10;
-    doc.setFontSize(9);
-    doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin, y);
-    y += 4; doc.roundedRect(margin, y, 170, 8, 2, 2);
-    doc.setFont('helvetica', 'normal'); doc.text(String(selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 5, y + 6);
-    
-    y += 15; doc.setFont('helvetica', 'bold'); doc.text("Nº C.I:", margin, y);
-    doc.roundedRect(margin + 15, y - 6, 50, 8, 2, 2);
-    doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.divulgador_cedula || '', margin + 20, y - 1);
+    doc.setLineWidth(0.5);
+    doc.line(margin, 28, pageWidth - margin, 28);
 
-    y += 12; doc.setFont('helvetica', 'bold'); doc.text("VÍNCULO:", margin, y);
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 35, { align: "center" });
+
+    // SECTION A
+    let y = 40;
+    doc.roundedRect(margin, y, pageWidth - (margin * 2), 105, 5, 5);
+    
+    // A Circle
+    doc.setLineWidth(0.2);
+    doc.circle(margin + 10, y + 8, 4);
+    doc.text("A", margin + 10, y + 9.5, { align: 'center' });
+    doc.text("SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 20, y + 9);
+
+    y += 15;
+    doc.setFontSize(8);
+    doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin + 10, y);
+    y += 2; doc.roundedRect(margin + 10, y, 160, 8, 2, 2);
+    doc.setFont('helvetica', 'normal'); doc.text((selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 15, y + 5.5);
+
+    y += 12; doc.setFont('helvetica', 'bold'); doc.text("Nº C.I:", margin + 10, y);
+    doc.roundedRect(margin + 25, y - 6, 50, 8, 2, 2);
+    doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.divulgador_cedula || '', margin + 30, y - 0.5);
+
+    y += 10; doc.setFont('helvetica', 'bold'); doc.text("VÍNCULO:", margin + 10, y);
     const v = (selectedSolicitud.divulgador_vinculo || '').toUpperCase();
-    const drawCheck = (lbl: string, checked: boolean, x: number) => {
-        doc.rect(x, y - 5, 5, 5); doc.text(lbl, x + 7, y); if(checked) doc.text("X", x + 1, y - 1);
+    const drawCheck = (lbl: string, checked: boolean, x: number, yPos: number) => {
+        doc.rect(x, yPos - 4, 4, 4); doc.text(lbl, x + 6, yPos); if(checked) doc.text("X", x + 1, yPos - 1);
     }
-    drawCheck("PERMANENTE", v === 'PERMANENTE', margin + 25);
-    drawCheck("CONTRATADO", v === 'CONTRATADO', margin + 75);
-    drawCheck("COMISIONADO", v === 'COMISIONADO', margin + 125);
+    drawCheck("PERMANENTE", v === 'PERMANENTE', margin + 30, y);
+    drawCheck("CONTRATADO", v === 'CONTRATADO', margin + 70, y);
+    drawCheck("COMISIONADO", v === 'COMISIONADO', margin + 110, y);
 
-    y += 15; doc.setFont('helvetica', 'bold'); 
-    doc.text(type === 'salida' ? "HORA DE SALIDA:" : "HORA DE DEVOLUCION:", margin, y);
-    doc.roundedRect(margin + 45, y - 6, 30, 8, 2, 2); doc.setFont('helvetica', 'normal'); doc.text(`${data.hora} HS`, margin + 48, y - 1);
-    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 90, y); doc.text(`${formatDateToDDMMYYYY(data.fecha)}`, margin + 110, y);
-
-    y += 15; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin, y);
-    y += 4; doc.roundedRect(margin, y, 80, 8, 2, 2); doc.setFont('helvetica', 'normal'); doc.text(String(data.codigo_maquina).toUpperCase(), margin + 5, y + 6);
-
-    if (type === 'devolucion') {
-        const boxX = margin + 100;
-        doc.roundedRect(boxX, y - 10, 70, 25, 2, 2); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-        doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 4);
-        doc.circle(boxX + 10, y + 8, 3); doc.text("CORRECTO", boxX + 15, y + 9); if(data.lacre_estado === 'correcto') doc.text("X", boxX + 9, y+9);
-        doc.circle(boxX + 40, y + 8, 3); doc.text("VIOLENTADO", boxX + 45, y + 9); if(data.lacre_estado === 'violentado') doc.text("X", boxX + 39, y+9);
-    } else {
-        y += 15; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin, y);
-        y += 4; doc.roundedRect(margin, y, 170, 8, 2, 2); doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 5, y + 6);
-    }
-
-    y += 20; doc.setFont('helvetica', 'bold'); doc.text("KITS DE LA MÁQUINA DE VOTACIÓN", margin, y);
-    y += 8; doc.text("- Nº DE SERIE DEL PENDRIVE", margin + 10, y); 
-    doc.roundedRect(margin + 60, y - 5, 80, 7, 1, 1); doc.setFont('helvetica', 'normal'); doc.text((data as any).pendrive_serie || '', margin + 65, y);
+    y += 12; doc.setFont('helvetica', 'bold'); 
+    doc.text("HORA DE SALIDA:", margin + 10, y);
+    doc.roundedRect(margin + 45, y - 6, 30, 8, 2, 2); 
+    doc.setFont('helvetica', 'normal'); 
+    if(currentMovimiento?.salida) doc.text(`${currentMovimiento.salida.hora} HS`, margin + 48, y - 0.5);
     
-    const kitLabels = [
-        { key: 'credencial', label: 'CREDENCIAL GENERICA' },
-        { key: 'auricular', label: 'AURICULAR GENERICO' },
-        { key: 'acrilico', label: 'ACRILICO GENERICO' },
-        { key: 'boletas', label: '5 BOLETAS DE CAPACITACION' }
-    ];
-    kitLabels.forEach((k, i) => {
-        y += 7; doc.setFont('helvetica', 'bold'); doc.text(`- ${k.label}`, margin + 10, y);
-        doc.circle(margin + 65, y - 1, 2); if((data as any)[k.key]) doc.text("X", margin + 64, y);
-    });
+    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", pageWidth - margin - 60, y);
+    if(currentMovimiento?.salida) doc.text(`${formatDateToDDMMYYYY(currentMovimiento.salida.fecha)}`, pageWidth - margin - 45, y);
 
-    y += 30; doc.line(margin, y, margin + 50, y); doc.text("FIRMA JEFE", margin, y + 5);
-    doc.line(105 - 25, y, 105 + 25, y); doc.text("FIRMA JEFE", 105, y + 5, { align: 'center' });
-    doc.line(pageWidth - margin - 50, y, pageWidth - margin, y); doc.text("FIRMA DEL DIVULGADOR", pageWidth - margin - 50, y + 5);
+    y += 12; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
+    y += 2; doc.roundedRect(margin + 10, y, 80, 8, 2, 2); 
+    doc.setFont('helvetica', 'normal'); 
+    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 15, y + 5.5);
 
-    doc.save(`Formulario-${type === 'salida' ? '01' : '02'}-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
+    y += 12; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin + 10, y);
+    y += 2; doc.roundedRect(margin + 10, y, 160, 8, 2, 2); 
+    doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 15, y + 5.5);
+
+    y += 12;
+    const signW = 55;
+    const signSpace = (pageWidth - (margin * 2) - (signW * 3)) / 4;
+    const drawSignBox = (x: number, yP: number, lbl: string) => {
+        doc.line(x, yP, x + signW, yP);
+        doc.setFontSize(6); doc.text(lbl, x, yP + 3);
+        doc.text("ACLARACIÓN: ___________________", x, yP + 6);
+    }
+    drawSignBox(margin + 5, y + 10, "FIRMA JEFE");
+    drawSignBox(margin + 5 + signW + signSpace, y + 10, "FIRMA JEFE");
+    drawSignBox(margin + 5 + (signW + signSpace) * 2, y + 10, "FIRMA DEL DIVULGADOR");
+
+    y += 20; doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text("KITS DE LA MÁQUINA DE VOTACION", margin + 15, y);
+    const drawKitLine = (lbl: string, checked: boolean, curY: number) => {
+        doc.text(`•  ${lbl}`, margin + 25, curY);
+        doc.circle(margin + 80, curY - 1, 2);
+        if(checked) doc.text("X", margin + 79.2, curY);
+    }
+    y += 5; doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 25, y);
+    doc.roundedRect(margin + 80, y - 4, 60, 6, 1, 1);
+    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.pendrive_serie || '', margin + 85, y);
+    
+    const sK = currentMovimiento?.salida || ({} as any);
+    y += 5; drawKitLine("CREDENCIAL GENERICA", !!sK.credencial, y);
+    y += 5; drawKitLine("AURICULAR GENERICO", !!sK.auricular, y);
+    y += 5; drawKitLine("ACRILICO GENERICO", !!sK.acrilico, y);
+    y += 5; drawKitLine("5 BOLETAS DE CAPACITACION", !!sK.boletas, y);
+
+    // MID TEXT
+    y = 155; doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN", pageWidth / 2, y, { align: 'center' });
+    doc.text("ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y + 4, { align: 'center' });
+
+    // SECTION B
+    y = 165;
+    doc.roundedRect(margin, y, pageWidth - (margin * 2), 105, 5, 5);
+    doc.circle(margin + 10, y + 8, 4); doc.text("B", margin + 10, y + 9.5, { align: 'center' });
+    doc.text("DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 20, y + 9);
+
+    y += 15;
+    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 10, y);
+    if(currentMovimiento?.devolucion) doc.text(`${formatDateToDDMMYYYY(currentMovimiento.devolucion.fecha)}`, margin + 25, y);
+    
+    doc.text("HORA DE DEVOLUCION:", pageWidth - margin - 80, y);
+    doc.roundedRect(pageWidth - margin - 40, y - 6, 30, 8, 2, 2);
+    if(currentMovimiento?.devolucion) doc.text(`${currentMovimiento.devolucion.hora} HS`, pageWidth - margin - 37, y - 0.5);
+
+    y += 15; doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
+    y += 2; doc.roundedRect(margin + 10, y, 80, 8, 2, 2);
+    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 15, y + 5.5);
+
+    const boxX = pageWidth - margin - 85;
+    doc.roundedRect(boxX, y - 10, 75, 25, 5, 5);
+    doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 4);
+    const dK = currentMovimiento?.devolucion || ({} as any);
+    doc.circle(boxX + 15, y + 8, 3); doc.text("CORRECTO", boxX + 22, y + 9); if(dK.lacre_estado === 'correcto') doc.text("X", boxX + 14, y+9.5);
+    doc.circle(boxX + 45, y + 8, 3); doc.text("VIOLENTADO", boxX + 52, y + 9); if(dK.lacre_estado === 'violentado') doc.text("X", boxX + 44, y+9.5);
+
+    y += 35;
+    drawSignBox(margin + 5, y + 10, "FIRMA JEFE");
+    drawSignBox(margin + 5 + signW + signSpace, y + 10, "FIRMA JEFE");
+    drawSignBox(margin + 5 + (signW + signSpace) * 2, y + 10, "FIRMA DEL DIVULGADOR");
+
+    y += 20; doc.setFont('helvetica', 'bold');
+    doc.text("KITS DE LA MAQUINA DE VOTACION", margin + 15, y);
+    y += 5; doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 25, y);
+    doc.roundedRect(margin + 80, y - 4, 60, 6, 1, 1);
+    if(currentMovimiento?.devolucion) doc.text(currentMovimiento.devolucion.pendrive_serie || '', margin + 85, y);
+    
+    y += 5; drawKitLine("CREDENCIAL GENERICA", !!dK.credencial, y);
+    y += 5; drawKitLine("AURICULAR GENERICO", !!dK.auricular, y);
+    y += 5; drawKitLine("ACRILICO GENERICO", !!dK.acrilico, y);
+    y += 5; drawKitLine("5 BOLETAS DE CAPACITACION", !!dK.boletas, y);
+
+    doc.save(`Proforma-Movimiento-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
-
-  function userUser() {
-    return useUser();
-  }
 
   if (isUserLoading || isLoadingAgenda) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
@@ -330,6 +401,20 @@ export default function ControlMovimientoMaquinasPage() {
       <Header title="Movimiento de Máquinas" />
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-8">
         
+        <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-4">
+            <div>
+                <h1 className="text-3xl font-black tracking-tight text-primary uppercase">Control Logístico</h1>
+                <p className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-2 mt-1 tracking-widest">
+                    <ArrowLeftRight className="h-3.5 w-3.5" /> Trazabilidad oficial de equipos de votación
+                </p>
+            </div>
+            {selectedSolicitudId && (
+                <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-11 gap-2 shadow-xl bg-white" onClick={generatePDF}>
+                    <Printer className="h-4 w-4" /> GENERAR PROFORMA OFICIAL (A/B)
+                </Button>
+            )}
+        </div>
+
         <Card className="border-primary/20 shadow-md">
           <CardHeader className="py-4 bg-primary/5">
             <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest text-primary">
@@ -365,11 +450,6 @@ export default function ControlMovimientoMaquinasPage() {
                         <CardDescription className="text-[10px] font-bold uppercase mt-1">PARA DIVULGACIÓN (FORMULARIO 01)</CardDescription>
                     </div>
                 </div>
-                {currentMovimiento && (
-                    <Button variant="outline" size="sm" className="font-black uppercase text-[10px] border-2" onClick={() => generatePDF('salida')}>
-                        <Printer className="mr-2 h-4 w-4" /> REIMPRIMIR F01
-                    </Button>
-                )}
               </CardHeader>
               <CardContent className="p-10 space-y-8">
                 <div className="space-y-6">
@@ -458,11 +538,6 @@ export default function ControlMovimientoMaquinasPage() {
                         <CardDescription className="text-[10px] font-bold uppercase mt-1">REINGRESO A OFICINA (FORMULARIO 02)</CardDescription>
                     </div>
                 </div>
-                {currentMovimiento?.devolucion && (
-                    <Button variant="outline" size="sm" className="font-black uppercase text-[10px] border-2" onClick={() => generatePDF('devolucion')}>
-                        <Printer className="mr-2 h-4 w-4" /> REIMPRIMIR F02
-                    </Button>
-                )}
               </CardHeader>
               <CardContent className="p-10 space-y-10">
                 
