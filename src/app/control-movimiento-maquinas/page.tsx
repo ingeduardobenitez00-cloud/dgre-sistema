@@ -147,13 +147,23 @@ export default function ControlMovimientoMaquinasPage() {
   const { data: allMovimientos } = useCollection<MovimientoMaquina>(movimientosQueryAll);
 
   const agendaItems = useMemo(() => {
-    if (!rawAgendaItems) return null;
+    if (!rawAgendaItems) return [];
     
     return [...rawAgendaItems]
       .filter(item => {
+        // EXCLUIR ACTIVIDADES CANCELADAS
+        if (item.cancelada) return false;
+
         const mov = allMovimientos?.find(m => m.solicitud_id === item.id);
         const hasReturn = !!mov?.devolucion;
-        return !hasReturn || item.id === selectedSolicitudId;
+        
+        // EXCLUIR SI YA SE CERRÓ EL CICLO (DEVOLUCIÓN REGISTRADA)
+        // Pero mantenemos el seleccionado actual para que no desaparezca de la vista si se acaba de registrar.
+        if (hasReturn && item.id !== selectedSolicitudId) {
+            return false;
+        }
+
+        return true;
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
   }, [rawAgendaItems, allMovimientos, selectedSolicitudId]);
@@ -167,8 +177,8 @@ export default function ControlMovimientoMaquinasPage() {
   const currentMovimiento = movimientosData && movimientosData.length > 0 ? movimientosData[0] : null;
 
   const selectedSolicitud = useMemo(() => {
-    return agendaItems?.find(item => item.id === selectedSolicitudId);
-  }, [agendaItems, selectedSolicitudId]);
+    return rawAgendaItems?.find(item => item.id === selectedSolicitudId);
+  }, [rawAgendaItems, selectedSolicitudId]);
 
   useEffect(() => {
     if (currentMovimiento) {
@@ -541,7 +551,7 @@ export default function ControlMovimientoMaquinasPage() {
               <SelectTrigger className="h-12 border-2 font-bold"><SelectValue placeholder="Seleccione actividad..." /></SelectTrigger>
               <SelectContent>
                 {agendaItems?.length === 0 ? (
-                  <div className="p-4 text-center text-xs font-bold text-muted-foreground uppercase">No hay actividades para vincular</div>
+                  <div className="p-4 text-center text-xs font-bold text-muted-foreground uppercase">No hay actividades pendientes</div>
                 ) : (
                   agendaItems?.map(item => (
                     <SelectItem key={item.id} value={item.id}>{formatDateToDDMMYYYY(item.fecha)} | {item.lugar_local}</SelectItem>

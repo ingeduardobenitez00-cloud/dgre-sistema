@@ -110,6 +110,10 @@ export type SolicitudCapacitacion = {
   divulgador_cedula?: string;
   divulgador_vinculo?: string;
   fecha_creacion: string;
+  cancelada?: boolean;
+  motivo_cancelacion?: string;
+  fecha_cancelacion?: string;
+  usuario_cancelacion?: string;
 }
 
 export type EncuestaSatisfaccion = {
