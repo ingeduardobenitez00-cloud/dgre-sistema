@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,34 +24,200 @@ import {
   Info,
   Settings2,
   HelpCircle,
-  ExternalLinkIcon,
   ShoppingCart,
   MessageCircle,
   LockKeyhole,
   ClipboardCheck,
   ArrowLeftRight,
   UserCheck,
-  TableProperties
+  TableProperties,
+  Download,
+  Loader2,
+  FileDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { useToast } from '@/hooks/use-toast';
 
 const cn = (...inputs: any[]) => inputs.filter(Boolean).join(' ');
 
 const Separator = ({ className }: { className?: string }) => <div className={cn("h-px w-full bg-border", className)} />;
 
 export default function DocumentacionPage() {
+  const { toast } = useToast();
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLogos = async () => {
+      try {
+        const r1 = await fetch('/logo.png');
+        const b1 = await r1.blob();
+        const reader1 = new FileReader();
+        reader1.onloadend = () => setLogoBase64(reader1.result as string);
+        reader1.readAsDataURL(b1);
+
+        const r2 = await fetch('/logo1.png');
+        const b2 = await r2.blob();
+        const reader2 = new FileReader();
+        reader2.onloadend = () => setLogo1Base64(reader2.result as string);
+        reader2.readAsDataURL(b2);
+      } catch (error) {
+        console.error("Error fetching logos for manual:", error);
+      }
+    };
+    fetchLogos();
+  }, []);
+
+  const handleDownloadManual = async () => {
+    if (!logoBase64 || !logo1Base64) {
+        toast({ variant: 'destructive', title: "Error de recursos", description: "Cargando logos institucionales, intente de nuevo en un segundo." });
+        return;
+    }
+    
+    setIsGeneratingPdf(true);
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 20;
+
+        // --- PORTADA ---
+        doc.addImage(logoBase64, 'PNG', margin, 20, 30, 30);
+        doc.addImage(logo1Base64, 'PNG', pageWidth - margin - 35, 20, 35, 20);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(24);
+        doc.text("MANUAL DE USUARIO", pageWidth / 2, 100, { align: 'center' });
+        doc.setFontSize(18);
+        doc.text("SISTEMA DE GESTIÓN INTEGRAL", pageWidth / 2, 115, { align: 'center' });
+        doc.setFontSize(14);
+        doc.text("JUSTICIA ELECTORAL", pageWidth / 2, 125, { align: 'center' });
+        
+        doc.setLineWidth(1);
+        doc.line(margin, 140, pageWidth - margin, 140);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Dirección General del Registro Electoral", pageWidth / 2, 150, { align: 'center' });
+        doc.text("Centro de Información, Documentación y Educación Electoral (CIDEE)", pageWidth / 2, 156, { align: 'center' });
+        
+        doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, pageWidth / 2, 260, { align: 'center' });
+        doc.text("República del Paraguay", pageWidth / 2, 266, { align: 'center' });
+
+        // --- MÓDULO CIDEE ---
+        doc.addPage();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text("1. MÓDULO CIDEE - CAPACITACIONES", margin, 30);
+        
+        doc.setFontSize(12);
+        doc.text("1.1 Registro de Solicitud (Anexo V)", margin, 45);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const textAnexoV = "Este módulo permite digitalizar las solicitudes de organizaciones políticas. Es CRÍTICO realizar el DOBLE CLIC en el mapa para capturar las coordenadas GPS, lo que garantiza la veracidad del lugar de la capacitación. Al finalizar, el sistema genera una proforma pre-llenada para la firma del solicitante.";
+        doc.text(doc.splitTextToSize(textAnexoV, pageWidth - (margin * 2)), margin, 52);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("1.2 Control de Movimiento de Máquinas", margin, 75);
+        doc.setFont('helvetica', 'normal');
+        const textMov = "Gestión de los formularios F01 (Salida) y F02 (Devolución). El sistema requiere obligatoriamente la captura fotográfica del respaldo documental firmado. Si se detecta un lacre violentado, el sistema bloquea el reingreso y obliga al registro de una denuncia oficial.";
+        doc.text(doc.splitTextToSize(textMov, pageWidth - (margin * 2)), margin, 82);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("1.3 Informe del Divulgador (Anexo III)", margin, 105);
+        doc.setFont('helvetica', 'normal');
+        const textAnexoIII = "Registro de productividad mediante el tablero táctil de 104 celdas. Se debe vincular a una actividad de la agenda para auto-completar los datos del funcionario. Requiere evidencias fotográficas del evento y del formulario firmado.";
+        doc.text(doc.splitTextToSize(textAnexoIII, pageWidth - (margin * 2)), margin, 112);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("1.4 Informe Semanal (Anexo IV)", margin, 135);
+        doc.setFont('helvetica', 'normal');
+        const textAnexoIV = "Consolidado automático. El sistema extrae los datos de todos los Anexos III registrados en el distrito para el rango de fechas seleccionado, eliminando el error humano en la transcripción de datos.";
+        doc.text(doc.splitTextToSize(textAnexoIV, pageWidth - (margin * 2)), margin, 142);
+
+        // --- MÓDULO REGISTROS ELECTORALES ---
+        doc.addPage();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text("2. MÓDULO REGISTROS ELECTORALES", margin, 30);
+        
+        doc.setFontSize(12);
+        doc.text("2.1 Ficha Técnica Edilicia", margin, 45);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const textFicha = "Documentación del estado físico de la oficina, cantidad de habitaciones, dimensiones de la habitación segura y lugar de resguardo de equipos de votación.";
+        doc.text(doc.splitTextToSize(textFicha, pageWidth - (margin * 2)), margin, 52);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("2.2 Galería Fotográfica Obligatoria", margin, 70);
+        doc.setFont('helvetica', 'normal');
+        const textFotos = "Cada registro debe contar con las 8 categorías de fotos obligatorias: Frente, Costados, Fondo, Habitación Segura (Interior y Techo) y el Formulario de Relevamiento firmado.";
+        doc.text(doc.splitTextToSize(textFotos, pageWidth - (margin * 2)), margin, 77);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("2.3 Informe Semanal de Registro", margin, 95);
+        doc.setFont('helvetica', 'normal');
+        const textInfReg = "Reporte cuantitativo de trámites realizados en la oficina: Inscripciones por primera vez, actualizaciones de datos, cambios de local y cambios de distrito. Incluye el detalle de organizaciones intermedias asistidas.";
+        doc.text(doc.splitTextToSize(textInfReg, pageWidth - (margin * 2)), margin, 102);
+
+        // --- SEGURIDAD Y SISTEMA ---
+        doc.addPage();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text("3. SEGURIDAD Y ADMINISTRACIÓN", margin, 30);
+        
+        doc.setFontSize(12);
+        doc.text("3.1 Roles y Permisos", margin, 45);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const textRoles = "El sistema utiliza una matriz de permisos granulares. Los Administradores gestionan accesos, mientras que los Jefes y Funcionarios operan bajo filtros de jurisdicción (Departamental o Distrital) que restringen la visibilidad de los datos a su zona autorizada.";
+        doc.text(doc.splitTextToSize(textRoles, pageWidth - (margin * 2)), margin, 52);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("3.2 Auditoría y Trazabilidad", margin, 80);
+        doc.setFont('helvetica', 'normal');
+        const textAuditoria = "Todas las acciones críticas (Crear, Editar, Borrar, Generar PDF) son registradas en la Bitácora Técnica del sistema, incluyendo el usuario, la fecha, la hora y el módulo afectado.";
+        doc.text(doc.splitTextToSize(textAuditoria, pageWidth - (margin * 2)), margin, 87);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("3.3 Monitoreo de Conexiones", margin, 110);
+        doc.setFont('helvetica', 'normal');
+        const textConex = "Permite a la Dirección Nacional visualizar en tiempo real qué funcionarios están activos en el sistema y en qué módulo específico se encuentran trabajando.";
+        doc.text(doc.splitTextToSize(textConex, pageWidth - (margin * 2)), margin, 117);
+
+        doc.save("Manual-Usuario-Sistema-Gestion-Integral.pdf");
+        toast({ title: "Manual Generado", description: "El documento se ha descargado correctamente." });
+    } catch (error) {
+        toast({ variant: 'destructive', title: "Error al generar manual" });
+    } finally {
+        setIsGeneratingPdf(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-muted/5">
       <Header title="Documentación del Sistema" />
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
         
-        <div className="mb-8">
-          <h1 className="text-3xl font-black tracking-tight uppercase text-primary">Documentación Institucional</h1>
-          <p className="text-muted-foreground text-sm font-medium flex items-center gap-2 mt-1">
-            < BookOpen className="h-4 w-4" />
-            Guía técnica y operativa del Sistema de Gestión Integral.
-          </p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight uppercase text-primary">Documentación Institucional</h1>
+            <p className="text-muted-foreground text-sm font-medium flex items-center gap-2 mt-1">
+              <BookOpen className="h-4 w-4" />
+              Guía técnica y operativa del Sistema de Gestión Integral.
+            </p>
+          </div>
+          <Button 
+            className="font-black uppercase text-xs h-12 px-8 shadow-xl bg-black hover:bg-black/90 gap-3 rounded-xl"
+            onClick={handleDownloadManual}
+            disabled={isGeneratingPdf}
+          >
+            {isGeneratingPdf ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileDown className="h-5 w-5" />}
+            DESCARGAR MANUAL COMPLETO PDF
+          </Button>
         </div>
 
         <Tabs defaultValue="manual-cidee" className="space-y-8">
