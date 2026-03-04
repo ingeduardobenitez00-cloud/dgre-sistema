@@ -139,7 +139,7 @@ export default function ControlMovimientoMaquinasPage() {
     return query(collection(firestore, 'movimientos-maquinas'), where('solicitud_id', '==', selectedSolicitudId));
   }, [firestore, user, selectedSolicitudId]);
 
-  const { data: movimientosData } = useCollection<MovimientoMaquina>(movimientosQuery);
+  const { data: movimientosData } = useCollection<MovimientoMaquina>(movementsQuery);
   const currentMovimiento = movimientosData && movimientosData.length > 0 ? movimientosData[0] : null;
 
   const selectedSolicitud = useMemo(() => {
@@ -248,7 +248,7 @@ export default function ControlMovimientoMaquinasPage() {
     const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    // --- CABECERA ---
+    // --- CABECERA COMPACTA ---
     doc.addImage(logoBase64, 'PNG', margin, 5, 12, 12);
     doc.addImage(logo1Base64, 'PNG', pageWidth - margin - 20, 5, 20, 10);
     
@@ -336,11 +336,14 @@ export default function ControlMovimientoMaquinasPage() {
         doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
         doc.text(`•  ${lbl}`, margin + 15, curY);
         doc.circle(margin + 65, curY - 1, 1.5);
-        if(checked) doc.setFont('helvetica', 'bold'); doc.text("X", margin + 64.2, curY);
+        if(checked) { doc.setFont('helvetica', 'bold'); doc.text("X", margin + 64.2, curY); }
     }
     y += 4; doc.setFont('helvetica', 'normal'); doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 15, y);
     doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1);
-    if(currentMovimiento?.salida) doc.setFont('helvetica', 'bold'); doc.text(currentMovimiento.salida.pendrive_serie || '', margin + 68, y - 0.5);
+    if(currentMovimiento?.salida) {
+        doc.setFont('helvetica', 'bold'); 
+        doc.text(currentMovimiento.salida.pendrive_serie || '', margin + 68, y - 0.5);
+    }
     
     const sK = currentMovimiento?.salida || ({} as any);
     y += 4; drawKitLine("CREDENCIAL GENERICA", !!sK.credencial, y);
@@ -348,7 +351,6 @@ export default function ControlMovimientoMaquinasPage() {
     y += 4; drawKitLine("ACRILICO GENERICO", !!sK.acrilico, y);
     y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!sK.boletas, y);
 
-    // OBS AL FINAL DE SECCION
     y += 6; doc.setFontSize(6); doc.setFont('helvetica', 'bold');
     doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN / ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y, { align: 'center' });
 
@@ -360,15 +362,24 @@ export default function ControlMovimientoMaquinasPage() {
 
     y += 12;
     doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 5, y);
-    if(currentMovimiento?.devolucion) doc.setFont('helvetica', 'normal'); doc.text(`${formatDateToDDMMYYYY(currentMovimiento.devolucion.fecha)}`, margin + 18, y);
+    if(currentMovimiento?.devolucion) {
+        doc.setFont('helvetica', 'normal'); 
+        doc.text(`${formatDateToDDMMYYYY(currentMovimiento.devolucion.fecha)}`, margin + 18, y);
+    }
     
     doc.setFont('helvetica', 'bold'); doc.text("HORA DE DEVOLUCION:", margin + 100, y);
     doc.roundedRect(margin + 135, y - 4, 20, 5, 1, 1);
-    if(currentMovimiento?.devolucion) doc.setFont('helvetica', 'normal'); doc.text(`${currentMovimiento.devolucion.hora} HS`, margin + 137, y - 0.5);
+    if(currentMovimiento?.devolucion) {
+        doc.setFont('helvetica', 'normal'); 
+        doc.text(`${currentMovimiento.devolucion.hora} HS`, margin + 137, y - 0.5);
+    }
 
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 5, y);
     y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1);
-    if(currentMovimiento?.salida) doc.setFont('helvetica', 'normal'); doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 3.5);
+    if(currentMovimiento?.salida) {
+        doc.setFont('helvetica', 'normal'); 
+        doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 3.5);
+    }
 
     const boxX = margin + 100;
     doc.roundedRect(boxX, y - 6, 65, 12, 2, 2);
@@ -386,7 +397,10 @@ export default function ControlMovimientoMaquinasPage() {
     doc.text("KITS DE LA MAQUINA DE VOTACION", margin + 10, y);
     y += 4; doc.setFont('helvetica', 'normal'); doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 15, y);
     doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1);
-    if(currentMovimiento?.devolucion) doc.setFont('helvetica', 'bold'); doc.text(currentMovimiento.devolucion.pendrive_serie || '', margin + 68, y - 0.5);
+    if(currentMovimiento?.devolucion) {
+        doc.setFont('helvetica', 'bold'); 
+        doc.text(currentMovimiento.devolucion.pendrive_serie || '', margin + 68, y - 0.5);
+    }
     
     y += 4; drawKitLine("CREDENCIAL GENERICA", !!dK.credencial, y);
     y += 4; drawKitLine("AURICULAR GENERICO", !!dK.auricular, y);
