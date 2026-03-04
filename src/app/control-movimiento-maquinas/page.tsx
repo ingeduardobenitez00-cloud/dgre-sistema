@@ -249,147 +249,144 @@ export default function ControlMovimientoMaquinasPage() {
     const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    // Logos
-    doc.addImage(logoBase64, 'PNG', margin, 5, 15, 15);
-    doc.addImage(logo1Base64, 'PNG', pageWidth - margin - 25, 5, 25, 12);
+    // Encabezado
+    doc.addImage(logoBase64, 'PNG', margin, 5, 12, 12);
+    doc.addImage(logo1Base64, 'PNG', pageWidth - margin - 20, 5, 20, 10);
     
-    // Header Texts
     doc.setFontSize(6); doc.setFont('helvetica', 'normal');
-    doc.text("REPÚBLICA DEL PARAGUAY", margin + 1, 23);
-    doc.text("Justicia Electoral", margin + 1, 26);
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-    doc.text("DGRE", pageWidth - margin - 18, 20);
-    doc.setFontSize(6); doc.setFont('helvetica', 'normal');
-    doc.text("DIRECCIÓN GENERAL DEL", pageWidth - margin - 22, 23);
-    doc.text("REGISTRO ELECTORAL", pageWidth - margin - 22, 26);
-
-    doc.setLineWidth(0.5);
-    doc.line(margin, 28, pageWidth - margin, 28);
-
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 35, { align: "center" });
-
-    // SECTION A
-    let y = 40;
-    doc.roundedRect(margin, y, pageWidth - (margin * 2), 105, 5, 5);
+    doc.text("REPÚBLICA DEL PARAGUAY", margin, 20);
+    doc.text("Justicia Electoral", margin, 23);
     
-    // A Circle
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text("DGRE", pageWidth - margin - 15, 18);
+    doc.setFontSize(6); doc.setFont('helvetica', 'normal');
+    doc.text("DIRECCIÓN GENERAL DEL", pageWidth - margin - 22, 21);
+    doc.text("REGISTRO ELECTORAL", pageWidth - margin - 22, 24);
+
+    doc.setLineWidth(0.3);
+    doc.line(margin, 26, pageWidth - margin, 26);
+
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 32, { align: "center" });
+
+    // --- SECCIÓN A ---
+    let y = 38;
     doc.setLineWidth(0.2);
-    doc.circle(margin + 10, y + 8, 4);
-    doc.text("A", margin + 10, y + 9.5, { align: 'center' });
-    doc.text("SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 20, y + 9);
-
-    y += 15;
-    doc.setFontSize(8);
-    doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin + 10, y);
-    y += 2; doc.roundedRect(margin + 10, y, 160, 8, 2, 2);
-    doc.setFont('helvetica', 'normal'); doc.text((selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 15, y + 5.5);
-
-    y += 12; doc.setFont('helvetica', 'bold'); doc.text("Nº C.I:", margin + 10, y);
-    doc.roundedRect(margin + 25, y - 6, 50, 8, 2, 2);
-    doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.divulgador_cedula || '', margin + 30, y - 0.5);
-
-    y += 10; doc.setFont('helvetica', 'bold'); doc.text("VÍNCULO:", margin + 10, y);
-    const v = (selectedSolicitud.divulgador_vinculo || '').toUpperCase();
-    const drawCheck = (lbl: string, checked: boolean, x: number, yPos: number) => {
-        doc.rect(x, yPos - 4, 4, 4); doc.text(lbl, x + 6, yPos); if(checked) doc.text("X", x + 1, yPos - 1);
-    }
-    drawCheck("PERMANENTE", v === 'PERMANENTE', margin + 30, y);
-    drawCheck("CONTRATADO", v === 'CONTRATADO', margin + 70, y);
-    drawCheck("COMISIONADO", v === 'COMISIONADO', margin + 110, y);
-
-    y += 12; doc.setFont('helvetica', 'bold'); 
-    doc.text("HORA DE SALIDA:", margin + 10, y);
-    doc.roundedRect(margin + 45, y - 6, 30, 8, 2, 2); 
-    doc.setFont('helvetica', 'normal'); 
-    if(currentMovimiento?.salida) doc.text(`${currentMovimiento.salida.hora} HS`, margin + 48, y - 0.5);
+    doc.roundedRect(margin, y, pageWidth - (margin * 2), 100, 3, 3);
     
-    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", pageWidth - margin - 60, y);
-    if(currentMovimiento?.salida) doc.text(`${formatDateToDDMMYYYY(currentMovimiento.salida.fecha)}`, pageWidth - margin - 45, y);
-
-    y += 12; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
-    y += 2; doc.roundedRect(margin + 10, y, 80, 8, 2, 2); 
-    doc.setFont('helvetica', 'normal'); 
-    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 15, y + 5.5);
-
-    y += 12; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin + 10, y);
-    y += 2; doc.roundedRect(margin + 10, y, 160, 8, 2, 2); 
-    doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 15, y + 5.5);
+    doc.circle(margin + 8, y + 7, 3);
+    doc.setFontSize(8); doc.text("A", margin + 8, y + 8, { align: 'center' });
+    doc.text("SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 15, y + 7.5);
 
     y += 12;
-    const signW = 55;
-    const signSpace = (pageWidth - (margin * 2) - (signW * 3)) / 4;
-    const drawSignBox = (x: number, yP: number, lbl: string) => {
-        doc.line(x, yP, x + signW, yP);
-        doc.setFontSize(6); doc.text(lbl, x, yP + 3);
-        doc.text("ACLARACIÓN: ___________________", x, yP + 6);
-    }
-    drawSignBox(margin + 5, y + 10, "FIRMA JEFE");
-    drawSignBox(margin + 5 + signW + signSpace, y + 10, "FIRMA JEFE");
-    drawSignBox(margin + 5 + (signW + signSpace) * 2, y + 10, "FIRMA DEL DIVULGADOR");
+    doc.setFontSize(7);
+    doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin + 5, y);
+    y += 2; doc.roundedRect(margin + 5, y, 160, 6, 1, 1);
+    doc.setFont('helvetica', 'normal'); doc.text((selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 8, y + 4.2);
 
-    y += 20; doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-    doc.text("KITS DE LA MÁQUINA DE VOTACION", margin + 15, y);
-    const drawKitLine = (lbl: string, checked: boolean, curY: number) => {
-        doc.text(`•  ${lbl}`, margin + 25, curY);
-        doc.circle(margin + 80, curY - 1, 2);
-        if(checked) doc.text("X", margin + 79.2, curY);
+    y += 10; doc.setFont('helvetica', 'bold'); doc.text("Nº C.I:", margin + 5, y);
+    doc.roundedRect(margin + 15, y - 4.5, 40, 6, 1, 1);
+    doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.divulgador_cedula || '', margin + 18, y - 0.5);
+
+    y += 8; doc.setFont('helvetica', 'bold'); doc.text("VÍNCULO:", margin + 5, y);
+    const v = (selectedSolicitud.divulgador_vinculo || '').toUpperCase();
+    const drawCheck = (lbl: string, checked: boolean, x: number, yPos: number) => {
+        doc.rect(x, yPos - 3, 3, 3); doc.text(lbl, x + 5, yPos); if(checked) doc.text("X", x + 0.5, yPos - 0.5);
     }
-    y += 5; doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 25, y);
-    doc.roundedRect(margin + 80, y - 4, 60, 6, 1, 1);
-    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.pendrive_serie || '', margin + 85, y);
+    drawCheck("PERMANENTE", v === 'PERMANENTE', margin + 20, y);
+    drawCheck("CONTRATADO", v === 'CONTRATADO', margin + 50, y);
+    drawCheck("COMISIONADO", v === 'COMISIONADO', margin + 80, y);
+
+    y += 10; doc.setFont('helvetica', 'bold'); 
+    doc.text("HORA DE SALIDA:", margin + 5, y);
+    doc.roundedRect(margin + 30, y - 4.5, 25, 6, 1, 1); 
+    doc.setFont('helvetica', 'normal'); 
+    if(currentMovimiento?.salida) doc.text(`${currentMovimiento.salida.hora} HS`, margin + 32, y - 0.5);
     
-    const sK = currentMovimiento?.salida || ({} as any);
-    y += 5; drawKitLine("CREDENCIAL GENERICA", !!sK.credencial, y);
-    y += 5; drawKitLine("AURICULAR GENERICO", !!sK.auricular, y);
-    y += 5; drawKitLine("ACRILICO GENERICO", !!sK.acrilico, y);
-    y += 5; drawKitLine("5 BOLETAS DE CAPACITACION", !!sK.boletas, y);
+    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", pageWidth - margin - 50, y);
+    if(currentMovimiento?.salida) doc.text(`${formatDateToDDMMYYYY(currentMovimiento.salida.fecha)}`, pageWidth - margin - 35, y);
 
-    // MID TEXT
-    y = 155; doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-    doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN", pageWidth / 2, y, { align: 'center' });
-    doc.text("ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y + 4, { align: 'center' });
+    y += 10; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 5, y);
+    y += 2; doc.roundedRect(margin + 5, y, 70, 6, 1, 1); 
+    doc.setFont('helvetica', 'normal'); 
+    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 4.2);
 
-    // SECTION B
-    y = 165;
-    doc.roundedRect(margin, y, pageWidth - (margin * 2), 105, 5, 5);
-    doc.circle(margin + 10, y + 8, 4); doc.text("B", margin + 10, y + 9.5, { align: 'center' });
-    doc.text("DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 20, y + 9);
+    y += 10; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin + 5, y);
+    y += 2; doc.roundedRect(margin + 5, y, 160, 6, 1, 1); 
+    doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 4.2);
 
     y += 15;
-    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 10, y);
-    if(currentMovimiento?.devolucion) doc.text(`${formatDateToDDMMYYYY(currentMovimiento.devolucion.fecha)}`, margin + 25, y);
+    const signW = 50;
+    const drawSign = (x: number, yP: number, lbl: string) => {
+        doc.line(x, yP, x + signW, yP);
+        doc.setFontSize(5); doc.text(lbl, x, yP + 3);
+        doc.text("ACLARACIÓN:", x, yP + 6);
+    }
+    drawSign(margin + 5, y, "FIRMA JEFE");
+    drawSign(margin + 65, y, "FIRMA JEFE");
+    drawSign(margin + 125, y, "FIRMA DEL DIVULGADOR");
+
+    y += 12; doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text("KITS DE LA MÁQUINA DE VOTACION", margin + 10, y);
+    const drawKitLine = (lbl: string, checked: boolean, curY: number) => {
+        doc.text(`•  ${lbl}`, margin + 15, curY);
+        doc.circle(margin + 65, curY - 1, 1.5);
+        if(checked) doc.text("X", margin + 64.2, curY);
+    }
+    y += 4; doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 15, y);
+    doc.roundedRect(margin + 65, y - 3.5, 50, 5, 1, 1);
+    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.pendrive_serie || '', margin + 68, y);
     
-    doc.text("HORA DE DEVOLUCION:", pageWidth - margin - 80, y);
-    doc.roundedRect(pageWidth - margin - 40, y - 6, 30, 8, 2, 2);
-    if(currentMovimiento?.devolucion) doc.text(`${currentMovimiento.devolucion.hora} HS`, pageWidth - margin - 37, y - 0.5);
+    const sK = currentMovimiento?.salida || ({} as any);
+    y += 4; drawKitLine("CREDENCIAL GENERICA", !!sK.credencial, y);
+    y += 4; drawKitLine("AURICULAR GENERICO", !!sK.auricular, y);
+    y += 4; drawKitLine("ACRILICO GENERICO", !!sK.acrilico, y);
+    y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!sK.boletas, y);
 
-    y += 15; doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
-    y += 2; doc.roundedRect(margin + 10, y, 80, 8, 2, 2);
-    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 15, y + 5.5);
+    // Texto intermedio
+    y = 143; doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN / ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y, { align: 'center' });
 
-    const boxX = pageWidth - margin - 85;
-    doc.roundedRect(boxX, y - 10, 75, 25, 5, 5);
-    doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 4);
+    // --- SECCIÓN B ---
+    y = 148;
+    doc.roundedRect(margin, y, pageWidth - (margin * 2), 95, 3, 3);
+    doc.circle(margin + 8, y + 7, 3); doc.text("B", margin + 8, y + 8, { align: 'center' });
+    doc.text("DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 15, y + 7.5);
+
+    y += 15;
+    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 5, y);
+    if(currentMovimiento?.devolucion) doc.text(`${formatDateToDDMMYYYY(currentMovimiento.devolucion.fecha)}`, margin + 18, y);
+    
+    doc.text("HORA DE DEVOLUCION:", pageWidth - margin - 70, y);
+    doc.roundedRect(pageWidth - margin - 35, y - 4.5, 25, 6, 1, 1);
+    if(currentMovimiento?.devolucion) doc.text(`${currentMovimiento.devolucion.hora} HS`, pageWidth - margin - 32, y - 0.5);
+
+    y += 12; doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 5, y);
+    y += 2; doc.roundedRect(margin + 5, y, 70, 6, 1, 1);
+    if(currentMovimiento?.salida) doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 4.2);
+
+    const boxX = pageWidth - margin - 75;
+    doc.roundedRect(boxX, y - 8, 70, 20, 3, 3);
+    doc.setFontSize(6); doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 3);
     const dK = currentMovimiento?.devolucion || ({} as any);
-    doc.circle(boxX + 15, y + 8, 3); doc.text("CORRECTO", boxX + 22, y + 9); if(dK.lacre_estado === 'correcto') doc.text("X", boxX + 14, y+9.5);
-    doc.circle(boxX + 45, y + 8, 3); doc.text("VIOLENTADO", boxX + 52, y + 9); if(dK.lacre_estado === 'violentado') doc.text("X", boxX + 44, y+9.5);
+    doc.circle(boxX + 15, y + 6, 2.5); doc.text("CORRECTO", boxX + 20, y + 7); if(dK.lacre_estado === 'correcto') doc.text("X", boxX + 14.2, y+7.2);
+    doc.circle(boxX + 40, y + 6, 2.5); doc.text("VIOLENTADO", boxX + 45, y + 7); if(dK.lacre_estado === 'violentado') doc.text("X", boxX + 39.2, y+7.2);
 
-    y += 35;
-    drawSignBox(margin + 5, y + 10, "FIRMA JEFE");
-    drawSignBox(margin + 5 + signW + signSpace, y + 10, "FIRMA JEFE");
-    drawSignBox(margin + 5 + (signW + signSpace) * 2, y + 10, "FIRMA DEL DIVULGADOR");
+    y += 25;
+    drawSign(margin + 5, y, "FIRMA JEFE");
+    drawSign(margin + 65, y, "FIRMA JEFE");
+    drawSign(margin + 125, y, "FIRMA DEL DIVULGADOR");
 
-    y += 20; doc.setFont('helvetica', 'bold');
-    doc.text("KITS DE LA MAQUINA DE VOTACION", margin + 15, y);
-    y += 5; doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 25, y);
-    doc.roundedRect(margin + 80, y - 4, 60, 6, 1, 1);
-    if(currentMovimiento?.devolucion) doc.text(currentMovimiento.devolucion.pendrive_serie || '', margin + 85, y);
+    y += 12; doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text("KITS DE LA MAQUINA DE VOTACION", margin + 10, y);
+    y += 4; doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 15, y);
+    doc.roundedRect(margin + 65, y - 3.5, 50, 5, 1, 1);
+    if(currentMovimiento?.devolucion) doc.text(currentMovimiento.devolucion.pendrive_serie || '', margin + 68, y);
     
-    y += 5; drawKitLine("CREDENCIAL GENERICA", !!dK.credencial, y);
-    y += 5; drawKitLine("AURICULAR GENERICO", !!dK.auricular, y);
-    y += 5; drawKitLine("ACRILICO GENERICO", !!dK.acrilico, y);
-    y += 5; drawKitLine("5 BOLETAS DE CAPACITACION", !!dK.boletas, y);
+    y += 4; drawKitLine("CREDENCIAL GENERICA", !!dK.credencial, y);
+    y += 4; drawKitLine("AURICULAR GENERICO", !!dK.auricular, y);
+    y += 4; drawKitLine("ACRILICO GENERICO", !!dK.acrilico, y);
+    y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!dK.boletas, y);
 
     doc.save(`Proforma-Movimiento-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
