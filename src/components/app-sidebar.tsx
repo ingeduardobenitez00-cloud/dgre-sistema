@@ -138,15 +138,11 @@ export default function AppSidebar() {
 
   return (
     <div className="flex h-full flex-col bg-white border-r">
-      <SidebarHeader className="py-12 px-8">
-        <div className="flex items-center gap-5">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[2rem] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-muted/10">
-              <Image src="/logo.png" alt="Logo" width={45} height={45} className="object-contain" priority />
-            </div>
-            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-              <span className="text-[14px] font-bold uppercase leading-tight tracking-tight text-[#1A1A1A]">JUSTICIA</span>
-              <span className="text-[14px] font-bold text-primary uppercase leading-tight tracking-tight">ELECTORAL</span>
-            </div>
+      <SidebarHeader className="py-6 px-6">
+        {/* ENCABEZADO MINIMALISTA SIN REDUNDANCIA DE LOGO */}
+        <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">MENÚ DE GESTIÓN</span>
         </div>
       </SidebarHeader>
       

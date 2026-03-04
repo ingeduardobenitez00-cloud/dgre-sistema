@@ -40,28 +40,28 @@ export default function Header({ title }: { title?: string }) {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
       <div className="flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-4">
-          {/* BOTÓN PLEGABLE - ESTILO CIRCULAR SEGÚN REFERENCIA */}
-          <SidebarTrigger className="h-11 w-11 rounded-full border border-gray-200 bg-white hover:bg-muted text-foreground transition-all shadow-sm flex items-center justify-center [&_svg]:size-5" />
-          
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 relative">
+          {/* LOGO COMO BOTÓN DE MENÚ */}
+          <SidebarTrigger className="h-auto w-auto p-0 bg-transparent hover:bg-transparent border-none shadow-none flex items-center gap-3 group transition-all">
+            <div className="h-10 w-10 relative bg-white rounded-full p-1.5 shadow-md border border-gray-100 flex items-center justify-center group-hover:scale-105 transition-transform">
                <Image 
                 src="/logo.png" 
-                alt="Justicia Electoral Logo" 
-                fill 
+                alt="Logo Justicia Electoral" 
+                width={30} 
+                height={30}
                 className="object-contain" 
                 priority 
               />
             </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-foreground uppercase leading-none tracking-tighter">
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] font-black text-foreground uppercase leading-none tracking-tighter group-hover:text-primary transition-colors">
                   JUSTICIA
               </span>
               <span className="text-[10px] font-black text-primary uppercase leading-none tracking-tighter mt-0.5">
                   ELECTORAL
               </span>
             </div>
-          </div>
+          </SidebarTrigger>
+          
           {title && (
             <div className="hidden lg:flex items-center ml-4 pl-4 border-l h-6">
               <h1 className="text-sm font-bold truncate text-muted-foreground uppercase tracking-tight">{title}</h1>
