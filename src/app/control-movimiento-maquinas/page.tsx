@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -20,7 +20,13 @@ import {
   ShieldAlert,
   FileWarning,
   Plus,
-  Check
+  Check,
+  Camera,
+  FileUp,
+  X,
+  Trash2,
+  ImageIcon,
+  FileText
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where, doc, updateDoc } from 'firebase/firestore';
@@ -33,6 +39,14 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Link from 'next/link';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function ControlMovimientoMaquinasPage() {
   const { user, isUserLoading } = useUser();
@@ -44,6 +58,16 @@ export default function ControlMovimientoMaquinasPage() {
   const [logo1Base64, setLogo1Base64] = useState<string | null>(null);
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<string | null>(null);
   
+  // Camera States
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [activeCameraTarget, setActiveCameraTarget] = useState<'salida' | 'devolucion' | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Photos States
+  const [salidaFoto, setSalidaFoto] = useState<string | null>(null);
+  const [devolucionFoto, setDevolucionFoto] = useState<string | null>(null);
+
   const [salidaData, setSalidaData] = useState({
     codigo_maquina: '',
     fecha: '',
@@ -160,6 +184,7 @@ export default function ControlMovimientoMaquinasPage() {
                 acrilico: s.acrilico || false,
                 boletas: s.boletas || false,
             });
+            setSalidaFoto(s.foto_respaldo || null);
         }
 
         const d = currentMovimiento.devolucion as any;
@@ -174,19 +199,79 @@ export default function ControlMovimientoMaquinasPage() {
                 acrilico: d.acrilico || false,
                 boletas: d.boletas || false,
             });
+            setDevolucionFoto(d.foto_respaldo || null);
         } else if (s) {
             setDevolucionData(prev => ({
                 ...prev,
                 pendrive_serie: s.pendrive_serie || ''
             }));
         }
+    } else {
+        setSalidaFoto(null);
+        setDevolucionFoto(null);
     }
   }, [currentMovimiento]);
+
+  const startCamera = async (target: 'salida' | 'devolucion') => {
+    setActiveCameraTarget(target);
+    setIsCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment', aspectRatio: { ideal: 0.75 } } 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; }
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error de Cámara" });
+      setIsCameraOpen(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+    setActiveCameraTarget(null);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current && activeCameraTarget) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+        if (activeCameraTarget === 'salida') setSalidaFoto(dataUri);
+        else setDevolucionFoto(dataUri);
+        stopCamera();
+      }
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'salida' | 'devolucion') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (target === 'salida') setSalidaFoto(reader.result as string);
+        else setDevolucionFoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSaveSalida = () => {
     if (!firestore || !user || !selectedSolicitud) return;
     if (!salidaData.codigo_maquina) {
       toast({ variant: 'destructive', title: 'Nº de Serie requerido' });
+      return;
+    }
+    if (!salidaFoto) {
+      toast({ variant: 'destructive', title: 'Respaldo Documental requerido', description: 'Debe adjuntar la foto del formulario físico de salida.' });
       return;
     }
 
@@ -201,6 +286,7 @@ export default function ControlMovimientoMaquinasPage() {
         cedula: selectedSolicitud.divulgador_cedula || '',
         vinculo: selectedSolicitud.divulgador_vinculo || '',
         lugar: selectedSolicitud.lugar_local,
+        foto_respaldo: salidaFoto,
       },
       fecha_creacion: new Date().toISOString(),
     };
@@ -218,6 +304,11 @@ export default function ControlMovimientoMaquinasPage() {
 
   const handleSaveDevolucion = () => {
     if (!firestore || !user || !selectedSolicitud || !currentMovimiento) return;
+    if (!devolucionFoto) {
+      toast({ variant: 'destructive', title: 'Respaldo Documental requerido', description: 'Debe adjuntar la foto del formulario físico de devolución.' });
+      return;
+    }
+
     setIsSubmitting(true);
     const updateData = {
       devolucion: {
@@ -227,6 +318,7 @@ export default function ControlMovimientoMaquinasPage() {
         vinculo: selectedSolicitud.divulgador_vinculo || '',
         codigo_maquina: salidaData.codigo_maquina,
         lugar: selectedSolicitud.lugar_local,
+        foto_respaldo: devolucionFoto,
       }
     };
 
@@ -283,7 +375,6 @@ export default function ControlMovimientoMaquinasPage() {
     y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1);
     doc.setFont('helvetica', 'normal'); doc.text((selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 8, y + 3.5);
 
-    // LÍNEA DE C.I. Y VÍNCULO (SIN SOBREPOSICIÓN)
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("Nº C.I:", margin + 5, y);
     doc.roundedRect(margin + 15, y - 4, 25, 5, 1, 1);
     doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.divulgador_cedula || '', margin + 17, y - 0.5);
@@ -325,7 +416,6 @@ export default function ControlMovimientoMaquinasPage() {
     y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1); 
     doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 3.5);
 
-    // --- FIRMAS SECCIÓN A ---
     y += 12;
     const signW = 45;
     const drawSign = (x: number, yP: number, lbl: string) => {
@@ -339,7 +429,6 @@ export default function ControlMovimientoMaquinasPage() {
     drawSign(margin + 65, y, "FIRMA JEFE");
     drawSign(margin + 125, y, "FIRMA DEL DIVULGADOR");
 
-    // --- KITS SECCIÓN A ---
     y += 12; doc.setFontSize(7); doc.setFont('helvetica', 'bold');
     doc.text("KITS DE LA MÁQUINA DE VOTACION", margin + 10, y);
     const drawKitLine = (lbl: string, checked: boolean, curY: number) => {
@@ -537,10 +626,40 @@ export default function ControlMovimientoMaquinasPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* RESPALDO DOCUMENTAL SALIDA */}
+                <div className="p-8 border-2 border-dashed border-primary/20 rounded-[2rem] space-y-6 bg-muted/5">
+                    <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <Label className="font-black uppercase text-xs">Respaldo Documental Salida (F01 Firmado) *</Label>
+                    </div>
+                    {salidaFoto ? (
+                        <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-white shadow-xl group">
+                            <Image src={salidaFoto} alt="Respaldo Salida" fill className="object-cover" />
+                            {!currentMovimiento && (
+                                <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setSalidaFoto(null)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-all group bg-white" onClick={() => startCamera('salida')}>
+                                <Camera className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-1" />
+                                <span className="text-[10px] font-black uppercase text-muted-foreground">Capturar F01</span>
+                            </div>
+                            <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-all group bg-white">
+                                <FileUp className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-1" />
+                                <span className="text-[10px] font-black uppercase text-muted-foreground">Subir de Galería</span>
+                                <Input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'salida')} />
+                            </label>
+                        </div>
+                    )}
+                </div>
               </CardContent>
               {!currentMovimiento && (
                 <CardFooter className="p-0 border-t">
-                    <Button onClick={handleSaveSalida} disabled={isSubmitting || !salidaData.codigo_maquina} className="w-full h-20 text-xl font-black uppercase bg-black hover:bg-black/90 rounded-none tracking-widest">
+                    <Button onClick={handleSaveSalida} disabled={isSubmitting || !salidaData.codigo_maquina || !salidaFoto} className="w-full h-20 text-xl font-black uppercase bg-black hover:bg-black/90 rounded-none tracking-widest">
                         {isSubmitting ? <Loader2 className="animate-spin mr-3" /> : <Truck className="mr-3" />}
                         REGISTRAR SALIDA Y GENERAR F01
                     </Button>
@@ -636,6 +755,36 @@ export default function ControlMovimientoMaquinasPage() {
                     </div>
                 </div>
 
+                {/* RESPALDO DOCUMENTAL DEVOLUCIÓN */}
+                <div className="p-8 border-2 border-dashed border-primary/20 rounded-[2rem] space-y-6 bg-muted/5">
+                    <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <Label className="font-black uppercase text-xs">Respaldo Documental Devolución (F02 Firmado) *</Label>
+                    </div>
+                    {devolucionFoto ? (
+                        <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-white shadow-xl group">
+                            <Image src={devolucionFoto} alt="Respaldo Devolución" fill className="object-cover" />
+                            {currentMovimiento && !currentMovimiento.devolucion && (
+                                <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setDevolucionFoto(null)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-all group bg-white" onClick={() => startCamera('devolucion')}>
+                                <Camera className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-1" />
+                                <span className="text-[10px] font-black uppercase text-muted-foreground">Capturar F02</span>
+                            </div>
+                            <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-all group bg-white">
+                                <FileUp className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-1" />
+                                <span className="text-[10px] font-black uppercase text-muted-foreground">Subir de Galería</span>
+                                <Input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'devolucion')} />
+                            </label>
+                        </div>
+                    )}
+                </div>
+
                 {(devolucionData.lacre_estado === 'violentado' || currentMovimiento?.devolucion?.lacre_estado === 'violentado') && (
                     <Card className="border-4 border-destructive bg-destructive/5 animate-in shake duration-500">
                         <CardHeader className="bg-destructive text-white py-4">
@@ -658,14 +807,14 @@ export default function ControlMovimientoMaquinasPage() {
                 <CardFooter className="p-0 border-t bg-black overflow-hidden">
                     <Button 
                         onClick={handleSaveDevolucion} 
-                        disabled={isSubmitting || devolucionData.lacre_estado === 'violentado'} 
+                        disabled={isSubmitting || devolucionData.lacre_estado === 'violentado' || !devolucionFoto} 
                         className={cn(
                             "w-full h-20 text-xl font-black uppercase rounded-none tracking-widest",
-                            devolucionData.lacre_estado === 'violentado' ? "bg-muted text-muted-foreground" : "bg-primary hover:bg-primary/90"
+                            (devolucionData.lacre_estado === 'violentado' || !devolucionFoto) ? "bg-muted text-muted-foreground" : "bg-primary hover:bg-primary/90"
                         )}
                     >
                         {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Undo2 className="mr-3 h-6 w-6" />}
-                        {devolucionData.lacre_estado === 'violentado' ? 'BLOQUEADO POR ADULTERACIÓN' : 'REGISTRAR DEVOLUCIÓN Y GENERAR F02'}
+                        {devolucionData.lacre_estado === 'violentado' ? 'BLOQUEADO POR ADULTERACIÓN' : !devolucionFoto ? 'FALTA RESPALDO DOCUMENTAL' : 'REGISTRAR DEVOLUCIÓN Y GENERAR F02'}
                     </Button>
                 </CardFooter>
               )}
@@ -680,6 +829,19 @@ export default function ControlMovimientoMaquinasPage() {
           </div>
         )}
       </main>
+
+      <Dialog open={isCameraOpen} onOpenChange={(o) => !o && stopCamera()}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-black rounded-[2rem]">
+          <div className="relative aspect-[3/4] w-full bg-black flex items-center justify-center">
+            <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+            <div className="absolute inset-8 border-2 border-white/20 rounded-xl pointer-events-none border-dashed" />
+          </div>
+          <DialogFooter className="p-8 bg-black/80 flex flex-row items-center justify-between gap-4">
+            <Button variant="outline" className="rounded-full h-14 w-14 border-white/20 bg-white/10 text-white" onClick={stopCamera}><X className="h-6 w-6" /></Button>
+            <Button className="flex-1 h-16 rounded-full bg-white text-black font-black uppercase text-sm shadow-2xl" onClick={takePhoto}>CAPTURAR</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

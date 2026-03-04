@@ -200,6 +200,7 @@ export type MovimientoMaquinaRegistro = {
   acrilico?: boolean;
   boletas?: boolean;
   lacre_estado?: 'correcto' | 'violentado';
+  foto_respaldo?: string;
 }
 
 export type MovimientoMaquina = {
