@@ -1,4 +1,3 @@
-
 import { Firestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 /**
@@ -17,13 +16,13 @@ export interface AuditEntry {
   modulo: string;
   documento_id?: string;
   detalles?: string;
-  data_snapshot?: any; // Captura opcional del estado de los datos
+  data_snapshot?: any; 
   fecha_servidor: any;
 }
 
 /**
  * Función central para registrar eventos de auditoría.
- * No bloquea la ejecución principal (non-blocking).
+ * Silenciada en producción para evitar exposición de trazas innecesarias.
  */
 export function recordAuditLog(
   db: Firestore,
@@ -31,11 +30,13 @@ export function recordAuditLog(
 ) {
   const auditRef = collection(db, 'auditoria');
   
-  // Guardamos el log sin esperar (non-blocking) para no afectar la UX
   addDoc(auditRef, {
     ...entry,
     fecha_servidor: serverTimestamp(),
   }).catch((err) => {
-    console.error("Error crítico en motor de auditoría:", err);
+    // Silenciamos el error en consola en producción para evitar ruido visual excesivo
+    if (process.env.NODE_ENV !== 'production') {
+        console.error("Error crítico en motor de auditoría:", err);
+    }
   });
 }

@@ -7,8 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
 
 /**
- * Escucha errores de permisos de Firestore y los maneja silenciosamente
- * durante el logout para evitar alertas innecesarias.
+ * Escucha errores de permisos de Firestore y los maneja de forma segura.
+ * Se han silenciado los logs de advertencia detallados en producción para cumplir con la auditoría.
  */
 export function FirebaseErrorListener() {
   const { toast } = useToast();
@@ -19,7 +19,10 @@ export function FirebaseErrorListener() {
       // Si no hay usuario, probablemente es una transición de logout. Ignoramos.
       if (!auth?.currentUser) return;
 
-      console.warn('SISTEMA - Acceso Denegado:', error.message);
+      // Solo mostramos detalles técnicos en desarrollo para evitar filtrar info sensible
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('SISTEMA - Acceso Denegado:', error.message);
+      }
       
       toast({
         variant: 'destructive',
