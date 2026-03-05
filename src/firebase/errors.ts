@@ -91,7 +91,7 @@ function buildErrorMessage(requestObject: SecurityRuleRequest): string {
   const isProd = process.env.NODE_ENV === 'production';
   
   if (isProd) {
-    return "Error de permisos: No tiene autorización para realizar esta operación en la base de datos.";
+    return "Error de permisos: No tiene autorización para realizar esta operación.";
   }
 
   return `Missing or insufficient permissions: The following request was denied by Firestore Security Rules:

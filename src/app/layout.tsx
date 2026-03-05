@@ -1,4 +1,3 @@
-
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import 'leaflet/dist/leaflet.css';
@@ -29,8 +28,8 @@ export const metadata: Metadata = {
     default: 'Justicia Electoral | Sistema de Gestión',
     template: '%s | Justicia Electoral',
   },
-  description: 'Sistema oficial de gestión de informes, registros electorales y capacitaciones del CIDEE.',
-  keywords: ['justicia electoral', 'cidee', 'paraguay', 'elecciones', 'capacitación'],
+  description: 'Sistema oficial de gestión de informes y capacitaciones.',
+  keywords: ['justicia electoral', 'paraguay', 'capacitación'],
   authors: [{ name: 'Justicia Electoral' }],
   icons: {
     icon: '/logo.png',
@@ -42,9 +41,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'Sistema de Gestión',
-  },
-  formatDetection: {
-    telephone: false,
   },
 };
 
