@@ -42,7 +42,6 @@ function DenunciaContent() {
   const streamRef = useRef<MediaStream | null>(null);
 
   const [formData, setFormData] = useState({
-    nro_acta: '',
     detalles: '',
     fecha_denuncia: '',
     hora_denuncia: '',
@@ -164,7 +163,7 @@ function DenunciaContent() {
 
   const handleSubmit = () => {
     if (!firestore || !user || !selectedSolicitud) return;
-    if (!formData.nro_acta || !formData.detalles) {
+    if (!formData.detalles) {
         toast({ variant: "destructive", title: "Faltan datos" });
         return;
     }
@@ -197,7 +196,7 @@ function DenunciaContent() {
     addDoc(collection(firestore, 'denuncias-lacres'), docData)
       .then(() => {
         toast({ title: "¡Denuncia Registrada!" });
-        setFormData(p => ({ ...p, nro_acta: '', detalles: '' }));
+        setFormData(p => ({ ...p, detalles: '' }));
         setDenunciaFoto(null);
         setRespaldoFoto(null);
         setIsSubmitting(false);
@@ -312,7 +311,7 @@ function DenunciaContent() {
     doc.text("FIRMA JEFE", pageWidth - margin - 55, y + 5);
     doc.text("ACLARACIÓN:", pageWidth - margin - 55, y + 10);
 
-    doc.save(`Denuncia-Lacre-${formData.nro_acta || 'Reporte'}.pdf`);
+    doc.save(`Denuncia-Lacre-${Date.now()}.pdf`);
   };
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
@@ -368,16 +367,6 @@ function DenunciaContent() {
             {selectedSolicitud && (
                 <div className="space-y-8 animate-in fade-in duration-300">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-primary">Nº de Acta de Irregularidad</Label>
-                            <Input 
-                                name="nro_acta"
-                                value={formData.nro_acta} 
-                                onChange={handleInputChange}
-                                placeholder="EJ: ACTA CIDEE 001/2026"
-                                className="font-black uppercase border-2 h-12"
-                            />
-                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase text-muted-foreground">Fecha Reporte</Label>
