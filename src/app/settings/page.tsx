@@ -281,10 +281,10 @@ export default function SettingsPage() {
           await delay(200);
         }
       }
-      toast({ title: 'Reinicio Completado', description: 'El área de transacciones CIDEE ha sido limpiada para producción.' });
+      toast({ title: 'Reseteo Completado', description: 'El área de transacciones CIDEE ha sido limpiada para producción.' });
     } catch (err) {
       console.error(err);
-      toast({ variant: 'destructive', title: 'Error en el reinicio' });
+      toast({ variant: 'destructive', title: 'Error en el reseteo' });
     } finally {
       setIsResetting(false);
     }
@@ -571,7 +571,7 @@ export default function SettingsPage() {
                     <CardHeader className="bg-primary text-white flex flex-row items-center justify-between py-4 px-6">
                         <CardTitle className="text-xs font-black uppercase tracking-widest">Listado de Equipos ({filteredMaquinas.length})</CardTitle>
                         <div className="relative w-48">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white/50" />
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 text-white/50" />
                             <Input 
                                 placeholder="Buscar código..." 
                                 className="h-8 pl-8 text-[10px] bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-white/30" 
@@ -621,7 +621,7 @@ export default function SettingsPage() {
             <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-white">
               <CardHeader className="bg-destructive text-white p-8">
                 <CardTitle className="text-xl font-black uppercase flex items-center gap-3">
-                  <ShieldAlert className="h-8 w-8" /> REINICIO DE TRANSACCIONES CIDEE
+                  <ShieldAlert className="h-8 w-8" /> RESETEO CIDEE
                 </CardTitle>
                 <CardDescription className="text-white/80 font-bold uppercase text-[10px] tracking-widest mt-2">
                   ESTA OPERACIÓN ES IRREVERSIBLE - PREPARACIÓN PARA ENTORNO DE PRODUCCIÓN
@@ -634,7 +634,7 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                       <p className="font-black uppercase text-sm text-destructive">Advertencia de Seguridad Nacional</p>
                       <p className="text-xs font-bold text-muted-foreground uppercase leading-relaxed">
-                        Al confirmar el reinicio, el sistema procederá a la eliminación permanente de:
+                        Al confirmar el reseteo, el sistema procederá a la eliminación permanente de:
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <ul className="space-y-2">
@@ -653,20 +653,20 @@ export default function SettingsPage() {
 
                 <div className="flex flex-col items-center justify-center p-8 text-center space-y-6">
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] max-w-lg">
-                    Use esta función únicamente para limpiar los datos de prueba antes de la salida oficial a producción. El Directorio de Divulgadores y la Geografía no se borrarán.
+                    USE ESTA FUNCIÓN ÚNICAMENTE PARA LIMPIAR LOS DATOS DE PRUEBA ANTES DE LA SALIDA OFICIAL A PRODUCCIÓN. EL DIRECTORIO DE DIVULGADORES Y LA GEOGRAFÍA NO SE BORRARÁN.
                   </p>
                   
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" className="h-20 px-12 text-xl font-black uppercase rounded-[1.5rem] shadow-2xl bg-destructive hover:bg-destructive/90 gap-4" disabled={isResetting}>
                         {isResetting ? <Loader2 className="h-8 w-8 animate-spin" /> : <Rocket className="h-8 w-8" />}
-                        REINICIAR CIDEE PARA PRODUCCIÓN
+                        RESETEO CIDEE
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8">
                       <AlertDialogHeader className="space-y-4">
                         <AlertDialogTitle className="text-2xl font-black uppercase text-destructive flex items-center gap-3">
-                          <ShieldAlert className="h-8 w-8" /> ¿CONFIRMAR REINICIO TRANSACCIONAL?
+                          <ShieldAlert className="h-8 w-8" /> ¿CONFIRMAR RESETEO TRANSACCIONAL?
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground">
                           Esta acción borrará permanentemente todas las solicitudes, agendas, informes y movimientos registrados. El Directorio de Divulgadores permanecerá intacto. ¿Desea continuar?
@@ -684,7 +684,7 @@ export default function SettingsPage() {
               </CardContent>
               <CardFooter className="bg-muted/30 border-t p-6">
                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center w-full italic">
-                  * Los datos de Divulgadores, Geografía e Inventario de Máquinas no se verán afectados por este reinicio.
+                  * Los datos de Divulgadores, Geografía e Inventario de Máquinas no se verán afectados por este reseteo.
                 </p>
               </CardFooter>
             </Card>
