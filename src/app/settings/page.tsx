@@ -258,7 +258,6 @@ export default function SettingsPage() {
     
     const collectionsToClear = [
       'solicitudes-capacitacion',
-      'divulgadores',
       'informes-divulgador',
       'informes-semanales-anexo-iv',
       'movimientos-maquinas',
@@ -282,7 +281,7 @@ export default function SettingsPage() {
           await delay(200);
         }
       }
-      toast({ title: 'Reinicio Completado', description: 'El área de CIDEE ha sido limpiada para producción.' });
+      toast({ title: 'Reinicio Completado', description: 'El área de transacciones CIDEE ha sido limpiada para producción.' });
     } catch (err) {
       console.error(err);
       toast({ variant: 'destructive', title: 'Error en el reinicio' });
@@ -622,7 +621,7 @@ export default function SettingsPage() {
             <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-white">
               <CardHeader className="bg-destructive text-white p-8">
                 <CardTitle className="text-xl font-black uppercase flex items-center gap-3">
-                  <ShieldAlert className="h-8 w-8" /> REINICIO DE ÁREA CIDEE
+                  <ShieldAlert className="h-8 w-8" /> REINICIO DE TRANSACCIONES CIDEE
                 </CardTitle>
                 <CardDescription className="text-white/80 font-bold uppercase text-[10px] tracking-widest mt-2">
                   ESTA OPERACIÓN ES IRREVERSIBLE - PREPARACIÓN PARA ENTORNO DE PRODUCCIÓN
@@ -640,11 +639,10 @@ export default function SettingsPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <ul className="space-y-2">
                           <li className="text-[9px] font-black text-destructive/70 flex items-center gap-2">• TODAS LAS SOLICITUDES (ANEXO V)</li>
-                          <li className="text-[9px] font-black text-destructive/70 flex items-center gap-2">• TODO EL DIRECTORIO DE DIVULGADORES</li>
                           <li className="text-[9px] font-black text-destructive/70 flex items-center gap-2">• TODOS LOS INFORMES INDIVIDUALES (ANEXO III)</li>
+                          <li className="text-[9px] font-black text-destructive/70 flex items-center gap-2">• TODOS LOS INFORMES SEMANALES (ANEXO IV)</li>
                         </ul>
                         <ul className="space-y-2">
-                          <li className="text-[9px] font-black text-destructive/70 flex items-center gap-2">• TODOS LOS INFORMES SEMANALES (ANEXO IV)</li>
                           <li className="text-[9px] font-black text-destructive/70 flex items-center gap-2">• TODOS LOS MOVIMIENTOS Y DENUNCIAS</li>
                           <li className="text-[9px] font-black text-destructive/70 flex items-center gap-2">• TODAS LAS ENCUESTAS DE SATISFACCIÓN</li>
                         </ul>
@@ -655,7 +653,7 @@ export default function SettingsPage() {
 
                 <div className="flex flex-col items-center justify-center p-8 text-center space-y-6">
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] max-w-lg">
-                    Use esta función únicamente para limpiar los datos de prueba antes de la salida oficial a producción del Sistema de Gestión.
+                    Use esta función únicamente para limpiar los datos de prueba antes de la salida oficial a producción. El Directorio de Divulgadores y la Geografía no se borrarán.
                   </p>
                   
                   <AlertDialog>
@@ -668,16 +666,16 @@ export default function SettingsPage() {
                     <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8">
                       <AlertDialogHeader className="space-y-4">
                         <AlertDialogTitle className="text-2xl font-black uppercase text-destructive flex items-center gap-3">
-                          <ShieldAlert className="h-8 w-8" /> ¿CONFIRMAR REINICIO TOTAL?
+                          <ShieldAlert className="h-8 w-8" /> ¿CONFIRMAR REINICIO TRANSACCIONAL?
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground">
-                          Esta acción borrará permanentemente miles de registros potenciales. No hay forma de recuperar la información una vez iniciado el proceso. ¿Está absolutamente seguro de que desea proceder con la limpieza del área CIDEE?
+                          Esta acción borrará permanentemente todas las solicitudes, agendas, informes y movimientos registrados. El Directorio de Divulgadores permanecerá intacto. ¿Desea continuar?
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter className="mt-8 gap-4">
                         <AlertDialogCancel className="h-14 rounded-xl font-black uppercase text-[10px] border-2">CANCELAR OPERACIÓN</AlertDialogCancel>
                         <AlertDialogAction onClick={handleResetCIDEE} className="h-14 flex-1 bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px]">
-                          SÍ, BORRAR TODO E INICIAR PRODUCCIÓN
+                          SÍ, BORRAR TRANSACCIONES E INICIAR
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -686,7 +684,7 @@ export default function SettingsPage() {
               </CardContent>
               <CardFooter className="bg-muted/30 border-t p-6">
                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center w-full italic">
-                  * Los datos de Geografía e Inventario de Máquinas no se verán afectados por este reinicio.
+                  * Los datos de Divulgadores, Geografía e Inventario de Máquinas no se verán afectados por este reinicio.
                 </p>
               </CardFooter>
             </Card>
