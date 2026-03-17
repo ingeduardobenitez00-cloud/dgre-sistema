@@ -26,12 +26,13 @@ import {
   X,
   Trash2,
   ImageIcon,
-  FileText
+  FileText,
+  Cpu
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where, doc, updateDoc } from 'firebase/firestore';
 import jsPDF from 'jspdf';
-import { type SolicitudCapacitacion, type MovimientoMaquina } from '@/lib/data';
+import { type SolicitudCapacitacion, type MovimientoMaquina, type MaquinaVotacion } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
 import Image from 'next/image';
@@ -125,23 +126,53 @@ export default function ControlMovimientoMaquinasPage() {
     fetchLogos();
   }, []);
 
-  const agendaQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || !user?.profile) return null;
-    const colRef = collection(firestore, 'solicitudes-capacitacion');
-    const profile = user.profile;
-    const hasAdminFilter = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
-    const hasDeptFilter = !hasAdminFilter && profile.permissions?.includes('department_filter');
-    const hasDistFilter = !hasAdminFilter && !hasDeptFilter && (profile.permissions?.includes('district_filter') || profile.role === 'jefe' || profile.role === 'funcionario');
+  const profile = user?.profile;
 
+  // Lógica de permisos para filtrado
+  const hasAdminFilter = useMemo(() => 
+    ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
+    [profile]
+  );
+  
+  const hasDeptFilter = useMemo(() => 
+    !hasAdminFilter && profile?.permissions?.includes('department_filter'),
+    [profile, hasAdminFilter]
+  );
+
+  const hasDistFilter = useMemo(() => 
+    !hasAdminFilter && !hasDeptFilter && (profile?.permissions?.includes('district_filter') || profile?.role === 'jefe' || profile?.role === 'funcionario'),
+    [profile, hasAdminFilter, hasDeptFilter]
+  );
+
+  // Consulta de Actividades
+  const agendaQuery = useMemoFirebase(() => {
+    if (!firestore || isUserLoading || !profile) return null;
+    const colRef = collection(firestore, 'solicitudes-capacitacion');
+    
     if (hasAdminFilter) return colRef;
     if (hasDeptFilter && profile.departamento) return query(colRef, where('departamento', '==', profile.departamento));
     if (hasDistFilter && profile.departamento && profile.distrito) {
         return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
     }
     return null;
-  }, [firestore, user, isUserLoading]);
+  }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
   const { data: rawAgendaItems, isLoading: isLoadingAgenda } = useCollection<SolicitudCapacitacion>(agendaQuery);
+
+  // Consulta de Inventario de Máquinas (Filtrado por jurisdicción del usuario)
+  const maquinasQuery = useMemoFirebase(() => {
+    if (!firestore || isUserLoading || !profile) return null;
+    const colRef = collection(firestore, 'maquinas');
+    
+    if (hasAdminFilter) return colRef;
+    if (hasDeptFilter && profile.departamento) return query(colRef, where('departamento', '==', profile.departamento));
+    if (hasDistFilter && profile.departamento && profile.distrito) {
+        return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
+    }
+    return null;
+  }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
+
+  const { data: maquinasInventario, isLoading: isLoadingMaquinas } = useCollection<MaquinaVotacion>(maquinasQuery);
 
   const movimientosQueryAll = useMemoFirebase(() => firestore ? collection(firestore, 'movimientos-maquinas') : null, [firestore]);
   const { data: allMovimientos } = useCollection<MovimientoMaquina>(movimientosQueryAll);
@@ -151,18 +182,10 @@ export default function ControlMovimientoMaquinasPage() {
     
     return [...rawAgendaItems]
       .filter(item => {
-        // EXCLUIR ACTIVIDADES CANCELADAS
         if (item.cancelada) return false;
-
         const mov = allMovimientos?.find(m => m.solicitud_id === item.id);
         const hasReturn = !!mov?.devolucion;
-        
-        // EXCLUIR SI YA SE CERRÓ EL CICLO (DEVOLUCIÓN REGISTRADA)
-        // Pero mantenemos el seleccionado actual para que no desaparezca de la vista si se acaba de registrar.
-        if (hasReturn && item.id !== selectedSolicitudId) {
-            return false;
-        }
-
+        if (hasReturn && item.id !== selectedSolicitudId) return false;
         return true;
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -337,10 +360,7 @@ export default function ControlMovimientoMaquinasPage() {
       .then(() => {
         toast({ title: '¡Devolución Registrada!' });
         setIsSubmitting(false);
-        // LIMPIAR CAMPO DESPUÉS DE 2 SEGUNDOS
-        setTimeout(() => {
-          setSelectedSolicitudId(null);
-        }, 2000);
+        setTimeout(() => setSelectedSolicitudId(null), 2000);
       })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
@@ -356,174 +376,89 @@ export default function ControlMovimientoMaquinasPage() {
     
     doc.addImage(logoBase64, 'PNG', margin, 5, 12, 12);
     doc.addImage(logo1Base64, 'PNG', pageWidth - margin - 20, 5, 20, 10);
-    
     doc.setFontSize(6); doc.setFont('helvetica', 'normal');
     doc.text("REPÚBLICA DEL PARAGUAY", margin, 20);
     doc.text("Justicia Electoral", margin, 23);
-    
     doc.setFontSize(10); doc.setFont('helvetica', 'bold');
     doc.text("DGRE", pageWidth - margin - 15, 18);
     doc.setFontSize(6); doc.setFont('helvetica', 'normal');
     doc.text("DIRECCIÓN GENERAL DEL", pageWidth - margin - 22, 21);
     doc.text("REGISTRO ELECTORAL", pageWidth - margin - 22, 24);
-
     doc.setLineWidth(0.3);
     doc.line(margin, 26, pageWidth - margin, 26);
-
     doc.setFontSize(8); doc.setFont('helvetica', 'bold');
     doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 31, { align: "center" });
 
-    // --- SECCIÓN A ---
     let y = 35;
     const sectionHeight = 100;
     doc.setLineWidth(0.2);
     doc.roundedRect(margin, y, pageWidth - (margin * 2), sectionHeight, 3, 3);
-    
     doc.circle(margin + 8, y + 6, 2.5);
     doc.setFontSize(7); doc.text("A", margin + 8, y + 7, { align: 'center' });
     doc.setFontSize(8); doc.text("SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 15, y + 6.5);
-
-    y += 12;
-    doc.setFontSize(6.5);
-    doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin + 5, y);
+    y += 12; doc.setFontSize(6.5); doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin + 5, y);
     y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1);
     doc.setFont('helvetica', 'normal'); doc.text((selectedSolicitud.divulgador_nombre || '').toUpperCase(), margin + 8, y + 3.5);
-
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("Nº C.I:", margin + 5, y);
     doc.roundedRect(margin + 15, y - 4, 25, 5, 1, 1);
     doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.divulgador_cedula || '', margin + 17, y - 0.5);
-
     doc.setFont('helvetica', 'bold'); doc.text("VÍNCULO:", margin + 45, y);
     const v = (selectedSolicitud.divulgador_vinculo || '').toUpperCase();
     const drawCheck = (lbl: string, checked: boolean, x: number, yPos: number) => {
-        doc.rect(x, yPos - 3, 3, 3); 
-        doc.setFontSize(6); 
-        doc.setFont('helvetica', 'bold');
-        doc.text(lbl, x + 5, yPos - 0.5); 
-        if(checked) doc.text("X", x + 0.5, yPos - 0.5);
+        doc.rect(x, yPos - 3, 3, 3); doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.text(lbl, x + 5, yPos - 0.5); if(checked) doc.text("X", x + 0.5, yPos - 0.5);
     }
     drawCheck("PERMANENTE", v === 'PERMANENTE', margin + 65, y);
     drawCheck("CONTRATADO", v === 'CONTRATADO', margin + 95, y);
     drawCheck("COMISIONADO", v === 'COMISIONADO', margin + 130, y);
-
-    y += 8; doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); 
-    doc.text("HORA DE SALIDA:", margin + 5, y);
-    doc.roundedRect(margin + 30, y - 4, 20, 5, 1, 1); 
-    doc.setFont('helvetica', 'normal'); 
-    if(currentMovimiento?.salida) {
-        doc.text(`${currentMovimiento.salida.hora} HS`, margin + 32, y - 0.5);
-    }
-    
-    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 100, y);
-    if(currentMovimiento?.salida) {
-        doc.text(`${formatDateToDDMMYYYY(currentMovimiento.salida.fecha)}`, margin + 115, y);
-    }
-
+    y += 8; doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.text("HORA DE SALIDA:", margin + 5, y);
+    doc.roundedRect(margin + 30, y - 4, 20, 5, 1, 1); doc.setFont('helvetica', 'normal'); if(currentMovimiento?.salida) { doc.text(`${currentMovimiento.salida.hora} HS`, margin + 32, y - 0.5); }
+    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 100, y); if(currentMovimiento?.salida) { doc.text(`${formatDateToDDMMYYYY(currentMovimiento.salida.fecha)}`, margin + 115, y); }
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 5, y);
-    y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); 
-    doc.setFont('helvetica', 'normal'); 
-    if(currentMovimiento?.salida) {
-        doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 3.5);
-    }
-
+    y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); doc.setFont('helvetica', 'normal'); if(currentMovimiento?.salida) { doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 3.5); }
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin + 5, y);
-    y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1); 
-    doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 3.5);
-
+    y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1); doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 3.5);
     y += 12;
     const signW = 45;
     const drawSign = (x: number, yP: number, lbl: string) => {
-        doc.setLineWidth(0.1);
-        doc.line(x, yP, x + signW, yP);
-        doc.setFontSize(5); doc.setFont('helvetica', 'bold');
-        doc.text(lbl, x + signW/2, yP + 3, { align: 'center' });
-        doc.text("ACLARACIÓN:", x, yP + 6);
+        doc.setLineWidth(0.1); doc.line(x, yP, x + signW, yP); doc.setFontSize(5); doc.setFont('helvetica', 'bold'); doc.text(lbl, x + signW/2, yP + 3, { align: 'center' }); doc.text("ACLARACIÓN:", x, yP + 6);
     }
-    drawSign(margin + 5, y, "FIRMA JEFE");
-    drawSign(margin + 65, y, "FIRMA JEFE");
-    drawSign(margin + 125, y, "FIRMA DEL DIVULGADOR");
-
-    y += 12; doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text("KITS DE LA MÁQUINA DE VOTACION", margin + 10, y);
+    drawSign(margin + 5, y, "FIRMA JEFE"); drawSign(margin + 65, y, "FIRMA JEFE"); drawSign(margin + 125, y, "FIRMA DEL DIVULGADOR");
+    y += 12; doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.text("KITS DE LA MÁQUINA DE VOTACION", margin + 10, y);
     const drawKitLine = (lbl: string, checked: boolean, curY: number) => {
-        doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
-        doc.text(`•  ${lbl}`, margin + 15, curY);
-        doc.circle(margin + 65, curY - 1, 1.5);
-        if(checked) { doc.setFont('helvetica', 'bold'); doc.text("X", margin + 64.2, curY); }
+        doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.text(`•  ${lbl}`, margin + 15, curY); doc.circle(margin + 65, curY - 1, 1.5); if(checked) { doc.setFont('helvetica', 'bold'); doc.text("X", margin + 64.2, curY); }
     }
     y += 4; doc.setFont('helvetica', 'normal'); doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 15, y);
-    doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1);
-    if(currentMovimiento?.salida) {
-        doc.setFont('helvetica', 'bold'); 
-        doc.text(currentMovimiento.salida.pendrive_serie || '', margin + 68, y - 0.5);
-    }
-    
+    doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1); if(currentMovimiento?.salida) { doc.setFont('helvetica', 'bold'); doc.text(currentMovimiento.salida.pendrive_serie || '', margin + 68, y - 0.5); }
     const sK = currentMovimiento?.salida || ({} as any);
     y += 4; drawKitLine("CREDENCIAL GENERICA", !!sK.credencial, y);
     y += 4; drawKitLine("AURICULAR GENERICO", !!sK.auricular, y);
     y += 4; drawKitLine("ACRILICO GENERICO", !!sK.acrilico, y);
     y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!sK.boletas, y);
+    y += 6; doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN / ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y, { align: 'center' });
 
-    y += 6; doc.setFontSize(6); doc.setFont('helvetica', 'bold');
-    doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN / ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y, { align: 'center' });
-
-    // --- SECCIÓN B ---
-    y = 140;
-    doc.roundedRect(margin, y, pageWidth - (margin * 2), sectionHeight, 3, 3);
+    y = 140; doc.roundedRect(margin, y, pageWidth - (margin * 2), sectionHeight, 3, 3);
     doc.circle(margin + 8, y + 6, 2.5); doc.setFontSize(7); doc.text("B", margin + 8, y + 7, { align: 'center' });
     doc.setFontSize(8); doc.text("DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 15, y + 6.5);
-
-    y += 12;
-    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 5, y);
-    if(currentMovimiento?.devolucion) {
-        doc.setFont('helvetica', 'normal'); 
-        doc.text(`${formatDateToDDMMYYYY(currentMovimiento.devolucion.fecha)}`, margin + 18, y);
-    }
-    
-    doc.setFont('helvetica', 'bold'); doc.text("HORA DE DEVOLUCION:", margin + 100, y);
-    doc.roundedRect(margin + 135, y - 4, 20, 5, 1, 1);
-    if(currentMovimiento?.devolucion) {
-        doc.setFont('helvetica', 'normal'); 
-        doc.text(`${currentMovimiento.devolucion.hora} HS`, margin + 137, y - 0.5);
-    }
-
+    y += 12; doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 5, y); if(currentMovimiento?.devolucion) { doc.setFont('helvetica', 'normal'); doc.text(`${formatDateToDDMMYYYY(currentMovimiento.devolucion.fecha)}`, margin + 18, y); }
+    doc.setFont('helvetica', 'bold'); doc.text("HORA DE DEVOLUCION:", margin + 100, y); doc.roundedRect(margin + 135, y - 4, 20, 5, 1, 1); if(currentMovimiento?.devolucion) { doc.setFont('helvetica', 'normal'); doc.text(`${currentMovimiento.devolucion.hora} HS`, margin + 137, y - 0.5); }
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 5, y);
-    y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1);
-    if(currentMovimiento?.salida) {
-        doc.setFont('helvetica', 'normal'); 
-        doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 3.5);
-    }
-
-    const boxX = margin + 100;
-    doc.roundedRect(boxX, y - 6, 65, 12, 2, 2);
-    doc.setFontSize(5.5); doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 2);
+    y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); if(currentMovimiento?.salida) { doc.setFont('helvetica', 'normal'); doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 3.5); }
+    const boxX = margin + 100; doc.roundedRect(boxX, y - 6, 65, 12, 2, 2); doc.setFontSize(5.5); doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 2);
     const dK = currentMovimiento?.devolucion || ({} as any);
     doc.circle(boxX + 15, y + 3, 2); doc.text("CORRECTO", boxX + 20, y + 3.5); if(dK.lacre_estado === 'correcto') doc.text("X", boxX + 14.3, y+3.7);
     doc.circle(boxX + 40, y + 3, 2); doc.text("VIOLENTADO", boxX + 45, y + 3.5); if(dK.lacre_estado === 'violentado') doc.text("X", boxX + 39.3, y+3.7);
-
-    y += 18;
-    drawSign(margin + 5, y, "FIRMA JEFE");
-    drawSign(margin + 65, y, "FIRMA JEFE");
-    drawSign(margin + 125, y, "FIRMA DEL DIVULGADOR");
-
-    y += 12; doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text("KITS DE LA MAQUINA DE VOTACION", margin + 10, y);
+    y += 18; drawSign(margin + 5, y, "FIRMA JEFE"); drawSign(margin + 65, y, "FIRMA JEFE"); drawSign(margin + 125, y, "FIRMA DEL DIVULGADOR");
+    y += 12; doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.text("KITS DE LA MAQUINA DE VOTACION", margin + 10, y);
     y += 4; doc.setFont('helvetica', 'normal'); doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 15, y);
-    doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1);
-    if(currentMovimiento?.devolucion) {
-        doc.setFont('helvetica', 'bold'); 
-        doc.text(currentMovimiento.devolucion.pendrive_serie || '', margin + 68, y - 0.5);
-    }
-    
+    doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1); if(currentMovimiento?.devolucion) { doc.setFont('helvetica', 'bold'); doc.text(currentMovimiento.devolucion.pendrive_serie || '', margin + 68, y - 0.5); }
     y += 4; drawKitLine("CREDENCIAL GENERICA", !!dK.credencial, y);
     y += 4; drawKitLine("AURICULAR GENERICO", !!dK.auricular, y);
     y += 4; drawKitLine("ACRILICO GENERICO", !!dK.acrilico, y);
     y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!dK.boletas, y);
-
     doc.save(`Proforma-Movimiento-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
 
-  if (isUserLoading || isLoadingAgenda) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
+  if (isUserLoading || isLoadingAgenda || isLoadingMaquinas) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
@@ -606,10 +541,41 @@ export default function ControlMovimientoMaquinasPage() {
                             <Input type="date" value={salidaData.fecha} onChange={e => setSalidaData(p => ({...p, fecha: e.target.value}))} disabled={!!currentMovimiento} className="h-12 font-black text-lg border-2 rounded-2xl" />
                         </div>
                     </div>
+                    
+                    {/* SELECTOR DE MÁQUINA DESDE INVENTARIO */}
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-primary">Número de Serie de la Máquina de Votación</Label>
-                        <Input value={salidaData.codigo_maquina} onChange={e => setSalidaData(p => ({...p, codigo_maquina: e.target.value.toUpperCase()}))} disabled={!!currentMovimiento} placeholder="EJ: MV-2026-XXXX" className="h-14 font-black text-xl border-2 rounded-2xl" />
+                        <Label className="text-[10px] font-black uppercase text-primary flex items-center gap-2">
+                            <Cpu className="h-3 w-3" /> Número de Serie de la Máquina de Votación (Inventario)
+                        </Label>
+                        {currentMovimiento ? (
+                            <Input value={salidaData.codigo_maquina} readOnly className="h-14 font-black text-xl border-2 rounded-2xl bg-muted/20" />
+                        ) : (
+                            <Select onValueChange={v => setSalidaData(p => ({...p, codigo_maquina: v}))} value={salidaData.codigo_maquina || undefined}>
+                                <SelectTrigger className="h-14 border-2 rounded-2xl font-black text-xl uppercase">
+                                    <SelectValue placeholder="Seleccione serie de máquina..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {!maquinasInventario || maquinasInventario.length === 0 ? (
+                                        <div className="p-4 text-center text-[10px] font-black uppercase text-destructive italic">
+                                            Sin máquinas cargadas en este distrito
+                                        </div>
+                                    ) : (
+                                        maquinasInventario.map(m => (
+                                            <SelectItem key={m.id} value={m.codigo} className="font-black text-sm uppercase">
+                                                {m.codigo}
+                                            </SelectItem>
+                                        ))
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        {!currentMovimiento && (!maquinasInventario || maquinasInventario.length === 0) && (
+                            <p className="text-[9px] font-bold text-destructive uppercase mt-1">
+                                No hay equipos asignados a esta jurisdicción en el Inventario. Contacte al Administrador.
+                            </p>
+                        )}
                     </div>
+
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground">Lugar de la Divulgación</Label>
                         <Input value={selectedSolicitud?.lugar_local || ''} readOnly className="h-12 font-black uppercase border-2 rounded-2xl bg-muted/20" />
@@ -641,7 +607,6 @@ export default function ControlMovimientoMaquinasPage() {
                     </div>
                 </div>
 
-                {/* RESPALDO DOCUMENTAL SALIDA */}
                 <div className="p-8 border-2 border-dashed border-primary/20 rounded-[2rem] space-y-6 bg-muted/5">
                     <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-primary" />
@@ -700,7 +665,6 @@ export default function ControlMovimientoMaquinasPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-10 space-y-10">
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
@@ -727,20 +691,14 @@ export default function ControlMovimientoMaquinasPage() {
                             disabled={!!currentMovimiento?.devolucion}
                             className="flex gap-10"
                         >
-                            <div 
-                                className="flex flex-col items-center gap-2 cursor-pointer"
-                                onClick={() => !currentMovimiento?.devolucion && setDevolucionData(p => ({...p, lacre_estado: 'correcto'}))}
-                            >
+                            <div className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => !currentMovimiento?.devolucion && setDevolucionData(p => ({...p, lacre_estado: 'correcto'}))}>
                                 <div className={cn("h-10 w-10 rounded-full border-4 flex items-center justify-center transition-all", (devolucionData.lacre_estado === 'correcto' || currentMovimiento?.devolucion?.lacre_estado === 'correcto') ? "border-black bg-black text-white" : "border-muted")}>
                                     <RadioGroupItem value="correcto" className="hidden" />
                                     <Check className="h-6 w-6 stroke-[4]" />
                                 </div>
                                 <span className="text-[9px] font-black uppercase">CORRECTO</span>
                             </div>
-                            <div 
-                                className="flex flex-col items-center gap-2 cursor-pointer"
-                                onClick={() => !currentMovimiento?.devolucion && setDevolucionData(p => ({...p, lacre_estado: 'violentado'}))}
-                            >
+                            <div className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => !currentMovimiento?.devolucion && setDevolucionData(p => ({...p, lacre_estado: 'violentado'}))}>
                                 <div className={cn("h-10 w-10 rounded-full border-4 flex items-center justify-center transition-all", (devolucionData.lacre_estado === 'violentado' || currentMovimiento?.devolucion?.lacre_estado === 'violentado') ? "border-destructive bg-destructive text-white" : "border-muted")}>
                                     <RadioGroupItem value="violentado" className="hidden" />
                                     <ShieldAlert className="h-6 w-6" />
@@ -776,7 +734,6 @@ export default function ControlMovimientoMaquinasPage() {
                     </div>
                 </div>
 
-                {/* RESPALDO DOCUMENTAL DEVOLUCIÓN */}
                 <div className="p-8 border-2 border-dashed border-primary/20 rounded-[2rem] space-y-6 bg-muted/5">
                     <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-primary" />
