@@ -100,11 +100,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={false}>
       {showSimpleLayout ? (
-        <div className="flex flex-1 flex-col animate-in fade-in duration-500 bg-muted/40">
-          <div className="flex-1">
+        <div className="flex min-h-screen flex-col animate-in fade-in duration-500 bg-muted/40">
+          <div className="flex-1 flex flex-col">
             {children}
           </div>
-          <footer className="py-10 px-4 text-center">
+          <footer className="py-6 px-4 text-center">
             <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight opacity-60">
               {copyrightText}
             </p>
@@ -120,7 +120,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="flex-1">
                 {children}
               </div>
-              <footer className="py-10 px-4 text-center border-t bg-muted/5">
+              <footer className="py-6 px-4 text-center border-t bg-muted/5">
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight opacity-60">
                   {copyrightText}
                 </p>

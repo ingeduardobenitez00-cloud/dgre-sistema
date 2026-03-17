@@ -198,8 +198,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-       <div className="w-full max-w-md space-y-8">
+    <div className="flex-1 flex items-center justify-center p-4">
+       <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col items-center">
             <div className="flex items-center gap-6 mb-4">
                 <div className="h-16 w-16 relative">
