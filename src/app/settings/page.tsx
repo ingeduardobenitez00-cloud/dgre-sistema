@@ -119,11 +119,23 @@ export default function SettingsPage() {
         const workbook = XLSX.read(e.target?.result, { type: 'binary' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const json: any[] = XLSX.utils.sheet_to_json(sheet);
+        
+        if (json.length === 0) return;
+        const headers = Object.keys(json[0]);
+        const findHeader = (possibleNames: string[]) => {
+          return headers.find(h => possibleNames.some(p => h.toLowerCase().trim() === p.toLowerCase()));
+        };
+
+        const depKey = findHeader(['DEPARTAMENTO', 'DEPTO', 'DPTO']);
+        const distKey = findHeader(['DISTRITO', 'OFICINA', 'LOCALIDAD']);
+        const depCodKey = findHeader(['DEPARTAMENTO_CODIGO', 'CODIGO_DPTO', 'COD_DPTO', 'COD_DEPTO']);
+        const distCodKey = findHeader(['DISTRITO_CODIGO', 'CODIGO_DIST', 'COD_DIST']);
+
         setPreviewGeo(json.map((row: any) => ({
-          departamento: String(row.DEPARTAMENTO || row.departamento || '').trim().toUpperCase(),
-          distrito: String(row.DISTRITO || row.distrito || '').trim().toUpperCase(),
-          departamento_codigo: String(row.DEPARTAMENTO_CODIGO || row.codigo_dpto || '').trim(),
-          distrito_codigo: String(row.DISTRITO_CODIGO || row.codigo_dist || '').trim(),
+          departamento: String(depKey ? row[depKey] : '').trim().toUpperCase(),
+          distrito: String(distKey ? row[distKey] : '').trim().toUpperCase(),
+          departamento_codigo: String(depCodKey ? row[depCodKey] : '').trim(),
+          distrito_codigo: String(distCodKey ? row[distCodKey] : '').trim(),
         })).filter(d => d.departamento && d.distrito));
       } catch (err) { 
         toast({ variant: 'destructive', title: 'Error al procesar archivo' }); 
@@ -187,11 +199,32 @@ export default function SettingsPage() {
         const workbook = XLSX.read(e.target?.result, { type: 'binary' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const json: any[] = XLSX.utils.sheet_to_json(sheet);
-        setPreviewMaq(json.map((row: any) => ({
-          codigo: String(row.CODIGO || row.codigo || row.NRO_SERIE || '').trim().toUpperCase(),
-          departamento: String(row.DEPARTAMENTO || row.departamento || '').trim().toUpperCase(),
-          distrito: String(row.DISTRITO || row.distrito || '').trim().toUpperCase(),
-        })).filter(m => m.codigo && m.departamento && m.distrito));
+        
+        if (json.length === 0) return;
+        const headers = Object.keys(json[0]);
+        const findHeader = (possibleNames: string[]) => {
+          return headers.find(h => possibleNames.some(p => h.toLowerCase().trim() === p.toLowerCase()));
+        };
+
+        const codKey = findHeader(['CODIGO', 'NRO_SERIE', 'SERIE', 'SERIAL', 'NRO SERIE', 'NRO. SERIE']);
+        const depKey = findHeader(['DEPARTAMENTO', 'DEPTO', 'DPTO']);
+        const distKey = findHeader(['DISTRITO', 'OFICINA', 'LOCALIDAD']);
+
+        const mapped = json.map((row: any) => ({
+          codigo: String(codKey ? row[codKey] : '').trim().toUpperCase(),
+          departamento: String(depKey ? row[depKey] : '').trim().toUpperCase(),
+          distrito: String(distKey ? row[distKey] : '').trim().toUpperCase(),
+        })).filter(m => m.codigo && m.departamento && m.distrito);
+
+        if (mapped.length === 0) {
+            toast({ 
+                variant: 'destructive', 
+                title: 'No se detectaron columnas', 
+                description: 'Verifique que los encabezados del Excel sean: CODIGO, DEPARTAMENTO, DISTRITO.' 
+            });
+        }
+
+        setPreviewMaq(mapped);
       } catch (err) { 
         toast({ variant: 'destructive', title: 'Error al procesar archivo' }); 
       } finally { 
@@ -560,7 +593,7 @@ export default function SettingsPage() {
                         )}
                     </CardContent>
                     <CardFooter className="bg-muted/30 border-t p-4">
-                        <Button className="w-full font-black uppercase" onClick={handleSaveMaquinas} disabled={previewMaq.length === 0 || isUploadingMaq}>
+                        <Button className="w-full font-black uppercase h-12" onClick={handleSaveMaquinas} disabled={previewMaq.length === 0 || isUploadingMaq}>
                             {isUploadingMaq ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Cpu className="mr-2 h-4 w-4" />}
                             GUARDAR INVENTARIO
                         </Button>
