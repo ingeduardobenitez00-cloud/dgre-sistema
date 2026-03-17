@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -87,7 +86,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   // OPTIMIZACIÓN: Bloqueo de renderizado para rutas privadas si no hay usuario
-  // Esto evita el "flicker" o pantallazo del dashboard al navegar atrás sin sesión.
   if (!mounted || isUserLoading || (!user && !isPublicRoute)) {
     return <Loading />;
   }
@@ -97,11 +95,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isPublicView = isEncuestaPage && !user;
   const showSimpleLayout = isLoginPage || isPublicView;
 
+  const copyrightText = "© 2026 Dpto. Informática DGRE - TSJE | Ing. Eduardo Benítez Reservados todos los derechos.";
+
   return (
     <SidebarProvider defaultOpen={false}>
       {showSimpleLayout ? (
-        <div className="flex flex-1 flex-col animate-in fade-in duration-500">
-          {children}
+        <div className="flex flex-1 flex-col animate-in fade-in duration-500 bg-muted/40">
+          <div className="flex-1">
+            {children}
+          </div>
+          <footer className="py-10 px-4 text-center">
+            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight opacity-60">
+              {copyrightText}
+            </p>
+          </footer>
         </div>
       ) : (
         <>
@@ -110,7 +117,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Sidebar>
           <SidebarInset>
             <div className="flex flex-1 flex-col">
-              {children}
+              <div className="flex-1">
+                {children}
+              </div>
+              <footer className="py-10 px-4 text-center border-t bg-muted/5">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight opacity-60">
+                  {copyrightText}
+                </p>
+              </footer>
             </div>
           </SidebarInset>
         </>

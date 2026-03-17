@@ -113,6 +113,7 @@ export default function LoginPage() {
         'agenda-capacitacion',
         'control-movimiento-maquinas',
         'denuncia-lacres',
+        'informe-movimientos-denuncias',
         'informe-divulgador',
         'informe-semanal-puntos-fijos',
         'encuesta-satisfaccion'
@@ -197,7 +198,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <div className="flex min-h-screen items-center justify-center p-4">
        <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center">
             <div className="flex items-center gap-6 mb-4">
@@ -242,7 +243,7 @@ export default function LoginPage() {
              </div>
         </div>
 
-        <Card className="border-t-4 border-t-primary shadow-2xl">
+        <Card className="border-t-4 border-t-primary shadow-2xl bg-white">
           <CardHeader>
             <CardTitle className="uppercase font-black text-center text-xl">
               {mode === 'login' ? 'Acceso al Sistema' : 'Registro de Jefe'}
@@ -393,9 +394,6 @@ export default function LoginPage() {
             </form>
           )}
         </Card>
-        <p className="text-center text-[9px] font-bold text-muted-foreground uppercase tracking-tight opacity-60 px-4 leading-relaxed">
-          © 2026 Dpto. Informática DGRE - TSJE | Ing. Eduardo Benítez Reservados todos los derechos.
-        </p>
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, Suspense, useMemo } from 'react';
@@ -153,7 +152,7 @@ function EncuestaContent() {
   if (!isMounted) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
+    <div className="flex min-h-screen flex-col">
       {!user && (
         <header className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-50">
             <div className="flex items-center gap-4">
@@ -347,10 +346,6 @@ function EncuestaContent() {
               </Button>
             </CardFooter>
           </Card>
-        </div>
-        
-        <div className="mt-8 text-center pb-12">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] opacity-40">Justicia Electoral - República del Paraguay</p>
         </div>
       </main>
     </div>
