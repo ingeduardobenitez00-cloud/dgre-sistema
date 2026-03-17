@@ -200,20 +200,29 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
        <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center">
-            <div className="flex items-center gap-8 mb-4">
-                <div className="h-20 w-20 relative">
+            <div className="flex items-center gap-6 mb-4">
+                <div className="h-16 w-16 relative">
                    <Image 
                     src="/logo.png" 
-                    alt="Logo Justicia Electoral Izquierdo" 
+                    alt="Logo Izquierdo" 
                     fill 
                     className="object-contain" 
                     priority 
                   />
                 </div>
-                <div className="h-20 w-20 relative">
+                <div className="h-16 w-16 relative">
                    <Image 
                     src="/logo1.png" 
-                    alt="Logo Justicia Electoral Derecho" 
+                    alt="Logo Medio" 
+                    fill 
+                    className="object-contain" 
+                    priority 
+                  />
+                </div>
+                <div className="h-16 w-16 relative">
+                   <Image 
+                    src="/logo3.png" 
+                    alt="Logo Derecho" 
                     fill 
                     className="object-contain" 
                     priority 
@@ -384,8 +393,8 @@ export default function LoginPage() {
             </form>
           )}
         </Card>
-        <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-50">
-          República del Paraguay
+        <p className="text-center text-[9px] font-bold text-muted-foreground uppercase tracking-tight opacity-60 px-4 leading-relaxed">
+          copyright © 2026 Dpto. Informática DGRE - TSJE | Ing. Eduardo Benítez Reservados todos los derechos.
         </p>
       </div>
     </div>
