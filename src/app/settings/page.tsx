@@ -22,6 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,12 @@ export default function SettingsPage() {
   const [isUploadingMaq, setIsUploadingMaq] = useState(false);
   const [previewMaq, setPreviewMaq] = useState<Omit<MaquinaVotacion, 'id' | 'fecha_registro'>[]>([]);
 
+  const [manualMaq, setManualMaq] = useState({
+    codigo: '',
+    departamento: '',
+    distrito: ''
+  });
+
   const [isResetting, setIsResetting] = useState(false);
 
   // Definición de isAdminView para corregir el acceso global
@@ -100,7 +107,7 @@ export default function SettingsPage() {
         deptsMap.set(dato.departamento, { id: dato.departamento, name: dato.departamento, districts: [] });
       }
       const dept = deptsMap.get(dato.departamento);
-      if (dept && !dept.districts.some(d => d.id === dato.id)) {
+      if (dept && !dept.districts.some(d => d.name === dato.distrito)) {
         dept.districts.push({ 
             id: dato.id!, 
             departmentId: dato.departamento, 
@@ -235,7 +242,6 @@ export default function SettingsPage() {
           return headers.find(h => normalizedPossibles.includes(normalizeHeader(h)));
         };
 
-        // Búsqueda flexible prioritando SERIE, DEPARTAMENTO, DISTRITO
         const codKey = findHeader(['SERIE', 'CODIGO', 'CÓDIGO', 'NRO_SERIE', 'SERIAL', 'NRO SERIE', 'NRO. SERIE']);
         const depKey = findHeader(['DEPARTAMENTO', 'DEPTO', 'DPTO']);
         const distKey = findHeader(['DISTRITO', 'OFICINA', 'LOCALIDAD']);
@@ -264,6 +270,39 @@ export default function SettingsPage() {
       }
     };
     reader.readAsBinaryString(file);
+  };
+
+  const handleManualSaveMaq = async () => {
+    if (!firestore || !manualMaq.codigo || !manualMaq.departamento || !manualMaq.distrito) {
+      toast({ variant: 'destructive', title: 'Faltan datos obligatorios' });
+      return;
+    }
+    setIsUploadingMaq(true);
+    try {
+      const docData = {
+        codigo: manualMaq.codigo.toUpperCase().trim(),
+        departamento: manualMaq.departamento.toUpperCase().trim(),
+        distrito: manualMaq.distrito.toUpperCase().trim(),
+        fecha_registro: new Date().toISOString()
+      };
+      await addDoc(collection(firestore, 'maquinas'), docData);
+      toast({ title: 'Máquina registrada con éxito' });
+      setManualMaq({ ...manualMaq, codigo: '' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Error al guardar' });
+    } finally {
+      setIsUploadingMaq(false);
+    }
+  };
+
+  const handleDeleteMaquina = (id: string) => {
+    if (!firestore) return;
+    const docRef = doc(firestore, 'maquinas', id);
+    deleteDoc(docRef)
+      .then(() => toast({ title: "Máquina eliminada del inventario" }))
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+      });
   };
 
   const handleSaveGeo = async () => {
@@ -601,43 +640,93 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="maquinas" className="space-y-6 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <Card className="lg:col-span-1 shadow-lg h-fit">
-                    <CardHeader className="bg-primary/5 border-b">
-                        <CardTitle className="text-xs font-black uppercase">Importar Inventario</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Campos requeridos: DEPARTAMENTO, DISTRITO, SERIE.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                        <div className="border-2 border-dashed rounded-xl p-8 bg-muted/30 text-center hover:bg-white transition-all">
-                            <label htmlFor="maq-up" className="cursor-pointer flex flex-col items-center">
-                                <FileUp className="h-10 w-10 mb-2 text-primary opacity-40" />
-                                <span className="text-[10px] font-black uppercase text-primary">Seleccionar Inventario</span>
-                            </label>
-                            <Input id="maq-up" type="file" className="hidden" accept=".xlsx,.csv" onChange={handleMaqFile} disabled={isParsingMaq || isUploadingMaq} />
-                            {fileNameMaq && <p className="mt-4 text-[10px] font-black uppercase text-green-600 flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3"/> {fileNameMaq}</p>}
-                        </div>
-                        {previewMaq.length > 0 && (
-                            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
-                                <p className="text-[10px] font-black uppercase text-primary">Máquinas detectadas: {previewMaq.length}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div className="lg:col-span-1 space-y-6">
+                    {/* Registro Manual de Máquinas */}
+                    <Card className="shadow-lg border-t-4 border-t-black h-fit">
+                        <CardHeader className="bg-muted/10 border-b">
+                            <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
+                                <Plus className="h-4 w-4" /> Registro Individual
+                            </CardTitle>
+                            <CardDescription className="text-[10px] uppercase font-bold">Agregue una máquina manualmente.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-muted-foreground">Serie (Código)</Label>
+                                <Input 
+                                    value={manualMaq.codigo} 
+                                    onChange={e => setManualMaq({...manualMaq, codigo: e.target.value.toUpperCase()})} 
+                                    placeholder="Ej: MV-2026-0001" 
+                                    className="h-10 font-bold uppercase border-2 text-xs"
+                                />
                             </div>
-                        )}
-                        <div className="mt-6 flex justify-center">
-                            <Button variant="link" className="text-[9px] font-black uppercase text-primary/60 hover:text-primary gap-2 h-auto p-0" asChild>
-                                <a href="/plantilla_inventario.csv" download>
-                                    <Download className="h-3 w-3" /> Descargar Plantilla (DEPARTAMENTO, DISTRITO, SERIE)
-                                </a>
+                            <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-muted-foreground">Departamento</Label>
+                                <Select value={manualMaq.departamento} onValueChange={(v) => setManualMaq({...manualMaq, departamento: v, distrito: ''})}>
+                                    <SelectTrigger className="h-10 font-bold border-2 text-xs uppercase"><SelectValue placeholder="Elegir..." /></SelectTrigger>
+                                    <SelectContent>
+                                        {departmentsWithDistricts.map(d => <SelectItem key={d.name} value={d.name} className="text-xs uppercase">{d.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-muted-foreground">Distrito</Label>
+                                <Select value={manualMaq.distrito} onValueChange={(v) => setManualMaq({...manualMaq, distrito: v})} disabled={!manualMaq.departamento}>
+                                    <SelectTrigger className="h-10 font-bold border-2 text-xs uppercase"><SelectValue placeholder="Elegir..." /></SelectTrigger>
+                                    <SelectContent>
+                                        {departmentsWithDistricts.find(d => d.name === manualMaq.departamento)?.districts.map(dist => (
+                                            <SelectItem key={dist.name} value={dist.name} className="text-xs uppercase">{dist.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="bg-muted/10 border-t p-4">
+                            <Button className="w-full font-black uppercase text-[10px] h-11" onClick={handleManualSaveMaq} disabled={isUploadingMaq || !manualMaq.codigo || !manualMaq.departamento || !manualMaq.distrito}>
+                                {isUploadingMaq ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
+                                GUARDAR MÁQUINA
                             </Button>
-                        </div>
-                    </CardContent>
-                    <CardFooter className="bg-muted/30 border-t p-4">
-                        <Button className="w-full font-black uppercase h-12 shadow-lg" onClick={handleSaveMaquinas} disabled={previewMaq.length === 0 || isUploadingMaq}>
-                            {isUploadingMaq ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Cpu className="mr-2 h-4 w-4" />}
-                            GUARDAR INVENTARIO
-                        </Button>
-                    </CardFooter>
-                </Card>
+                        </CardFooter>
+                    </Card>
 
-                <Card className="lg:col-span-2 shadow-lg overflow-hidden border-none">
+                    {/* Importar Inventario */}
+                    <Card className="shadow-lg h-fit border-dashed">
+                        <CardHeader className="bg-primary/5 border-b">
+                            <CardTitle className="text-xs font-black uppercase">Importar Inventario</CardTitle>
+                            <CardDescription className="text-[10px] uppercase font-bold">Excel con: DEPARTAMENTO, DISTRITO, SERIE.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <div className="border-2 border-dashed rounded-xl p-8 bg-muted/30 text-center hover:bg-white transition-all">
+                                <label htmlFor="maq-up" className="cursor-pointer flex flex-col items-center">
+                                    <FileUp className="h-10 w-10 mb-2 text-primary opacity-40" />
+                                    <span className="text-[10px] font-black uppercase text-primary">Seleccionar Inventario</span>
+                                </label>
+                                <Input id="maq-up" type="file" className="hidden" accept=".xlsx,.csv" onChange={handleMaqFile} disabled={isParsingMaq || isUploadingMaq} />
+                                {fileNameMaq && <p className="mt-4 text-[10px] font-black uppercase text-green-600 flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3"/> {fileNameMaq}</p>}
+                            </div>
+                            {previewMaq.length > 0 && (
+                                <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                                    <p className="text-[10px] font-black uppercase text-primary">Máquinas detectadas: {previewMaq.length}</p>
+                                </div>
+                            )}
+                            <div className="mt-6 flex justify-center">
+                                <Button variant="link" className="text-[9px] font-black uppercase text-primary/60 hover:text-primary gap-2 h-auto p-0" asChild>
+                                    <a href="/plantilla_inventario.csv" download>
+                                        <Download className="h-3 w-3" /> Descargar Plantilla
+                                    </a>
+                                </Button>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="bg-muted/30 border-t p-4">
+                            <Button className="w-full font-black uppercase h-12 shadow-lg" onClick={handleSaveMaquinas} disabled={previewMaq.length === 0 || isUploadingMaq}>
+                                {isUploadingMaq ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Cpu className="mr-2 h-4 w-4" />}
+                                GUARDAR LOTE EXCEL
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </div>
+
+                <Card className="lg:col-span-3 shadow-lg overflow-hidden border-none">
                     <CardHeader className="bg-primary text-white flex flex-row items-center justify-between py-4 px-6">
                         <CardTitle className="text-xs font-black uppercase tracking-widest">Listado de Equipos ({filteredMaquinas.length})</CardTitle>
                         <div className="relative w-48">
@@ -651,13 +740,13 @@ export default function SettingsPage() {
                         </div>
                     </CardHeader>
                     <CardContent className="p-0 bg-white">
-                        <ScrollArea className="h-[500px]">
+                        <ScrollArea className="h-[600px]">
                             <Table>
                                 <TableHeader className="bg-muted/50 sticky top-0 z-10">
                                     <TableRow>
-                                        <TableHead className="text-[10px] font-black uppercase">Serie</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-6">Serie</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase">Jurisdicción</TableHead>
-                                        <TableHead className="text-right text-[10px] font-black uppercase">Estado</TableHead>
+                                        <TableHead className="text-right text-[10px] font-black uppercase px-6">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -667,14 +756,32 @@ export default function SettingsPage() {
                                         <TableRow><TableCell colSpan={3} className="text-center py-10 text-[10px] font-bold uppercase text-muted-foreground">No hay máquinas registradas.</TableCell></TableRow>
                                     ) : (
                                         filteredMaquinas.map(m => (
-                                            <TableRow key={m.id} className="hover:bg-muted/30 transition-colors">
-                                                <TableCell className="font-black text-xs text-primary">{m.codigo}</TableCell>
+                                            <TableRow key={m.id} className="hover:bg-muted/30 transition-colors group">
+                                                <TableCell className="font-black text-xs text-primary px-6">{m.codigo}</TableCell>
                                                 <TableCell className="text-[9px] font-bold uppercase leading-tight">
                                                     {m.departamento}<br/>
                                                     <span className="text-muted-foreground">{m.distrito}</span>
                                                 </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Badge className="bg-green-600 text-[8px] font-black uppercase">ACTIVA</Badge>
+                                                <TableCell className="text-right px-6">
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle className="font-black uppercase">¿ELIMINAR MÁQUINA?</AlertDialogTitle>
+                                                                <AlertDialogDescription className="text-xs uppercase font-bold">
+                                                                    Se borrará la máquina {m.codigo} del inventario. Esto no afectará los movimientos pasados ya registrados.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel className="font-black uppercase text-[10px]">CANCELAR</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteMaquina(m.id)} className="bg-destructive text-white font-black uppercase text-[10px]">ELIMINAR EQUIPO</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
                                                 </TableCell>
                                             </TableRow>
                                         ))
