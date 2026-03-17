@@ -427,7 +427,7 @@ export default function ControlMovimientoMaquinasPage() {
     y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); doc.setFont('helvetica', 'normal'); 
     doc.text(salidaData.codigo_maquina.toUpperCase(), margin + 8, y + 3.5);
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin + 5, y);
-    y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1); doc.setFont('helvetica', 'normal'); text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 3.5);
+    y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1); doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 3.5);
     y += 12;
     const signW = 45;
     const drawSign = (x: number, yP: number, lbl: string) => {
