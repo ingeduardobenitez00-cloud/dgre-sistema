@@ -68,6 +68,14 @@ export default function SettingsPage() {
 
   const [isResetting, setIsResetting] = useState(false);
 
+  // Definición de isAdminView para corregir el ReferenceError
+  const isAdminView = useMemo(() => 
+    currentUser?.profile?.role === 'admin' || 
+    currentUser?.profile?.role === 'director' || 
+    currentUser?.profile?.permissions?.includes('admin_filter'),
+    [currentUser]
+  );
+
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: rawDatosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
@@ -347,7 +355,7 @@ export default function SettingsPage() {
     }
   };
 
-  const isAdmin = currentUser?.profile?.role === 'admin';
+  if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
 
   if (!isAdminView) {
     return (
