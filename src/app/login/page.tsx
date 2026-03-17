@@ -394,7 +394,7 @@ export default function LoginPage() {
           )}
         </Card>
         <p className="text-center text-[9px] font-bold text-muted-foreground uppercase tracking-tight opacity-60 px-4 leading-relaxed">
-          copyright © 2026 Dpto. Informática DGRE - TSJE | Ing. Eduardo Benítez Reservados todos los derechos.
+          © 2026 Dpto. Informática DGRE - TSJE | Ing. Eduardo Benítez Reservados todos los derechos.
         </p>
       </div>
     </div>
