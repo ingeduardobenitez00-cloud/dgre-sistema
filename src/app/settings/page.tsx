@@ -68,7 +68,7 @@ export default function SettingsPage() {
 
   const [isResetting, setIsResetting] = useState(false);
 
-  // Definición de isAdminView para corregir el ReferenceError
+  // Definición de isAdminView para corregir el acceso global
   const isAdminView = useMemo(() => 
     currentUser?.profile?.role === 'admin' || 
     currentUser?.profile?.role === 'director' || 
@@ -235,8 +235,8 @@ export default function SettingsPage() {
           return headers.find(h => normalizedPossibles.includes(normalizeHeader(h)));
         };
 
-        // Búsqueda flexible de encabezados ignorando acentos
-        const codKey = findHeader(['CODIGO', 'CÓDIGO', 'NRO_SERIE', 'SERIE', 'SERIAL', 'NRO SERIE', 'NRO. SERIE']);
+        // Búsqueda flexible prioritando SERIE, DEPARTAMENTO, DISTRITO
+        const codKey = findHeader(['SERIE', 'CODIGO', 'CÓDIGO', 'NRO_SERIE', 'SERIAL', 'NRO SERIE', 'NRO. SERIE']);
         const depKey = findHeader(['DEPARTAMENTO', 'DEPTO', 'DPTO']);
         const distKey = findHeader(['DISTRITO', 'OFICINA', 'LOCALIDAD']);
 
@@ -250,7 +250,7 @@ export default function SettingsPage() {
             toast({ 
                 variant: 'destructive', 
                 title: 'No se detectaron columnas', 
-                description: 'Verifique que los encabezados del Excel sean: Código, Departamento, Distrito.' 
+                description: 'Verifique que los encabezados del Excel sean: DEPARTAMENTO, DISTRITO, SERIE.' 
             });
             setPreviewMaq([]);
         } else {
@@ -605,7 +605,7 @@ export default function SettingsPage() {
                 <Card className="lg:col-span-1 shadow-lg h-fit">
                     <CardHeader className="bg-primary/5 border-b">
                         <CardTitle className="text-xs font-black uppercase">Importar Inventario</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Cargue el lote de máquinas por jurisdicción.</CardDescription>
+                        <CardDescription className="text-[10px] uppercase font-bold">Campos requeridos: DEPARTAMENTO, DISTRITO, SERIE.</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                         <div className="border-2 border-dashed rounded-xl p-8 bg-muted/30 text-center hover:bg-white transition-all">
@@ -624,7 +624,7 @@ export default function SettingsPage() {
                         <div className="mt-6 flex justify-center">
                             <Button variant="link" className="text-[9px] font-black uppercase text-primary/60 hover:text-primary gap-2 h-auto p-0" asChild>
                                 <a href="/plantilla_inventario.csv" download>
-                                    <Download className="h-3 w-3" /> Descargar Plantilla de Ejemplo
+                                    <Download className="h-3 w-3" /> Descargar Plantilla (DEPARTAMENTO, DISTRITO, SERIE)
                                 </a>
                             </Button>
                         </div>
@@ -643,7 +643,7 @@ export default function SettingsPage() {
                         <div className="relative w-48">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 text-white/50" />
                             <Input 
-                                placeholder="Buscar código..." 
+                                placeholder="Buscar serie..." 
                                 className="h-8 pl-8 text-[10px] bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-white/30" 
                                 value={maqSearch} 
                                 onChange={e => setMaqSearch(e.target.value)} 
@@ -655,7 +655,7 @@ export default function SettingsPage() {
                             <Table>
                                 <TableHeader className="bg-muted/50 sticky top-0 z-10">
                                     <TableRow>
-                                        <TableHead className="text-[10px] font-black uppercase">Nº Serie</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Serie</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase">Jurisdicción</TableHead>
                                         <TableHead className="text-right text-[10px] font-black uppercase">Estado</TableHead>
                                     </TableRow>
