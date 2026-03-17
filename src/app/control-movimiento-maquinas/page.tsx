@@ -411,10 +411,13 @@ export default function ControlMovimientoMaquinasPage() {
     drawCheck("CONTRATADO", v === 'CONTRATADO', margin + 95, y);
     drawCheck("COMISIONADO", v === 'COMISIONADO', margin + 130, y);
     y += 8; doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.text("HORA DE SALIDA:", margin + 5, y);
-    doc.roundedRect(margin + 30, y - 4, 20, 5, 1, 1); doc.setFont('helvetica', 'normal'); if(currentMovimiento?.salida) { doc.text(`${currentMovimiento.salida.hora} HS`, margin + 32, y - 0.5); }
-    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 100, y); if(currentMovimiento?.salida) { doc.text(`${formatDateToDDMMYYYY(currentMovimiento.salida.fecha)}`, margin + 115, y); }
+    doc.roundedRect(margin + 30, y - 4, 20, 5, 1, 1); doc.setFont('helvetica', 'normal'); 
+    doc.text(`${salidaData.hora} HS`, margin + 32, y - 0.5);
+    doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 100, y); 
+    doc.text(`${formatDateToDDMMYYYY(salidaData.fecha)}`, margin + 115, y);
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 5, y);
-    y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); doc.setFont('helvetica', 'normal'); if(currentMovimiento?.salida) { doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 3.5); }
+    y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); doc.setFont('helvetica', 'normal'); 
+    doc.text(salidaData.codigo_maquina.toUpperCase(), margin + 8, y + 3.5);
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin + 5, y);
     y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1); doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 3.5);
     y += 12;
@@ -428,33 +431,40 @@ export default function ControlMovimientoMaquinasPage() {
         doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.text(`•  ${lbl}`, margin + 15, curY); doc.circle(margin + 65, curY - 1, 1.5); if(checked) { doc.setFont('helvetica', 'bold'); doc.text("X", margin + 64.2, curY); }
     }
     y += 4; doc.setFont('helvetica', 'normal'); doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 15, y);
-    doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1); if(currentMovimiento?.salida) { doc.setFont('helvetica', 'bold'); doc.text(currentMovimiento.salida.pendrive_serie || '', margin + 68, y - 0.5); }
-    const sK = currentMovimiento?.salida || ({} as any);
-    y += 4; drawKitLine("CREDENCIAL GENERICA", !!sK.credencial, y);
-    y += 4; drawKitLine("AURICULAR GENERICO", !!sK.auricular, y);
-    y += 4; drawKitLine("ACRILICO GENERICO", !!sK.acrilico, y);
-    y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!sK.boletas, y);
+    doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1); 
+    doc.setFont('helvetica', 'bold'); doc.text(salidaData.pendrive_serie || '', margin + 68, y - 0.5);
+    
+    y += 4; drawKitLine("CREDENCIAL GENERICA", !!salidaData.credencial, y);
+    y += 4; drawKitLine("AURICULAR GENERICO", !!salidaData.auricular, y);
+    y += 4; drawKitLine("ACRILICO GENERICO", !!salidaData.acrilico, y);
+    y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!salidaData.boletas, y);
     y += 6; doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN / ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y, { align: 'center' });
 
     y = 140; doc.roundedRect(margin, y, pageWidth - (margin * 2), sectionHeight, 3, 3);
     doc.circle(margin + 8, y + 6, 2.5); doc.setFontSize(7); doc.text("B", margin + 8, y + 7, { align: 'center' });
     doc.setFontSize(8); doc.text("DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 15, y + 6.5);
-    y += 12; doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 5, y); if(currentMovimiento?.devolucion) { doc.setFont('helvetica', 'normal'); doc.text(`${formatDateToDDMMYYYY(currentMovimiento.devolucion.fecha)}`, margin + 18, y); }
-    doc.setFont('helvetica', 'bold'); doc.text("HORA DE DEVOLUCION:", margin + 100, y); doc.roundedRect(margin + 135, y - 4, 20, 5, 1, 1); if(currentMovimiento?.devolucion) { doc.setFont('helvetica', 'normal'); doc.text(`${currentMovimiento.devolucion.hora} HS`, margin + 137, y - 0.5); }
+    y += 12; doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 5, y); 
+    doc.setFont('helvetica', 'normal'); doc.text(`${formatDateToDDMMYYYY(devolucionData.fecha)}`, margin + 18, y);
+    doc.setFont('helvetica', 'bold'); doc.text("HORA DE DEVOLUCION:", margin + 100, y); doc.roundedRect(margin + 135, y - 4, 20, 5, 1, 1); 
+    doc.setFont('helvetica', 'normal'); doc.text(`${devolucionData.hora} HS`, margin + 137, y - 0.5);
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 5, y);
-    y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); if(currentMovimiento?.salida) { doc.setFont('helvetica', 'normal'); doc.text(currentMovimiento.salida.codigo_maquina.toUpperCase(), margin + 8, y + 3.5); }
+    y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); 
+    doc.setFont('helvetica', 'normal'); doc.text(salidaData.codigo_maquina.toUpperCase(), margin + 8, y + 3.5);
     const boxX = margin + 100; doc.roundedRect(boxX, y - 6, 65, 12, 2, 2); doc.setFontSize(5.5); doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", boxX + 5, y - 2);
-    const dK = currentMovimiento?.devolucion || ({} as any);
-    doc.circle(boxX + 15, y + 3, 2); doc.text("CORRECTO", boxX + 20, y + 3.5); if(dK.lacre_estado === 'correcto') doc.text("X", boxX + 14.3, y+3.7);
-    doc.circle(boxX + 40, y + 3, 2); doc.text("VIOLENTADO", boxX + 45, y + 3.5); if(dK.lacre_estado === 'violentado') doc.text("X", boxX + 39.3, y+3.7);
+    
+    doc.circle(boxX + 15, y + 3, 2); doc.text("CORRECTO", boxX + 20, y + 3.5); if(devolucionData.lacre_estado === 'correcto') doc.text("X", boxX + 14.3, y+3.7);
+    doc.circle(boxX + 40, y + 3, 2); doc.text("VIOLENTADO", boxX + 45, y + 3.5); if(devolucionData.lacre_estado === 'violentado') doc.text("X", boxX + 39.3, y+3.7);
     y += 18; drawSign(margin + 5, y, "FIRMA JEFE"); drawSign(margin + 65, y, "FIRMA JEFE"); drawSign(margin + 125, y, "FIRMA DEL DIVULGADOR");
     y += 12; doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.text("KITS DE LA MAQUINA DE VOTACION", margin + 10, y);
+    
     y += 4; doc.setFont('helvetica', 'normal'); doc.text("•  Nº DE SERIE DEL PENDRIVE", margin + 15, y);
-    doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1); if(currentMovimiento?.devolucion) { doc.setFont('helvetica', 'bold'); doc.text(currentMovimiento.devolucion.pendrive_serie || '', margin + 68, y - 0.5); }
-    y += 4; drawKitLine("CREDENCIAL GENERICA", !!dK.credencial, y);
-    y += 4; drawKitLine("AURICULAR GENERICO", !!dK.auricular, y);
-    y += 4; drawKitLine("ACRILICO GENERICO", !!dK.acrilico, y);
-    y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!dK.boletas, y);
+    doc.roundedRect(margin + 65, y - 3.5, 40, 4.5, 1, 1); 
+    doc.setFont('helvetica', 'bold'); doc.text(devolucionData.pendrive_serie || '', margin + 68, y - 0.5);
+    y += 4; drawKitLine("CREDENCIAL GENERICA", !!devolucionData.credencial, y);
+    y += 4; drawKitLine("AURICULAR GENERICO", !!devolucionData.auricular, y);
+    y += 4; drawKitLine("ACRILICO GENERICO", !!devolucionData.acrilico, y);
+    y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!devolucionData.boletas, y);
+    
     doc.save(`Proforma-Movimiento-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
 
