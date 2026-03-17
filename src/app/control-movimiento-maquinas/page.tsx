@@ -374,24 +374,13 @@ export default function ControlMovimientoMaquinasPage() {
     const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    // Improved Header Logos and Text
+    // Header Logos
     doc.addImage(logoBase64, 'PNG', margin, 5, 15, 15);
-    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text("REPÚBLICA DEL PARAGUAY", margin, 24);
-    doc.setFont('helvetica', 'normal');
-    doc.text("Justicia Electoral", margin, 27);
 
     const rightLogoW = 25;
     const rightX = pageWidth - margin - rightLogoW;
     doc.addImage(logo1Base64, 'PNG', rightX, 5, rightLogoW, 12);
     
-    const centerXRight = rightX + (rightLogoW / 2);
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-    doc.text("DGRE", centerXRight, 21, { align: 'center' });
-    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text("DIRECCIÓN GENERAL DEL", centerXRight, 24, { align: 'center' });
-    doc.text("REGISTRO ELECTORAL", centerXRight, 27, { align: 'center' });
-
     doc.setLineWidth(0.3);
     doc.line(margin, 30, pageWidth - margin, 30);
     doc.setFontSize(9); doc.setFont('helvetica', 'bold');
@@ -427,7 +416,8 @@ export default function ControlMovimientoMaquinasPage() {
     y += 2; doc.roundedRect(margin + 5, y, 60, 5, 1, 1); doc.setFont('helvetica', 'normal'); 
     doc.text(salidaData.codigo_maquina.toUpperCase(), margin + 8, y + 3.5);
     y += 8; doc.setFont('helvetica', 'bold'); doc.text("LUGAR DE LA DIVULGACIÓN", margin + 5, y);
-    y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1); doc.setFont('helvetica', 'normal'); doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 3.5);
+    y += 2; doc.roundedRect(margin + 5, y, 165, 5, 1, 1); doc.setFont('helvetica', 'normal'); 
+    doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 8, y + 3.5);
     y += 12;
     const signW = 45;
     const drawSign = (x: number, yP: number, lbl: string) => {
