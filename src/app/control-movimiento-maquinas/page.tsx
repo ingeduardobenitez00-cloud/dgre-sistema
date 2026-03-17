@@ -196,7 +196,7 @@ export default function ControlMovimientoMaquinasPage() {
     return query(collection(firestore, 'movimientos-maquinas'), where('solicitud_id', '==', selectedSolicitudId));
   }, [firestore, user, selectedSolicitudId]);
 
-  const { data: movimientosData } = useCollection<MovimientoMaquina>(movimientosQuery);
+  const { data: movimientosData } = useCollection<MovimientoMaquina>(movementsQuery);
   const currentMovimiento = movimientosData && movimientosData.length > 0 ? movimientosData[0] : null;
 
   const selectedSolicitud = useMemo(() => {
@@ -374,22 +374,30 @@ export default function ControlMovimientoMaquinasPage() {
     const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    doc.addImage(logoBase64, 'PNG', margin, 5, 12, 12);
-    doc.addImage(logo1Base64, 'PNG', pageWidth - margin - 20, 5, 20, 10);
-    doc.setFontSize(6); doc.setFont('helvetica', 'normal');
-    doc.text("REPÚBLICA DEL PARAGUAY", margin, 20);
-    doc.text("Justicia Electoral", margin, 23);
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-    doc.text("DGRE", pageWidth - margin - 15, 18);
-    doc.setFontSize(6); doc.setFont('helvetica', 'normal');
-    doc.text("DIRECCIÓN GENERAL DEL", pageWidth - margin - 22, 21);
-    doc.text("REGISTRO ELECTORAL", pageWidth - margin - 22, 24);
-    doc.setLineWidth(0.3);
-    doc.line(margin, 26, pageWidth - margin, 26);
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 31, { align: "center" });
+    // Improved Header Logos and Text
+    doc.addImage(logoBase64, 'PNG', margin, 5, 15, 15);
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text("REPÚBLICA DEL PARAGUAY", margin, 24);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Justicia Electoral", margin, 27);
 
-    let y = 35;
+    const rightLogoW = 25;
+    const rightX = pageWidth - margin - rightLogoW;
+    doc.addImage(logo1Base64, 'PNG', rightX, 5, rightLogoW, 12);
+    
+    const centerXRight = rightX + (rightLogoW / 2);
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text("DGRE", centerXRight, 21, { align: 'center' });
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text("DIRECCIÓN GENERAL DEL", centerXRight, 24, { align: 'center' });
+    doc.text("REGISTRO ELECTORAL", centerXRight, 27, { align: 'center' });
+
+    doc.setLineWidth(0.3);
+    doc.line(margin, 30, pageWidth - margin, 30);
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 36, { align: "center" });
+
+    let y = 40;
     const sectionHeight = 100;
     doc.setLineWidth(0.2);
     doc.roundedRect(margin, y, pageWidth - (margin * 2), sectionHeight, 3, 3);
@@ -440,7 +448,7 @@ export default function ControlMovimientoMaquinasPage() {
     y += 4; drawKitLine("5 BOLETAS DE CAPACITACION", !!salidaData.boletas, y);
     y += 6; doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN / ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y, { align: 'center' });
 
-    y = 140; doc.roundedRect(margin, y, pageWidth - (margin * 2), sectionHeight, 3, 3);
+    y = 145; doc.roundedRect(margin, y, pageWidth - (margin * 2), sectionHeight, 3, 3);
     doc.circle(margin + 8, y + 6, 2.5); doc.setFontSize(7); doc.text("B", margin + 8, y + 7, { align: 'center' });
     doc.setFontSize(8); doc.text("DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", margin + 15, y + 6.5);
     y += 12; doc.setFont('helvetica', 'bold'); doc.text("FECHA:", margin + 5, y); 
