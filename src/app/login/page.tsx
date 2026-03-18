@@ -113,7 +113,6 @@ export default function LoginPage() {
         'agenda-capacitacion',
         'control-movimiento-maquinas',
         'denuncia-lacres',
-        'informe-movimientos-denuncias',
         'informe-divulgador',
         'informe-semanal-puntos-fijos',
         'encuesta-satisfaccion'
