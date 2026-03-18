@@ -52,7 +52,6 @@ export default function AgendaCapacitacionPage() {
   const [copied, setCopied] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
-  // State to handle the 5-second delay before archiving
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [pendingArchiveIds, setPendingArchiveIds] = useState<Set<string>>(new Set());
 
@@ -123,7 +122,6 @@ export default function AgendaCapacitacionPage() {
 
   const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
-  // Effect to manage the 5-second archive timer
   useEffect(() => {
     if (!rawSolicitudes || !movimientosData || !informesData) return;
 
@@ -471,7 +469,11 @@ export default function AgendaCapacitacionPage() {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                )}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
       </main>
 
       {/* Dialogo para Asignar Personal */}
