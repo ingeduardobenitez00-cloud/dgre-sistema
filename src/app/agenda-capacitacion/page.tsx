@@ -132,9 +132,10 @@ export default function AgendaCapacitacionPage() {
 
       if (isClosed && !hiddenIds.has(sol.id) && !pendingArchiveIds.has(sol.id)) {
         setPendingArchiveIds(prev => new Set(prev).add(sol.id));
+        // Ajustado a 2 minutos (120000ms)
         setTimeout(() => {
           setHiddenIds(prev => new Set(prev).add(sol.id));
-        }, 5000);
+        }, 120000);
       }
     });
   }, [rawSolicitudes, movimientosData, informesData, hiddenIds, pendingArchiveIds]);
@@ -339,7 +340,7 @@ export default function AgendaCapacitacionPage() {
               <AccordionItem key={dept.label} value={dept.label} className="border-none bg-white rounded-[2rem] shadow-sm overflow-hidden">
                 <AccordionTrigger className="hover:no-underline px-8 py-6 bg-white group">
                   <div className="flex items-center gap-6 text-left">
-                    <div className="h-14 w-14 rounded-full bg-black text-white flex items-center justify-center font-black text-lg shadow-xl">
+                    <div className="h-14 w-14 rounded-full bg-primary text-white flex items-center justify-center font-black text-lg shadow-xl">
                         {dept.code}
                     </div>
                     <div>
@@ -388,7 +389,7 @@ export default function AgendaCapacitacionPage() {
                                                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                                                     <AlertTitle className="font-black uppercase text-[10px] tracking-widest">Actividad cumplida</AlertTitle>
                                                     <AlertDescription className="text-[9px] font-bold uppercase">
-                                                        Se agendará en Historia/Archivo. Este detalle desaparecerá en 5 segundos.
+                                                        Se agendará en Historia/Archivo. Este detalle desaparecerá en 2 minutos.
                                                     </AlertDescription>
                                                 </Alert>
                                             )}

@@ -60,7 +60,6 @@ export default function ArchivoCapacitacionesPage() {
   const groupedData = useMemo(() => {
     if (!rawSolicitudes) return [];
     
-    const today = new Date().toISOString().split('T')[0];
     const term = search.toLowerCase().trim();
     
     const archived = rawSolicitudes.filter(sol => {
@@ -68,7 +67,8 @@ export default function ArchivoCapacitacionesPage() {
         const mov = movimientosData?.find(m => m.solicitud_id === sol.id);
         const inf = informesData?.find(i => i.solicitud_id === sol.id);
         
-        const isFinished = mov?.devolucion && inf && sol.fecha < today;
+        // El registro se considera "archivado" si está cancelado o si el ciclo logístico está cerrado
+        const isFinished = mov?.devolucion && inf;
         const matchesSearch = sol.lugar_local.toLowerCase().includes(term) || 
                              sol.solicitante_entidad.toLowerCase().includes(term) ||
                              sol.divulgador_nombre?.toLowerCase().includes(term);
