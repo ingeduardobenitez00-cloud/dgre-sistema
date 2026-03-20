@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -132,10 +131,9 @@ export default function AgendaCapacitacionPage() {
 
       if (isClosed && !hiddenIds.has(sol.id) && !pendingArchiveIds.has(sol.id)) {
         setPendingArchiveIds(prev => new Set(prev).add(sol.id));
-        // Ajustado a 2 minutos (120000ms)
         setTimeout(() => {
           setHiddenIds(prev => new Set(prev).add(sol.id));
-        }, 120000);
+        }, 120000); // 2 Minutos
       }
     });
   }, [rawSolicitudes, movimientosData, informesData, hiddenIds, pendingArchiveIds]);
