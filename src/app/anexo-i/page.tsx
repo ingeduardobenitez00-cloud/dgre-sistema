@@ -64,14 +64,15 @@ export default function AnexoIPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Inicialización limpia sin pre-carga de horarios
   const [filas, setFilas] = useState<AnexoIFila[]>(
     Array.from({ length: 10 }, () => ({
       lugar: '',
       direccion: '',
       fecha_desde: '',
       fecha_hasta: '',
-      hora_desde: '08:00',
-      hora_hasta: '12:00'
+      hora_desde: '',
+      hora_hasta: ''
     }))
   );
 
@@ -147,9 +148,10 @@ export default function AnexoIPage() {
   const handleSave = () => {
     if (!firestore || !user) return;
     
-    const filledFilas = filas.filter(f => f.lugar.trim() !== '');
+    const filledFilas = filas.filter(f => f.lugar.trim() !== '' && f.fecha_desde && f.fecha_hasta && f.hora_desde && f.hora_hasta);
+    
     if (filledFilas.length === 0) {
-      toast({ variant: "destructive", title: "Formulario vacío", description: "Complete al menos una fila de lugares fijos." });
+      toast({ variant: "destructive", title: "Datos incompletos", description: "Complete al menos una fila con Lugar, Fechas y Horarios para agendar." });
       return;
     }
 
@@ -177,12 +179,10 @@ export default function AnexoIPage() {
     batch.set(anexoRef, anexoData);
 
     filledFilas.forEach(f => {
-      if (!f.fecha_desde || !f.fecha_hasta) return;
-      
       const start = parseISO(f.fecha_desde);
       const end = parseISO(f.fecha_hasta);
       
-      if (isNaN(start.getTime()) || iNaN(end.getTime())) return;
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
       let current = start;
       let count = 0;
@@ -224,7 +224,7 @@ export default function AnexoIPage() {
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
-          path: 'anexo-i / solicitudes-capacitacion (batch)',
+          path: 'anexo-i (batch)',
           operation: 'write',
           requestResourceData: anexoData,
         });
@@ -265,13 +265,23 @@ export default function AnexoIPage() {
     doc.text(`DEPARTAMENTO: _________________________________`, margin + 120, y);
     doc.text((profile?.departamento || '').toUpperCase(), margin + 155, y - 0.5);
 
-    const tableBody = filas.map((f, i) => [
-      i + 1,
-      f.lugar.toUpperCase(),
-      f.direccion.toUpperCase(),
-      `DEL: ${f.fecha_desde ? format(parseISO(f.fecha_desde), "dd/MM") : '  /  '} AL: ${f.fecha_hasta ? format(parseISO(f.fecha_hasta), "dd/MM") : '  /  '} / 2026`,
-      `DE: ${f.hora_desde} A: ${f.hora_hasta} HS.`
-    ]);
+    const tableBody = filas.map((f, i) => {
+      const fechaStr = (f.fecha_desde && f.fecha_hasta) 
+        ? `DEL: ${format(parseISO(f.fecha_desde), "dd/MM")} AL: ${format(parseISO(f.fecha_hasta), "dd/MM")} / 2026`
+        : 'DEL:   /   AL:   /   / 2026';
+      
+      const horaStr = (f.hora_desde && f.hora_hasta)
+        ? `DE: ${f.hora_desde} A: ${f.hora_hasta} HS.`
+        : 'DE:       A:       HS.';
+
+      return [
+        i + 1,
+        f.lugar.toUpperCase(),
+        f.direccion.toUpperCase(),
+        fechaStr,
+        horaStr
+      ];
+    });
 
     autoTable(doc, {
       startY: y + 10,
