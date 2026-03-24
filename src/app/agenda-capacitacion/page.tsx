@@ -7,7 +7,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador } from '@/lib/data';
-import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check, AlertTriangle, FileWarning, PackageSearch, CalendarX, Trash2, FileDown, Printer, CheckCircle2 } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check, AlertTriangle, FileWarning, PackageSearch, CalendarX, Trash2, FileDown, Printer, CheckCircle2, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -374,86 +374,105 @@ export default function AgendaCapacitacionPage() {
                                 const isClosed = mov?.devolucion && inf;
                                 const hasAlert = isPast && !isClosed;
 
-                                const missing = [];
-                                if (!mov?.devolucion) missing.push("DEVOLUCIÓN DE MÁQUINA");
-                                if (!inf) missing.push("INFORME ANEXO III");
-                                const alertLabel = `ALERTA: ACTIVIDAD VENCIDA - FALTA COMPLETAR: ${missing.join(" Y ")}`;
-
                                 return (
-                                    <Card key={item.id} className={cn("border-2 shadow-sm rounded-2xl relative overflow-hidden", hasAlert ? "border-destructive/40 bg-destructive/[0.02]" : isClosed ? "border-green-600 bg-green-50/10" : "border-muted/20 bg-white")}>
-                                        <CardContent className="p-8">
+                                    <Card key={item.id} className={cn("border-2 shadow-md rounded-2xl relative overflow-hidden transition-all", hasAlert ? "border-destructive/40 bg-destructive/[0.02]" : isClosed ? "border-green-600 bg-green-50/10" : "border-muted/20 bg-white")}>
+                                        <CardContent className="p-6">
                                             {isClosed && (
-                                                <Alert className="mb-6 border-green-600 bg-green-50 text-green-800 animate-in fade-in slide-in-from-top-2 duration-500">
+                                                <Alert className="mb-4 border-green-600 bg-green-50 text-green-800 animate-in fade-in slide-in-from-top-2 duration-500">
                                                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                    <AlertTitle className="font-black uppercase text-[10px] tracking-widest">Actividad cumplida</AlertTitle>
-                                                    <AlertDescription className="text-[9px] font-bold uppercase">
-                                                        Se agendará en Historia/Archivo. Este detalle desaparecerá en 2 minutos.
+                                                    <AlertTitle className="font-black uppercase text-[9px] tracking-widest">Actividad cumplida</AlertTitle>
+                                                    <AlertDescription className="text-[8px] font-bold uppercase">
+                                                        Se agendará en Historia/Archivo en 2 minutos.
                                                     </AlertDescription>
                                                 </Alert>
                                             )}
 
-                                            {hasAlert && !isClosed && (
-                                                <div className="mb-6 bg-destructive text-white px-4 py-2 rounded-xl flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <FileWarning className="h-5 w-5" />
-                                                        <span className="font-black uppercase text-[10px] tracking-widest">{alertLabel}</span>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                                                <div className="lg:col-span-4 space-y-3">
-                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE</p>
-                                                    <p className="font-black text-base uppercase leading-tight text-[#1A1A1A]">{item.solicitante_entidad || item.otra_entidad}</p>
-                                                    <Badge variant="secondary" className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[9px] tracking-widest px-3 py-1 rounded-md">{item.tipo_solicitud}</Badge>
+                                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                                                {/* COLUMNA SOLICITANTE */}
+                                                <div className="lg:col-span-3 space-y-1">
+                                                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE</p>
+                                                    <p className="font-black text-[13px] uppercase leading-tight text-[#1A1A1A]">
+                                                        {item.solicitante_entidad || item.otra_entidad}
+                                                    </p>
+                                                    <Badge variant="secondary" className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[8px] tracking-widest px-2 py-0.5 rounded-md">
+                                                        {item.tipo_solicitud}
+                                                    </Badge>
                                                 </div>
 
-                                                <div className="lg:col-span-3 space-y-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                                                        <p className="font-black text-[12px] uppercase text-[#1A1A1A]">{item.lugar_local}</p>
+                                                {/* COLUMNA INFORMACIÓN LOCAL / FECHA */}
+                                                <div className="lg:col-span-3 space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                                                        <p className="font-black text-[11px] uppercase text-[#1A1A1A] truncate">{item.lugar_local}</p>
                                                     </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <Calendar className={cn("h-4 w-4", hasAlert ? "text-destructive" : "text-muted-foreground")} />
-                                                        <p className={cn("font-black text-[12px] uppercase", hasAlert ? "text-destructive" : "text-[#1A1A1A]")}>
+                                                    <div className="flex items-center gap-2">
+                                                        <Calendar className={cn("h-3.5 w-3.5", hasAlert ? "text-destructive" : "text-muted-foreground")} />
+                                                        <p className={cn("font-black text-[11px] uppercase", hasAlert ? "text-destructive" : "text-[#1A1A1A]")}>
                                                             {formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} HS
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                <div className="lg:col-span-2 space-y-2">
-                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR</p>
+                                                {/* COLUMNA DIVULGADOR */}
+                                                <div className="lg:col-span-2 space-y-1">
+                                                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR</p>
                                                     {item.divulgador_nombre ? (
                                                         <div className="flex items-center gap-2 text-[#16A34A]">
-                                                            <UserCheck className="h-5 w-5" />
-                                                            <p className="font-black text-[13px] uppercase">{item.divulgador_nombre}</p>
+                                                            <User className="h-4 w-4" />
+                                                            <p className="font-black text-[12px] uppercase leading-tight">{item.divulgador_nombre}</p>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-xs font-black text-destructive italic uppercase">SIN ASIGNAR</p>
+                                                        <p className="text-[10px] font-black text-destructive italic uppercase">SIN ASIGNAR</p>
                                                     )}
                                                 </div>
 
-                                                <div className="lg:col-span-3 flex flex-col items-end gap-3">
-                                                    <div className="flex gap-2 w-full max-w-[180px]">
-                                                        <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[11px] border-2" onClick={() => setAssigningSolicitud(item)} disabled={isClosed}>
-                                                            <UserPlus className="h-4 w-4" /> {item.divulgador_nombre ? 'REASIGNAR' : 'ASIGNAR'}
+                                                {/* COLUMNA ACCIONES */}
+                                                <div className="lg:col-span-4 flex flex-col gap-2">
+                                                    <div className="flex gap-2 w-full">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            className="h-9 flex-1 rounded-lg font-black uppercase text-[10px] border-2 gap-2" 
+                                                            onClick={() => setAssigningSolicitud(item)} 
+                                                            disabled={isClosed}
+                                                        >
+                                                            <UserPlus className="h-3.5 w-3.5" /> {item.divulgador_nombre ? 'REASIGNAR' : 'ASIGNAR'}
                                                         </Button>
-                                                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive" onClick={() => setCancellingSolicitud(item)} disabled={isClosed}>
-                                                            <CalendarX className="h-4 w-4" />
-                                                        </Button>
-                                                        {profile?.role === 'admin' && (
-                                                            <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive" onClick={() => setDeletingSolicitud(item)} disabled={isClosed}>
-                                                                <Trash2 className="h-4 w-4" />
+                                                        <div className="flex gap-1.5">
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="icon" 
+                                                                className="h-9 w-9 rounded-lg border-2 border-destructive/20 text-destructive" 
+                                                                onClick={() => setCancellingSolicitud(item)} 
+                                                                disabled={isClosed}
+                                                            >
+                                                                <CalendarX className="h-4 w-4" />
                                                             </Button>
-                                                        )}
+                                                            {profile?.role === 'admin' && (
+                                                                <Button 
+                                                                    variant="outline" 
+                                                                    size="icon" 
+                                                                    className="h-9 w-9 rounded-lg border-2 border-destructive/20 text-destructive" 
+                                                                    onClick={() => setDeletingSolicitud(item)} 
+                                                                    disabled={isClosed}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     
-                                                    <div className="flex gap-2 w-full max-w-[180px]">
-                                                        <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2" onClick={() => setQrSolicitud(item)}>
+                                                    <div className="flex gap-2 w-full">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            className="h-9 flex-1 rounded-lg font-black uppercase text-[10px] border-2 gap-2" 
+                                                            onClick={() => setQrSolicitud(item)}
+                                                        >
                                                             <QrCode className="h-4 w-4" />
                                                         </Button>
-                                                        <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
-                                                            <Button className={cn("h-11 w-full rounded-xl font-black uppercase text-[11px] shadow-lg", inf ? "bg-[#16A34A] hover:bg-[#15803D]" : "bg-black hover:bg-black/90")}>
+                                                        <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-[2]">
+                                                            <Button className={cn("h-9 w-full rounded-lg font-black uppercase text-[10px] shadow-sm", inf ? "bg-[#16A34A] hover:bg-[#15803D]" : "bg-black hover:bg-black/90")}>
                                                                 {inf ? 'CUMPLIDO' : 'INFORME'}
                                                             </Button>
                                                         </Link>
