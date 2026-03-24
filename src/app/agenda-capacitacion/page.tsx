@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador } from '@/lib/data';
-import { Loader2, MapPin, Calendar, UserPlus, QrCode, Building2, LayoutList, Globe, Search, Trash2, Printer, CheckCircle2, User, Copy, Check, CalendarX, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, MapPin, Calendar, UserPlus, QrCode, Building2, LayoutList, Globe, Search, Trash2, Printer, CheckCircle2, User, Copy, Check, CalendarX, AlertCircle, Clock, Download, ImageIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Textarea } from '@/components/ui/textarea';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,7 @@ export default function AgendaCapacitacionPage() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const qrExportRef = useRef<HTMLDivElement>(null);
 
   const [assigningSolicitud, setAssigningSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [qrSolicitud, setQrSolicitud] = useState<SolicitudCapacitacion | null>(null);
@@ -44,6 +46,7 @@ export default function AgendaCapacitacionPage() {
   
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isGeneratingPng, setIsGeneratingPng] = useState(false);
   const [divulSearch, setDivulSearch] = useState('');
   const [copied, setCopied] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -249,7 +252,7 @@ export default function AgendaCapacitacionPage() {
         doc.setFontSize(16);
         doc.text("JUSTICIA ELECTORAL", pageWidth / 2, 20, { align: 'center' });
         doc.setFontSize(10);
-        doc.text("SISTEMA DE DIVULGACION", pageWidth / 2, 28, { align: 'center' });
+        doc.text("SISTEMA DE DIVULGACIÓN", pageWidth / 2, 28, { align: 'center' });
         doc.setLineWidth(0.5);
         doc.line(20, 40, pageWidth - 20, 40);
         doc.setFontSize(18);
@@ -280,6 +283,29 @@ export default function AgendaCapacitacionPage() {
         toast({ variant: 'destructive', title: "Error al generar PDF" });
     } finally {
         setIsGeneratingPdf(false);
+    }
+  };
+
+  const generateQrPNG = async () => {
+    if (!qrExportRef.current || !qrSolicitud) return;
+    setIsGeneratingPng(true);
+    try {
+        const canvas = await html2canvas(qrExportRef.current, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            logging: false,
+            useCORS: true
+        });
+        const image = canvas.toDataURL("image/png");
+        const link = document.createElement('a');
+        link.href = image;
+        link.download = `QR-Encuesta-${qrSolicitud.lugar_local.replace(/\s+/g, '-')}.png`;
+        link.click();
+        toast({ title: "Imagen PNG generada" });
+    } catch (error) {
+        toast({ variant: 'destructive', title: "Error al generar imagen" });
+    } finally {
+        setIsGeneratingPng(false);
     }
   };
 
@@ -606,23 +632,42 @@ export default function AgendaCapacitacionPage() {
             <DialogTitle className="font-black uppercase text-center text-sm mb-4">Encuesta de Satisfacción</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-6">
-            <div className="p-4 bg-white border-2 border-dashed rounded-3xl">
+            <div className="p-4 bg-white border-2 border-dashed rounded-3xl overflow-hidden">
               {qrSolicitud && (
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(surveyUrl(qrSolicitud))}`} 
-                  alt="QR Code"
-                  className="w-48 h-48"
-                />
+                <div ref={qrExportRef} className="bg-white p-6 flex flex-col items-center text-center">
+                    {logoBase64 && <img src={logoBase64} alt="Logo" className="w-12 h-12 mb-4 object-contain" />}
+                    <h2 className="text-[10px] font-black uppercase mb-1">Justicia Electoral</h2>
+                    <h3 className="text-[8px] font-bold text-muted-foreground uppercase mb-4 tracking-widest">Sistema de Divulgación</h3>
+                    
+                    <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(surveyUrl(qrSolicitud))}`} 
+                        alt="QR Code"
+                        className="w-40 h-40 mb-4"
+                    />
+                    
+                    <div className="space-y-1 mt-2">
+                        <p className="text-[9px] font-black uppercase leading-tight text-primary">{qrSolicitud.lugar_local}</p>
+                        <p className="text-[7px] font-bold text-muted-foreground uppercase">{qrSolicitud.distrito} | {qrSolicitud.departamento}</p>
+                        <div className="h-px bg-muted w-full my-2" />
+                        <p className="text-[8px] font-black uppercase">Fecha: {formatDateToDDMMYYYY(qrSolicitud.fecha)}</p>
+                        <p className="text-[8px] font-black uppercase text-primary">Horario: {qrSolicitud.hora_desde} a {qrSolicitud.hora_hasta} HS</p>
+                    </div>
+                </div>
               )}
             </div>
-            <div className="flex gap-2 w-full">
-              <Button variant="outline" className="flex-1 font-black text-[10px] uppercase rounded-xl gap-2" onClick={() => qrSolicitud && copyToClipboard(qrSolicitud)}>
+            
+            <div className="grid grid-cols-2 gap-2 w-full">
+              <Button variant="outline" className="font-black text-[9px] uppercase rounded-xl gap-2 h-10" onClick={() => qrSolicitud && copyToClipboard(qrSolicitud)}>
                 {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />} 
-                {copied ? 'Copiado' : 'Copiar Link'}
+                {copied ? 'Copiado' : 'Link'}
               </Button>
-              <Button className="flex-1 bg-black font-black text-[10px] uppercase rounded-xl gap-2" onClick={() => qrSolicitud && generateQrPDF(qrSolicitud)} disabled={isGeneratingPdf}>
+              <Button variant="outline" className="font-black text-[9px] uppercase rounded-xl gap-2 h-10" onClick={generateQrPNG} disabled={isGeneratingPng}>
+                {isGeneratingPng ? <Loader2 className="animate-spin h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
+                Descargar PNG
+              </Button>
+              <Button className="col-span-2 bg-black font-black text-[9px] uppercase rounded-xl gap-2 h-10" onClick={() => qrSolicitud && generateQrPDF(qrSolicitud)} disabled={isGeneratingPdf}>
                 {isGeneratingPdf ? <Loader2 className="animate-spin h-3 w-3" /> : <Printer className="h-3 w-3" />}
-                Exportar PDF
+                Exportar PDF Oficial
               </Button>
             </div>
           </div>
