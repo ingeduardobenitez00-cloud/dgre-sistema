@@ -8,17 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageSquareHeart, CheckCircle2, FileDown, DatabaseZap, Check, Search, X, Users, AlertCircle, ArrowLeft, Clock, Lock } from 'lucide-react';
+import { Loader2, Check, X, DatabaseZap, Users, Clock, Lock } from 'lucide-react';
 import { useUser, useFirebase, useMemoFirebase, useDoc, useCollection } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, query, where, limit, getDocs } from 'firebase/firestore';
-import jsPDF from 'jspdf';
+import { collection, addDoc, serverTimestamp, doc, query, where, getDocs } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type InformeDivulgador } from '@/lib/data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function EncuestaContent() {
   const { user } = useUser();
@@ -75,26 +73,13 @@ function EncuestaContent() {
   
   const { data: linkedSolicitud, isLoading: isLoadingLinked } = useDoc<SolicitudCapacitacion>(solicitudRef);
 
-  const isWithinTimeWindow = useMemo(() => {
-    if (!linkedSolicitud || user) return true;
-    
-    try {
-        const now = new Date();
-        const [year, month, day] = linkedSolicitud.fecha.split('-').map(Number);
-        
-        const startDateTime = new Date(year, month - 1, day);
-        const [startH, startM] = linkedSolicitud.hora_desde.split(':').map(Number);
-        startDateTime.setHours(startH - 1, startM, 0, 0);
-        
-        const endDateTime = new Date(year, month - 1, day);
-        const [endH, endM] = linkedSolicitud.hora_hasta.split(':').map(Number);
-        endDateTime.setHours(endH + 1, endM, 0, 0);
-        
-        return now >= startDateTime && now <= endDateTime;
-    } catch (e) {
-        return true;
-    }
-  }, [linkedSolicitud, user]);
+  // VALIDACIÓN MANUAL: Solo se bloquea si el usuario no es funcionario y el toggle está apagado
+  const isPublicDisabled = useMemo(() => {
+    if (user) return false; // El personal siempre puede cargar encuestas de respaldo
+    if (!solicitudIdFromUrl) return false; // Carga libre
+    if (!linkedSolicitud) return false; // Mientras carga
+    return !linkedSolicitud.qr_habilitado; // Respeta el botón manual de la Agenda
+  }, [linkedSolicitud, user, solicitudIdFromUrl]);
 
   useEffect(() => {
     if (!firestore || !effectiveSolicitudId) {
@@ -209,7 +194,7 @@ function EncuestaContent() {
       .then(() => {
         toast({ 
           title: "¡Gracias por su participación!", 
-          description: "Su participación en la divulgación de uso de la máquina electoral ha sido registrada con éxito." 
+          description: "Su opinión ha sido registrada con éxito." 
         });
         
         setFormData(p => ({ 
@@ -238,8 +223,6 @@ function EncuestaContent() {
 
   if (!isMounted) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
-  const isPublicDisabled = !user && solicitudIdFromUrl && !isWithinTimeWindow;
-
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
       {!user ? (
@@ -259,25 +242,28 @@ function EncuestaContent() {
       <main className="flex-1 p-4 md:p-8">
         <div className="mx-auto max-w-3xl space-y-6">
           
-          <div className="flex justify-start">
-            <Button 
-              variant="ghost" 
-              className="font-black uppercase text-[10px] gap-2 text-muted-foreground hover:text-primary transition-colors"
-              onClick={() => user ? router.back() : window.history.back()}
-            >
-              <ArrowLeft className="h-4 w-4" /> Volver atrás
-            </Button>
-          </div>
+          {isPublicDisabled && (
+            <Card className="p-16 text-center border-dashed rounded-[2.5rem] bg-white space-y-6 animate-in zoom-in duration-500">
+                <Lock className="h-20 w-20 mx-auto text-muted-foreground opacity-30" />
+                <div className="space-y-2">
+                    <h2 className="text-2xl font-black uppercase text-primary">Encuesta no habilitada</h2>
+                    <p className="text-sm text-muted-foreground font-bold uppercase tracking-tight leading-relaxed max-w-sm mx-auto">
+                        El acceso público a este formulario ha sido desactivado temporalmente por el personal responsable.
+                    </p>
+                </div>
+            </Card>
+          )}
 
-          {user && !solicitudIdFromUrl && (
-            <Card className="border-primary/20 shadow-md">
-                <CardHeader className="py-4 bg-primary/5">
-                    <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest text-primary">
-                        <DatabaseZap className="h-4 w-4" /> VINCULAR ACTIVIDAD
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                    <div className="flex gap-2">
+          {!isPublicDisabled && (
+            <>
+              {user && !solicitudIdFromUrl && (
+                <Card className="border-primary/20 shadow-md">
+                    <CardHeader className="py-4 bg-primary/5">
+                        <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest text-primary">
+                            <DatabaseZap className="h-4 w-4" /> VINCULAR ACTIVIDAD
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
                         <Select onValueChange={setInternalSolicitudId} value={internalSolicitudId || undefined}>
                             <SelectTrigger className="h-11 font-bold">
                                 <SelectValue placeholder="Seleccione la actividad agendada..." />
@@ -294,49 +280,11 @@ function EncuestaContent() {
                                 )}
                             </SelectContent>
                         </Select>
-                        {internalSolicitudId && (
-                            <Button variant="ghost" size="icon" onClick={() => setInternalSolicitudId(null)}><X className="h-4 w-4" /></Button>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-          )}
+                    </CardContent>
+                </Card>
+              )}
 
-          {isPublicDisabled && (
-            <Card className="p-16 text-center border-dashed rounded-[2.5rem] bg-white space-y-6 animate-in zoom-in duration-500">
-                <Clock className="h-20 w-20 mx-auto text-muted-foreground opacity-30" />
-                <div className="space-y-2">
-                    <h2 className="text-2xl font-black uppercase text-primary">Formulario no disponible</h2>
-                    <p className="text-sm text-muted-foreground font-bold uppercase tracking-tight leading-relaxed max-w-sm mx-auto">
-                        Esta encuesta solo se habilita durante el horario de la actividad (incluyendo margen de retrasos). Por favor, intente más tarde.
-                    </p>
-                </div>
-            </Card>
-          )}
-
-          {user && effectiveSolicitudId && !isPublicDisabled && (
-            <Card className="border-2 shadow-xl animate-in slide-in-from-top-4 duration-500 bg-primary/5 border-primary/20">
-                <CardContent className="p-6">
-                    <div className="flex items-center gap-6">
-                        <div className="h-14 w-14 rounded-full flex items-center justify-center text-white shadow-lg bg-primary">
-                            <Users className="h-7 w-7" />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Estado de Carga</p>
-                            <h3 className="text-lg font-black uppercase leading-none">
-                                {reportTotal > 0 ? `ENCUESTA ${existingSurveysCount + 1} DE ${reportTotal}` : `ENCUESTA # ${existingSurveysCount + 1}`}
-                            </h3>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase italic">
-                                {reportTotal > 0 ? "Sincronizado con Anexo III" : "Carga libre (Sin informe previo)"}
-                            </p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-          )}
-
-          {!isPublicDisabled && (
-            <Card className="shadow-2xl border-none rounded-[2.5rem] overflow-hidden bg-white">
+              <Card className="shadow-2xl border-none rounded-[2.5rem] overflow-hidden bg-white">
                 <CardHeader className="bg-white border-b p-8 md:p-12">
                 <div className="flex items-start gap-6">
                     <Image src="/logo.png" alt="Logo TSJE" width={70} height={70} className="object-contain shrink-0" />
@@ -364,7 +312,7 @@ function EncuestaContent() {
                             onChange={handleInputChange} 
                             readOnly={!!effectiveSolicitudId}
                             placeholder="__________________________________________________________"
-                            className="h-14 font-black text-xl border-x-0 border-t-0 border-b-[3px] rounded-none border-black focus-visible:ring-0 px-0 uppercase bg-transparent placeholder:text-muted-foreground/20" 
+                            className="h-14 font-black text-xl border-x-0 border-t-0 border-b-[3px] rounded-none border-black focus-visible:ring-0 px-0 uppercase bg-transparent" 
                         />
                     </div>
                     
@@ -377,8 +325,7 @@ function EncuestaContent() {
                                 value={effectiveSolicitudId ? formatDateToDDMMYYYY(formData.fecha) : formData.fecha} 
                                 onChange={handleInputChange} 
                                 readOnly={!!effectiveSolicitudId}
-                                placeholder="dd/mm/aaaa"
-                                className="h-14 font-black text-xl border-x-0 border-t-0 border-b-[3px] rounded-none border-black focus-visible:ring-0 px-0 bg-transparent placeholder:text-muted-foreground/20" 
+                                className="h-14 font-black text-xl border-x-0 border-t-0 border-b-[3px] rounded-none border-black focus-visible:ring-0 px-0 bg-transparent" 
                             />
                         </div>
                         <div className="space-y-2">
@@ -389,8 +336,7 @@ function EncuestaContent() {
                                 value={formData.hora} 
                                 onChange={handleInputChange} 
                                 readOnly={!!effectiveSolicitudId}
-                                placeholder="--:--"
-                                className="h-14 font-black text-xl border-x-0 border-t-0 border-b-[3px] rounded-none border-black focus-visible:ring-0 px-0 bg-transparent placeholder:text-muted-foreground/20" 
+                                className="h-14 font-black text-xl border-x-0 border-t-0 border-b-[3px] rounded-none border-black focus-visible:ring-0 px-0 bg-transparent" 
                             />
                         </div>
                     </div>
@@ -479,6 +425,7 @@ function EncuestaContent() {
                 </Button>
                 </CardFooter>
             </Card>
+            </>
           )}
         </div>
       </main>

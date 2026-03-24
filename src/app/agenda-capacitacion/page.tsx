@@ -7,7 +7,29 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador } from '@/lib/data';
-import { Loader2, MapPin, Calendar, UserPlus, QrCode, Building2, LayoutList, Globe, Search, Trash2, Printer, CheckCircle2, User, Copy, Check, CalendarX, AlertCircle, Clock, Download, ImageIcon } from 'lucide-react';
+import { 
+  Loader2, 
+  MapPin, 
+  Calendar, 
+  UserPlus, 
+  QrCode, 
+  Building2, 
+  LayoutList, 
+  Globe, 
+  Search, 
+  Trash2, 
+  Printer, 
+  CheckCircle2, 
+  User, 
+  Copy, 
+  Check, 
+  CalendarX, 
+  AlertCircle, 
+  Clock, 
+  ImageIcon, 
+  Power, 
+  PowerOff 
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -184,6 +206,26 @@ export default function AgendaCapacitacionPage() {
       })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
+        setIsUpdating(false);
+      });
+  };
+
+  const handleToggleQrStatus = (solicitud: SolicitudCapacitacion) => {
+    if (!firestore) return;
+    setIsUpdating(true);
+    const newStatus = !solicitud.qr_habilitado;
+    const docRef = doc(firestore, 'solicitudes-capacitacion', solicitud.id);
+    
+    updateDoc(docRef, { qr_habilitado: newStatus })
+      .then(() => {
+        toast({ 
+          title: newStatus ? "Encuesta Habilitada" : "Encuesta Deshabilitada",
+          description: newStatus ? "Los ciudadanos ya pueden acceder al formulario." : "El acceso público ha sido cerrado."
+        });
+        setIsUpdating(false);
+      })
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' }));
         setIsUpdating(false);
       });
   };
@@ -496,11 +538,30 @@ export default function AgendaCapacitacionPage() {
                                                                                 </div>
                                                                             </div>
                                                                             <div className="flex gap-1.5 w-full">
-                                                                                <Button variant="outline" size="icon" className="h-8 w-12 rounded-lg border-2 bg-white" onClick={() => setQrSolicitud(item)}>
-                                                                                    <QrCode className="h-3.5 w-3.5" />
-                                                                                </Button>
-                                                                                <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
-                                                                                    <Button className={cn("h-8 w-full rounded-lg font-black uppercase text-[9px] shadow-sm", inf ? "bg-green-600 hover:bg-green-700" : "bg-black hover:bg-black/90")}>
+                                                                                <div className="flex flex-col gap-1">
+                                                                                    <Button 
+                                                                                        variant="outline" 
+                                                                                        size="icon" 
+                                                                                        className="h-8 w-12 rounded-lg border-2 bg-white" 
+                                                                                        onClick={() => setQrSolicitud(item)}
+                                                                                    >
+                                                                                        <QrCode className="h-3.5 w-3.5" />
+                                                                                    </Button>
+                                                                                    <Button
+                                                                                        variant="outline"
+                                                                                        size="icon"
+                                                                                        className={cn(
+                                                                                            "h-8 w-12 rounded-lg border-2",
+                                                                                            item.qr_habilitado ? "border-destructive text-destructive bg-destructive/5" : "border-green-600 text-green-600 bg-green-50"
+                                                                                        )}
+                                                                                        onClick={() => handleToggleQrStatus(item)}
+                                                                                        disabled={isUpdating}
+                                                                                    >
+                                                                                        {item.qr_habilitado ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                                                                                    </Button>
+                                                                                </div>
+                                                                                <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1 flex items-center">
+                                                                                    <Button className={cn("h-full w-full rounded-lg font-black uppercase text-[9px] shadow-sm", inf ? "bg-green-600 hover:bg-green-700" : "bg-black hover:bg-black/90")}>
                                                                                         {inf ? 'ANEXO III' : 'INFORME'}
                                                                                     </Button>
                                                                                 </Link>
