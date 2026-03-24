@@ -33,7 +33,6 @@ function EncuestaContent() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [internalSolicitudId, setInternalSolicitudId] = useState<string | null>(null);
   
-  // Sincronización: Estados para conteo masivo habilitado por informe
   const [reportTotal, setReportTotal] = useState(0);
   const [existingSurveysCount, setExistingSurveysCount] = useState(0);
   const [isLoadingSync, setIsLoadingSync] = useState(false);
@@ -59,7 +58,6 @@ function EncuestaContent() {
     setIsMounted(true);
   }, []);
 
-  // Carga de actividades para selector manual si el usuario está logueado
   const agendaQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collection(firestore, 'solicitudes-capacitacion');
@@ -78,31 +76,27 @@ function EncuestaContent() {
   
   const { data: linkedSolicitud, isLoading: isLoadingLinked } = useDoc<SolicitudCapacitacion>(solicitudRef);
 
-  // VALIDACIÓN DE HORARIO PARA QR (PÚBLICO)
   const isWithinTimeWindow = useMemo(() => {
-    if (!linkedSolicitud || user) return true; // Si es usuario logueado o no hay solicitud cargada, no aplicamos esta restricción aquí
+    if (!linkedSolicitud || user) return true;
     
     try {
         const now = new Date();
         const [year, month, day] = linkedSolicitud.fecha.split('-').map(Number);
         
-        // Ventana de inicio: 1 hora antes de hora_desde
         const startDateTime = new Date(year, month - 1, day);
         const [startH, startM] = linkedSolicitud.hora_desde.split(':').map(Number);
         startDateTime.setHours(startH - 1, startM, 0, 0);
         
-        // Ventana de fin: 1 hora después de hora_hasta
         const endDateTime = new Date(year, month - 1, day);
         const [endH, endM] = linkedSolicitud.hora_hasta.split(':').map(Number);
         endDateTime.setHours(endH + 1, endM, 0, 0);
         
         return now >= startDateTime && now <= endDateTime;
     } catch (e) {
-        return true; // En caso de error de parseo, permitimos acceso para no bloquear
+        return true;
     }
   }, [linkedSolicitud, user]);
 
-  // Sincronización: Efecto para cargar datos del informe y encuestas existentes
   useEffect(() => {
     if (!firestore || !effectiveSolicitudId) {
         setReportTotal(0);
@@ -113,7 +107,6 @@ function EncuestaContent() {
     const fetchSyncData = async () => {
         setIsLoadingSync(true);
         try {
-            // 1. Buscar informe del divulgador para esta actividad
             const reportQuery = query(collection(firestore, 'informes-divulgador'), where('solicitud_id', '==', effectiveSolicitudId));
             const reportSnap = await getDocs(reportQuery);
             if (!reportSnap.empty) {
@@ -123,7 +116,6 @@ function EncuestaContent() {
                 setReportTotal(0);
             }
 
-            // 2. Buscar encuestas ya registradas
             const surveysQuery = query(collection(firestore, 'encuestas-satisfaccion'), where('solicitud_id', '==', effectiveSolicitudId));
             const surveysSnap = await getDocs(surveysQuery);
             setExistingSurveysCount(surveysSnap.size);
@@ -137,7 +129,6 @@ function EncuestaContent() {
     fetchSyncData();
   }, [firestore, effectiveSolicitudId]);
 
-  // Auto-completar desde Agenda (QR o Selector Interno)
   useEffect(() => {
     if (linkedSolicitud) {
       setFormData(prev => ({
@@ -226,9 +217,10 @@ function EncuestaContent() {
     addDoc(collection(firestore, 'encuestas-satisfaccion'), encuestaData)
       .then(() => {
         toast({ 
-          title: "¡Gracias por su participación en la divulgación de uso de la máquina electoral!", 
-          description: "Su feedback ha sido registrado exitosamente." 
+          title: "¡Gracias por su participación!", 
+          description: "Su opinión ha sido registrada con éxito." 
         });
+        
         setFormData(p => ({ 
           ...p, 
           edad: '', 
@@ -237,8 +229,10 @@ function EncuestaContent() {
           facilidad_maquina: '',
           seguridad_maquina: ''
         }));
+        
         setExistingSurveysCount(prev => prev + 1);
         setIsSubmitting(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -285,7 +279,6 @@ function EncuestaContent() {
             </Button>
           </div>
 
-          {/* MODO MANUAL PARA FUNCIONARIOS */}
           {user && !solicitudIdFromUrl && (
             <Card className="border-primary/20 shadow-md">
                 <CardHeader className="py-4 bg-primary/5">
@@ -319,7 +312,6 @@ function EncuestaContent() {
             </Card>
           )}
 
-          {/* ALERTAS DE RESTRICCIÓN */}
           {isStaffDisabled && (
             <Alert variant="destructive" className="bg-destructive/5 border-destructive/20 animate-in shake duration-500">
                 <Lock className="h-5 w-5" />
@@ -342,8 +334,7 @@ function EncuestaContent() {
             </Card>
           )}
 
-          {/* INDICADOR DE SINCRONIZACIÓN Y CUPO */}
-          {effectiveSolicitudId && reportTotal > 0 && !isStaffDisabled && !isPublicDisabled && (
+          {user && effectiveSolicitudId && reportTotal > 0 && !isStaffDisabled && !isPublicDisabled && (
             <Card className={cn(
                 "border-2 shadow-xl animate-in slide-in-from-top-4 duration-500",
                 isFormLocked ? "bg-red-50 border-destructive/20" : "bg-primary/5 border-primary/20"
