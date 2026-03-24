@@ -9,11 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileDown, CheckCircle2, Printer, X, CalendarDays, DatabaseZap, Search, Camera, Trash2, ImageIcon, FileText } from 'lucide-react';
+import { Loader2, FileDown, CheckCircle2, Printer, X, CalendarDays, DatabaseZap, Search, Camera, Trash2, ImageIcon, FileText, Users } from 'lucide-react';
 import { useUser, useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, query, where } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, query, where, getDocs } from 'firebase/firestore';
 import jsPDF from 'jspdf';
-import { type SolicitudCapacitacion, type InformeDivulgador } from '@/lib/data';
+import autoTable from 'jspdf-autotable';
+import { type SolicitudCapacitacion, type InformeDivulgador, type EncuestaSatisfaccion } from '@/lib/data';
 import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
 import Image from 'next/image';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -37,6 +38,8 @@ function InformeContent() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [markedCells, setMarcaciones] = useState<number[]>([]);
+  const [surveysCount, setSurveysCount] = useState(0);
+  const [isLoadingSurveys, setIsLoadingSurveys] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
   const [respaldoPhoto, setRespaldoPhoto] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -74,6 +77,37 @@ function InformeContent() {
     };
     fetchLogo();
   }, []);
+
+  // Sincronización: Cargar cantidad de encuestas realizadas para pre-marcar tablero
+  useEffect(() => {
+    if (!firestore || !selectedAgendaId) {
+        setSurveysCount(0);
+        return;
+    }
+
+    const fetchSurveysCount = async () => {
+        setIsLoadingSurveys(true);
+        try {
+            const q = query(collection(firestore, 'encuestas-satisfaccion'), where('solicitud_id', '==', selectedAgendaId));
+            const snap = await getDocs(q);
+            const count = snap.size;
+            setSurveysCount(count);
+            
+            // Pre-marcar celdas según encuestas realizadas
+            const initialMarks = Array.from({ length: count }, (_, i) => i + 1);
+            setMarcaciones(prev => {
+                const combined = new Set([...prev, ...initialMarks]);
+                return Array.from(combined).sort((a, b) => a - b);
+            });
+        } catch (e) {
+            console.error("Error al cargar encuestas vinculadas:", e);
+        } finally {
+            setIsLoadingSurveys(false);
+        }
+    };
+
+    fetchSurveysCount();
+  }, [firestore, selectedAgendaId]);
 
   const agendaQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !user?.profile) return null;
@@ -217,6 +251,11 @@ function InformeContent() {
   };
 
   const toggleCell = (num: number) => {
+    // Si la celda es una de las marcadas automáticamente por encuesta QR, no permitir desmarcar para mantener coherencia
+    if (num <= surveysCount) {
+        toast({ title: "Marcación Protegida", description: "Esta práctica ya fue validada digitalmente mediante la encuesta QR del ciudadano." });
+        return;
+    }
     setMarcaciones(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]);
   };
 
@@ -383,6 +422,20 @@ function InformeContent() {
             </CardContent>
         </Card>
 
+        {selectedAgendaId && surveysCount > 0 && (
+            <Card className="bg-green-50 border-green-200 border-2">
+                <CardContent className="p-4 flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-green-600 text-white flex items-center justify-center shadow-lg animate-pulse">
+                        <Users className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-[10px] font-black text-green-800 uppercase tracking-widest">Sincronización Inteligente Activa</p>
+                        <p className="text-xs font-bold text-green-700 uppercase">Se han detectado {surveysCount} ciudadanos con encuesta QR completada. El tablero ha sido pre-marcado automáticamente.</p>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+
         <div className="flex justify-between items-center px-2">
             <div className="flex items-center gap-4">
                 <Image src="/logo.png" alt="Logo" width={50} height={50} className="object-contain" />
@@ -474,28 +527,36 @@ function InformeContent() {
                 </div>
             </div>
 
-            <div className="border-2 border-black rounded-sm overflow-hidden">
+            <div className="border-2 border-black rounded-sm overflow-hidden relative">
+                {isLoadingSurveys && (
+                    <div className="absolute inset-0 z-20 bg-white/60 flex items-center justify-center">
+                        <Loader2 className="animate-spin text-primary h-8 w-8" />
+                    </div>
+                )}
                 <div className="bg-[#F8F9FA] border-b-2 border-black p-2 text-center">
                     <p className="font-black uppercase text-sm tracking-tight">TABLERO DE MARCACIONES (MÁX. 104)</p>
                 </div>
                 <div className="grid grid-cols-13 border-collapse">
-                    {Array.from({ length: 104 }, (_, i) => i + 1).map(num => (
-                        <div 
-                            key={num} 
-                            onClick={() => toggleCell(num)} 
-                            className={cn(
-                                "aspect-square border border-black flex flex-col items-center justify-center cursor-pointer transition-colors relative group",
-                                markedCells.includes(num) ? "bg-black text-white" : "hover:bg-muted bg-white"
-                            )}
-                        >
-                            <span className={cn("text-[8px] font-bold absolute top-0.5 left-1", markedCells.includes(num) ? "text-white/40" : "text-black/30")}>
-                                {num}
-                            </span>
-                            {markedCells.includes(num) && (
-                                <span className="text-xl font-black leading-none">X</span>
-                            )}
-                        </div>
-                    ))}
+                    {Array.from({ length: 104 }, (_, i) => i + 1).map(num => {
+                        const isFromSurvey = num <= surveysCount;
+                        return (
+                            <div 
+                                key={num} 
+                                onClick={() => toggleCell(num)} 
+                                className={cn(
+                                    "aspect-square border border-black flex flex-col items-center justify-center cursor-pointer transition-colors relative group",
+                                    markedCells.includes(num) ? (isFromSurvey ? "bg-green-600 text-white" : "bg-black text-white") : "hover:bg-muted bg-white"
+                                )}
+                            >
+                                <span className={cn("text-[8px] font-bold absolute top-0.5 left-1", markedCells.includes(num) ? "text-white/40" : "text-black/30")}>
+                                    {num}
+                                </span>
+                                {markedCells.includes(num) && (
+                                    <span className="text-xl font-black leading-none">X</span>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
