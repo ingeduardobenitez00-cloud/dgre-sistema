@@ -257,7 +257,9 @@ export default function AgendaCapacitacionPage() {
         doc.setFontSize(12);
         doc.text(`LOCAL: ${sol.lugar_local.toUpperCase()}`, pageWidth / 2, 75, { align: 'center' });
         doc.text(`DISTRITO: ${sol.distrito.toUpperCase()} | DEPTO: ${sol.departamento.toUpperCase()}`, pageWidth / 2, 83, { align: 'center' });
-        doc.text(`FECHA: ${formatDateToDDMMYYYY(sol.fecha)} | HORARIO: ${sol.hora_desde} HS.`, pageWidth / 2, 91, { align: 'center' });
+        
+        doc.text(`FECHA: ${formatDateToDDMMYYYY(sol.fecha)}`, pageWidth / 2, 91, { align: 'center' });
+        doc.text(`HABILITADO DE: ${sol.hora_desde} A ${sol.hora_hasta} HS.`, pageWidth / 2, 99, { align: 'center' });
         
         const response = await fetch(qrUrl);
         const blob = await response.blob();
@@ -267,7 +269,7 @@ export default function AgendaCapacitacionPage() {
             reader.readAsDataURL(blob);
         });
         const qrSize = 100;
-        doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize) / 2, 105, qrSize, qrSize);
+        doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize) / 2, 110, qrSize, qrSize);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text("Instrucciones: Escanee este código con la cámara de su teléfono", pageWidth / 2, 220, { align: 'center' });
