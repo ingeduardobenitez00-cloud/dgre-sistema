@@ -45,7 +45,7 @@ function EncuestaContent() {
     fecha: '',
     hora: '',
     edad: '',
-    genero: 'hombre' as 'hombre' | 'mujer',
+    genero: '' as string, // Eliminada la pre-carga de 'hombre'
     pueblo_originario: false,
     utilidad_maquina: '' as string,
     facilidad_maquina: '' as string,
@@ -182,6 +182,7 @@ function EncuestaContent() {
       !formData.lugar_practica || 
       !formData.fecha || 
       !formData.edad || 
+      !formData.genero || // Validación de género añadida
       !formData.utilidad_maquina || 
       !formData.facilidad_maquina || 
       !formData.seguridad_maquina
@@ -218,12 +219,13 @@ function EncuestaContent() {
       .then(() => {
         toast({ 
           title: "¡Gracias por su participación!", 
-          description: "Su opinión ha sido registrada con éxito." 
+          description: "Su participación en la divulgación de uso de la máquina electoral ha sido registrada con éxito." 
         });
         
         setFormData(p => ({ 
           ...p, 
           edad: '', 
+          genero: '', // Limpiar género tras envío
           pueblo_originario: false,
           utilidad_maquina: '',
           facilidad_maquina: '',
