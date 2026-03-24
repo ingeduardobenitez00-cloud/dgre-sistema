@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -21,7 +20,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import jsPDF from 'jspdf';
 import {
   AlertDialog,
@@ -294,7 +292,11 @@ export default function AgendaCapacitacionPage() {
   }, [rawDivulgadores, divulSearch, assigningSolicitud]);
 
   if (isUserLoading || isLoadingSolicitudes || isLoadingDivul) {
-    return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="animate-spin h-8 w-8 text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -388,7 +390,7 @@ export default function AgendaCapacitacionPage() {
                                                             {batch.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => {
                                                                 const mov = movimientosData?.find(m => m.solicitud_id === item.id);
                                                                 const inf = informesData?.find(i => i.solicitud_id === item.id);
-                                                                const isClosed = mov?.devolucion && inf;
+                                                                const isClosed = !!(mov?.devolucion && inf);
                                                                 const today = new Date().toISOString().split('T')[0];
                                                                 const hasAlert = item.fecha < today && !isClosed;
 
@@ -479,7 +481,7 @@ export default function AgendaCapacitacionPage() {
                                         );
                                     })}
                                 </AccordionContent>
-                            </Accordion>
+                            </AccordionItem>
                         );
                     })}
                   </Accordion>
@@ -490,7 +492,6 @@ export default function AgendaCapacitacionPage() {
         )}
       </main>
 
-      {/* Diálogo de Asignación de Personal */}
       <Dialog open={!!assigningSolicitud} onOpenChange={(o) => !o && setAssigningSolicitud(null)}>
         <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-black text-white p-6">
@@ -540,7 +541,6 @@ export default function AgendaCapacitacionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo de Confirmación de Cancelación */}
       <AlertDialog open={!!cancellingSolicitud} onOpenChange={(o) => !o && setCancellingSolicitud(null)}>
         <AlertDialogContent className="rounded-[2rem] border-none">
           <AlertDialogHeader>
@@ -568,7 +568,6 @@ export default function AgendaCapacitacionPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Diálogo de Confirmación de Eliminación (Solo Admin) */}
       <AlertDialog open={!!deletingSolicitud} onOpenChange={(o) => !o && setDeletingSolicitud(null)}>
         <AlertDialogContent className="rounded-[2rem] border-none">
           <AlertDialogHeader>
@@ -592,7 +591,6 @@ export default function AgendaCapacitacionPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Diálogo de Código QR */}
       <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
         <DialogContent className="max-w-sm rounded-[2rem] border-none p-8">
           <DialogHeader>
@@ -601,11 +599,9 @@ export default function AgendaCapacitacionPage() {
           <div className="flex flex-col items-center gap-6">
             <div className="p-4 bg-white border-2 border-dashed rounded-3xl">
               {qrSolicitud && (
-                <Image 
+                <img 
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(surveyUrl(qrSolicitud))}`} 
                   alt="QR Code"
-                  width={200}
-                  height={200}
                   className="w-48 h-48"
                 />
               )}
