@@ -118,7 +118,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divuladoresQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
   useEffect(() => {
     if (!rawSolicitudes || !movimientosData || !informesData) return;
@@ -478,7 +478,7 @@ export default function AgendaCapacitacionPage() {
                                         );
                                     })}
                                 </AccordionContent>
-                            </AccordionItem>
+                            </Accordion>
                         );
                     })}
                   </Accordion>
