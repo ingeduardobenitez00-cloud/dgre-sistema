@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -298,7 +299,7 @@ export default function AgendaCapacitacionPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
-      <Header title="Agenda de Capacitaciones" />
+      <Header title="Agenda de Actividades" />
       
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -373,7 +374,7 @@ export default function AgendaCapacitacionPage() {
                                                             {head.solicitante_entidad || head.otra_entidad}
                                                         </h4>
                                                         <Badge variant="secondary" className="w-fit bg-[#E2E8F0] text-[#475569] font-black uppercase text-[8px] tracking-widest px-3 py-1 rounded-md">
-                                                            {head.tipo_solicitud}
+                                                            {head.tipo_solicitud === 'Lugar Fijo' ? 'LUGAR FIJO' : head.tipo_solicitud.toUpperCase()}
                                                         </Badge>
                                                     </div>
 
@@ -404,7 +405,7 @@ export default function AgendaCapacitacionPage() {
                                                                         </div>
 
                                                                         <div className="flex-1 flex flex-col gap-1">
-                                                                            <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR</p>
+                                                                            <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">PERSONAL OPERATIVO</p>
                                                                             {item.divulgador_nombre ? (
                                                                                 <div className="flex items-center gap-2 text-green-600">
                                                                                     <User className="h-3 w-3" />
@@ -463,7 +464,7 @@ export default function AgendaCapacitacionPage() {
                                                                                 </Button>
                                                                                 <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
                                                                                     <Button className={cn("h-8 w-full rounded-lg font-black uppercase text-[9px] shadow-sm", inf ? "bg-green-600 hover:bg-green-700" : "bg-black hover:bg-black/90")}>
-                                                                                        {inf ? 'VER INFORME' : 'INFORME'}
+                                                                                        {inf ? 'ANEXO III' : 'INFORME'}
                                                                                     </Button>
                                                                                 </Link>
                                                                             </div>
@@ -489,35 +490,49 @@ export default function AgendaCapacitacionPage() {
         )}
       </main>
 
+      {/* Diálogo de Asignación de Personal */}
       <Dialog open={!!assigningSolicitud} onOpenChange={(o) => !o && setAssigningSolicitud(null)}>
         <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-black text-white p-6">
             <DialogTitle className="font-black uppercase tracking-widest text-sm flex items-center gap-2">
-                <UserPlus className="h-4 w-4" /> ASIGNAR PERSONAL - {assigningSolicitud?.distrito?.toUpperCase()}
+              <UserPlus className="h-4 w-4" /> ASIGNAR PERSONAL - {assigningSolicitud?.distrito?.toUpperCase()}
             </DialogTitle>
           </DialogHeader>
           <div className="p-6 space-y-4 bg-white">
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar por nombre o cédula..." value={divulSearch} onChange={e => setDivulSearch(e.target.value)} className="h-12 pl-10 font-bold border-2 rounded-xl" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar por nombre o cédula..." 
+                value={divulSearch} 
+                onChange={e => setDivulSearch(e.target.value)} 
+                className="h-12 pl-10 font-bold border-2 rounded-xl" 
+              />
             </div>
             <ScrollArea className="h-[350px] pr-2">
               {filteredDivul.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 opacity-20 text-center">
-                    <UserPlus className="h-12 w-12 mb-2 mx-auto" />
-                    <p className="text-[10px] font-black uppercase">No hay personal en este distrito</p>
+                  <UserPlus className="h-12 w-12 mb-2 mx-auto" />
+                  <p className="font-black text-[10px] uppercase">No se encontraron divulgadores en este distrito</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                    {filteredDivul.map(d => (
-                    <div key={d.id} className="p-4 border-2 rounded-2xl cursor-pointer hover:bg-black hover:text-white transition-all group" onClick={() => handleAssignDivulgador(d)}>
-                        <p className="font-black text-xs uppercase">{d.nombre}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="secondary" className="text-[8px] font-black bg-muted group-hover:bg-white/20">C.I. {d.cedula}</Badge>
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase group-hover:text-white/60">{d.vinculo}</span>
-                        </div>
-                    </div>
-                    ))}
+                  {filteredDivul.map((d) => (
+                    <Button
+                      key={d.id}
+                      variant="outline"
+                      className="w-full justify-start h-auto p-4 rounded-2xl border-2 hover:border-primary hover:bg-primary/5 transition-all gap-4"
+                      onClick={() => handleAssignDivulgador(d)}
+                      disabled={isUpdating}
+                    >
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                        <User className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-black text-xs uppercase text-[#1A1A1A]">{d.nombre}</p>
+                        <p className="text-[9px] font-bold text-muted-foreground">C.I.: {d.cedula} | {d.vinculo}</p>
+                      </div>
+                    </Button>
+                  ))}
                 </div>
               )}
             </ScrollArea>
@@ -525,68 +540,89 @@ export default function AgendaCapacitacionPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
-        <DialogContent className="max-w-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
-          <DialogHeader className="bg-primary p-8 text-white">
-            <DialogTitle className="font-black uppercase text-center tracking-widest text-lg">ENCUESTA QR</DialogTitle>
-          </DialogHeader>
-          <div className="p-10 flex flex-col items-center bg-white space-y-8">
-            <div className="p-4 bg-white border-4 border-muted/20 rounded-[2rem] shadow-inner">
-                {qrSolicitud && (
-                    <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(surveyUrl(qrSolicitud))}`} alt="QR" width={220} height={220} className="rounded-xl" />
-                )}
-            </div>
-            <div className="text-center space-y-2">
-                <p className="font-black uppercase text-sm text-primary">{qrSolicitud?.lugar_local}</p>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase">{qrSolicitud ? formatDateToDDMMYYYY(qrSolicitud.fecha) : ''}</p>
-            </div>
-            <div className="w-full space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                    <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2" onClick={() => qrSolicitud && copyToClipboard(qrSolicitud)}>
-                        {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />} COPIAR
-                    </Button>
-                    <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2 text-primary border-primary/20" onClick={() => qrSolicitud && generateQrPDF(qrSolicitud)} disabled={isGeneratingPdf}>
-                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />} PDF
-                    </Button>
-                </div>
-                <Button className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white" onClick={() => setQrSolicitud(null)}>CERRAR</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!cancellingSolicitud} onOpenChange={(o) => !o && setCancellingSolicitud(null)}>
-        <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
-          <DialogHeader className="bg-destructive text-white p-8">
-            <DialogTitle className="font-black uppercase tracking-widest text-center text-sm">ANULAR ACTIVIDAD</DialogTitle>
-          </DialogHeader>
-          <div className="p-8 space-y-6 bg-white">
-            <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground">MOTIVO DE LA CANCELACIÓN</Label>
-                <Textarea placeholder="Ej: Suspensión por lluvia..." className="min-h-[120px] font-bold border-2 rounded-xl uppercase" value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px]" onClick={() => setCancellingSolicitud(null)}>CERRAR</Button>
-                <Button className="h-12 rounded-xl font-black uppercase text-[10px] bg-destructive" disabled={!cancelReason.trim() || isUpdating} onClick={handleConfirmCancel}>CONFIRMAR</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={!!deletingSolicitud} onOpenChange={(o) => !o && setDeletingSolicitud(null)}>
-        <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
+      {/* Diálogo de Confirmación de Cancelación */}
+      <AlertDialog open={!!cancellingSolicitud} onOpenChange={(o) => !o && setCancellingSolicitud(null)}>
+        <AlertDialogContent className="rounded-[2rem] border-none">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-black uppercase">¿ELIMINAR DEFINITIVAMENTE?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground pt-2">
-                Esta acción irreversible borrará el registro de la agenda.
-            </AlertDialogDescription>
+            <AlertDialogTitle className="font-black uppercase">¿Cancelar esta actividad?</AlertDialogTitle>
+            <div className="text-xs font-bold uppercase py-4">
+              Por favor, ingrese el motivo de la cancelación. Esta acción quedará registrada.
+              <Textarea 
+                className="mt-4 font-bold uppercase border-2 rounded-xl min-h-[100px]" 
+                placeholder="MOTIVO DE CANCELACIÓN..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+              />
+            </div>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px]">CANCELAR</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-white rounded-xl font-black uppercase text-[10px]" disabled={isUpdating}>SÍ, ELIMINAR</AlertDialogAction>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px]">Cerrar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmCancel}
+              className="rounded-xl bg-destructive hover:bg-destructive/90 font-black uppercase text-[10px]"
+              disabled={!cancelReason.trim() || isUpdating}
+            >
+              Confirmar Cancelación
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Diálogo de Confirmación de Eliminación (Solo Admin) */}
+      <AlertDialog open={!!deletingSolicitud} onOpenChange={(o) => !o && setDeletingSolicitud(null)}>
+        <AlertDialogContent className="rounded-[2rem] border-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black uppercase flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" /> ¿Eliminar Registro Permanente?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs font-bold uppercase py-2">
+              Esta acción eliminará la solicitud de la base de datos de forma irreversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px]">Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="rounded-xl bg-destructive hover:bg-destructive/90 font-black uppercase text-[10px]"
+              disabled={isUpdating}
+            >
+              Eliminar Definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de Código QR */}
+      <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
+        <DialogContent className="max-w-sm rounded-[2rem] border-none p-8">
+          <DialogHeader>
+            <DialogTitle className="font-black uppercase text-center text-sm mb-4">Encuesta de Satisfacción</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-6">
+            <div className="p-4 bg-white border-2 border-dashed rounded-3xl">
+              {qrSolicitud && (
+                <Image 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(surveyUrl(qrSolicitud))}`} 
+                  alt="QR Code"
+                  width={200}
+                  height={200}
+                  className="w-48 h-48"
+                />
+              )}
+            </div>
+            <div className="flex gap-2 w-full">
+              <Button variant="outline" className="flex-1 font-black text-[10px] uppercase rounded-xl gap-2" onClick={() => qrSolicitud && copyToClipboard(qrSolicitud)}>
+                {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />} 
+                {copied ? 'Copiado' : 'Copiar Link'}
+              </Button>
+              <Button className="flex-1 bg-black font-black text-[10px] uppercase rounded-xl gap-2" onClick={() => qrSolicitud && generateQrPDF(qrSolicitud)} disabled={isGeneratingPdf}>
+                {isGeneratingPdf ? <Loader2 className="animate-spin h-3 w-3" /> : <Printer className="h-3 w-3" />}
+                Exportar PDF
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
