@@ -71,6 +71,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /anexo-i/{anexoId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
     match /solicitudes-capacitacion/{solicitudId} {
       allow get: if true; // PERMITE QUE EL FORMULARIO DE ENCUESTA CARGUE DATOS POR QR SIN LOGIN
       allow list: if isSignedIn();

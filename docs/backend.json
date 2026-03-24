@@ -107,6 +107,16 @@
         "cedula": { "type": "string" }
       }
     },
+    "AnexoI": {
+      "title": "Anexo I - Planificación Lugares Fijos",
+      "type": "object",
+      "properties": {
+        "tipo_oficina": { "type": "string", "enum": ["REGISTRO", "CENTRO_CIVICO"] },
+        "departamento": { "type": "string" },
+        "distrito": { "type": "string" },
+        "fecha_creacion": { "type": "string", "format": "date-time" }
+      }
+    },
     "PadronItem": {
       "title": "Padrón Electoral",
       "type": "object",
@@ -167,6 +177,12 @@
         "$ref": "#/entities/SolicitudCapacitacion"
       },
       "description": "Stores training requests."
+    },
+    "/anexo-i/{anexoId}": {
+      "schema": {
+        "$ref": "#/entities/AnexoI"
+      },
+      "description": "Stores planning for fixed disclosure places."
     },
     "/padron/{padronId}": {
       "schema": {

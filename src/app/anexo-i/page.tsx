@@ -3,31 +3,29 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/components/header';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Loader2, 
-  MapPin, 
-  Plus, 
-  Trash2, 
   Printer, 
   Save, 
   CheckCircle2, 
   Building2, 
   Landmark,
-  Calendar as CalendarIcon
 } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
+import { collection, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, addDays, parseISO } from 'date-fns';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 type AnexoIFila = {
   lugar: string;
@@ -81,7 +79,7 @@ export default function AnexoIPage() {
     setFilas(newFilas);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!firestore || !user) return;
     
     const filledFilas = filas.filter(f => f.lugar.trim() !== '');
@@ -92,65 +90,77 @@ export default function AnexoIPage() {
 
     setIsSubmitting(true);
     
-    try {
-      const batch = writeBatch(firestore);
-      const anexoRef = doc(collection(firestore, 'anexo-i'));
+    const batch = writeBatch(firestore);
+    const anexoRef = doc(collection(firestore, 'anexo-i'));
+    
+    const anexoData = {
+      tipo_oficina: tipoOficina,
+      departamento: profile?.departamento || '',
+      distrito: profile?.distrito || '',
+      filas: filledFilas,
+      usuario_id: user.uid,
+      fecha_creacion: new Date().toISOString(),
+      server_timestamp: serverTimestamp(),
+    };
+
+    batch.set(anexoRef, anexoData);
+
+    // INTEGRACIÓN CON AGENDA: Generar registros individuales por día
+    filledFilas.forEach(f => {
+      if (!f.fecha_desde || !f.fecha_hasta) return;
       
-      const anexoData = {
-        tipo_oficina: tipoOficina,
-        departamento: profile?.departamento || '',
-        distrito: profile?.distrito || '',
-        filas: filledFilas,
-        usuario_id: user.uid,
-        fecha_creacion: new Date().toISOString(),
-        server_timestamp: serverTimestamp(),
-      };
+      const start = parseISO(f.fecha_desde);
+      const end = parseISO(f.fecha_hasta);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
-      batch.set(anexoRef, anexoData);
-
-      // INTEGRACIÓN CON AGENDA: Generar registros individuales por día
-      filledFilas.forEach(f => {
-        const start = parseISO(f.fecha_desde);
-        const end = parseISO(f.fecha_hasta);
+      let current = start;
+      // Límite de seguridad para evitar bucles infinitos por fechas mal formadas
+      let count = 0;
+      while (current <= end && count < 365) {
+        const agendaRef = doc(collection(firestore, 'solicitudes-capacitacion'));
+        const dayStr = format(current, "yyyy-MM-dd");
         
-        let current = start;
-        while (current <= end) {
-          const agendaRef = doc(collection(firestore, 'solicitudes-capacitacion'));
-          const dayStr = format(current, "yyyy-MM-dd");
-          
-          batch.set(agendaRef, {
-            solicitante_entidad: tipoOficina === 'REGISTRO' ? 'OFICINA REGISTRO ELECTORAL' : 'CENTRO CÍVICO',
-            tipo_solicitud: 'Lugar Fijo',
-            fecha: dayStr,
-            hora_desde: f.hora_desde,
-            hora_hasta: f.hora_hasta,
-            lugar_local: f.lugar.toUpperCase(),
-            direccion_calle: f.direccion.toUpperCase(),
-            barrio_compania: '',
-            departamento: profile?.departamento || '',
-            distrito: profile?.distrito || '',
-            rol_solicitante: 'otro',
-            nombre_completo: 'PLANIFICACIÓN ANEXO I',
-            cedula: '',
-            telefono: '',
-            gps: '',
-            usuario_id: user.uid,
-            fecha_creacion: new Date().toISOString(),
-            server_timestamp: serverTimestamp()
-          });
-          
-          current = addDays(current, 1);
-        }
-      });
+        batch.set(agendaRef, {
+          solicitante_entidad: tipoOficina === 'REGISTRO' ? 'OFICINA REGISTRO ELECTORAL' : 'CENTRO CÍVICO',
+          tipo_solicitud: 'Lugar Fijo',
+          fecha: dayStr,
+          hora_desde: f.hora_desde,
+          hora_hasta: f.hora_hasta,
+          lugar_local: f.lugar.toUpperCase(),
+          direccion_calle: f.direccion.toUpperCase(),
+          barrio_compania: '',
+          departamento: profile?.departamento || '',
+          distrito: profile?.distrito || '',
+          rol_solicitante: 'otro',
+          nombre_completo: 'PLANIFICACIÓN ANEXO I',
+          cedula: '',
+          telefono: '',
+          gps: '',
+          usuario_id: user.uid,
+          fecha_creacion: new Date().toISOString(),
+          server_timestamp: serverTimestamp()
+        });
+        
+        current = addDays(current, 1);
+        count++;
+      }
+    });
 
-      await batch.commit();
-      toast({ title: "Planificación Guardada", description: "Los lugares fijos han sido agendados con éxito." });
-      setIsSubmitting(false);
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error al guardar" });
-      setIsSubmitting(false);
-    }
+    batch.commit()
+      .then(() => {
+        toast({ title: "Planificación Guardada", description: "Los lugares fijos han sido agendados con éxito." });
+        setIsSubmitting(false);
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'anexo-i / solicitudes-capacitacion (batch)',
+          operation: 'write',
+          requestResourceData: anexoData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setIsSubmitting(false);
+      });
   };
 
   const generatePDF = () => {
