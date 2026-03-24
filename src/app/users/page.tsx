@@ -83,16 +83,16 @@ const MODULE_STRUCTURE = [
     category: "CIDEE - CAPACITACIONES",
     items: [
       { id: 'anexo-i', label: 'ANEXO I - LUGARES FIJOS' },
-      { id: 'solicitud-capacitacion', label: 'ANEXO V - SOLICITUD' },
+      { id: 'solicitud-capacitacion', label: 'ANEXO V - SOLICITUDES' },
       { id: 'agenda-capacitacion', label: 'AGENDA DE ACTIVIDADES' },
       { id: 'control-movimiento-maquinas', label: 'MOVIMIENTO DE MÁQUINAS' },
       { id: 'denuncia-lacres', label: 'DENUNCIA DE LACRES' },
       { id: 'informe-movimientos-denuncias', label: 'TRAZABILIDAD LOGÍSTICA' },
-      { id: 'informe-divulgador', label: 'ANEXO III - INFORME DIV.' },
-      { id: 'informe-semanal-puntos-fijos', label: 'ANEXO IV - INF. SEMANAL' },
+      { id: 'informe-divulgador', label: 'ANEXO III - INFORME DEL DIVULGADOR' },
+      { id: 'informe-semanal-puntos-fijos', label: 'ANEXO IV - INFORME SEMANAL' },
       { id: 'divulgadores', label: 'DIRECTORIO DIVULGADORES' },
       { id: 'estadisticas-capacitacion', label: 'ESTADÍSTICAS CIDEE' },
-      { id: 'encuesta-satisfaccion', label: 'ENCUESTA SATISFACCIÓN' },
+      { id: 'encuesta-satisfaccion', label: 'ANEXO II - ENCUESTA DE SATISFACCIÓN' },
       { id: 'archivo-capacitaciones', label: 'HISTORIAL / ARCHIVO' },
     ]
   },
@@ -672,7 +672,7 @@ export default function UsersPage() {
                                                 <AccordionTrigger className="hover:no-underline px-6 py-3 bg-muted/5 group">
                                                     <div className="flex items-center justify-between w-full pr-4">
                                                         <div className="flex items-center gap-3">
-                                                            <Building2 className={cn("h-4 w-4", hasUsers ? "text-primary" : "text-muted-foreground/30")} />
+                                                            <Building2 className={cn("h-4 w-4", hasUsers ? "text-primary" : "text-muted-foreground/40")} />
                                                             <span className="font-black uppercase text-xs tracking-tight">{dist.name}</span>
                                                         </div>
                                                         {!hasUsers && (

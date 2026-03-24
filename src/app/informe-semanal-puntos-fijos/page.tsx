@@ -236,12 +236,12 @@ export default function InformeSemanalAnexoIVPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
-      <Header title="Informe Semanal Anexo IV" />
+      <Header title="Anexo IV - Informe Semanal" />
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-                <h1 className="text-3xl font-black tracking-tight text-primary uppercase">Informe Semanal</h1>
+                <h1 className="text-3xl font-black tracking-tight text-primary uppercase">Anexo IV - Informe Semanal</h1>
                 <p className="text-muted-foreground text-xs font-bold uppercase flex items-center gap-2 mt-1">
                     <TableProperties className="h-3.5 w-3.5" /> Consolida automáticamente los Anexos III del distrito.
                 </p>

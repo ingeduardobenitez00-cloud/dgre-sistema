@@ -10,7 +10,7 @@ export const dashboardMenuItems = [
   },
   {
     href: '/solicitud-capacitacion',
-    label: 'Solicitud de Capacitación',
+    label: 'Anexo V - Solicitudes',
     icon: ClipboardCheck,
     description: 'Crea una nueva solicitud de capacitación para organizaciones políticas.',
   },
@@ -40,7 +40,7 @@ export const dashboardMenuItems = [
   },
   {
     href: '/informe-divulgador',
-    label: 'Informe del Divulgador',
+    label: 'Anexo III - Informe del Divulgador',
     icon: UserCheck,
     description: 'Control individual de marcaciones por ciudadano (Anexo III).',
   },
@@ -52,7 +52,7 @@ export const dashboardMenuItems = [
   },
   {
     href: '/informe-semanal-puntos-fijos',
-    label: 'Informe Semanal (Anexo IV)',
+    label: 'Anexo IV - Informe Semanal',
     icon: TableProperties,
     description: 'Resumen semanal de puntos fijos de divulgación.',
   },
@@ -76,7 +76,7 @@ export const dashboardMenuItems = [
   },
   {
     href: '/encuesta-satisfaccion',
-    label: 'Encuesta Satisfacción',
+    label: 'Anexo II - Encuesta de Satisfacción',
     icon: MessageSquareHeart,
     description: 'Formulario de encuesta sobre el uso de la máquina.',
   },

@@ -254,7 +254,7 @@ function EncuestaContent() {
             </div>
         </header>
       ) : (
-        <Header title="Encuesta de Satisfacción" />
+        <Header title="Anexo II - Encuesta de Satisfacción" />
       )}
       
       <main className="flex-1 p-4 md:p-8">

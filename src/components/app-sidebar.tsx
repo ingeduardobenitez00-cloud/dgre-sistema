@@ -67,18 +67,18 @@ export default function AppSidebar() {
       label: "CIDEE - CAPACITACIONES",
       items: [
         { href: "/anexo-i", label: "Anexo I - Lugares Fijos", icon: MapPin },
-        { href: "/solicitud-capacitacion", label: "Solicitud Capacitación", icon: ClipboardCheck },
+        { href: "/solicitud-capacitacion", label: "Anexo V - Solicitudes", icon: ClipboardCheck },
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
         { href: "/control-movimiento-maquinas", label: "Movimiento de Máquinas", icon: ArrowLeftRight },
         { href: "/denuncia-lacres", label: "Denuncia de Lacres", icon: ShieldAlert },
         { href: "/informe-movimientos-denuncias", label: "Trazabilidad Logística", icon: ArrowLeftRight },
-        { href: "/informe-divulgador", label: "Informe del Divulgador", icon: UserCheck },
+        { href: "/informe-divulgador", label: "Anexo III - Informe del Divulgador", icon: UserCheck },
         { href: "/galeria-capacitaciones", label: "Galería Evidencias", icon: Images },
-        { href: "/informe-semanal-puntos-fijos", label: "Informe Semanal (Anexo IV)", icon: TableProperties },
+        { href: "/informe-semanal-puntos-fijos", label: "Anexo IV - Informe Semanal", icon: TableProperties },
         { href: "/archivo-capacitaciones", label: "Archivo / Historial", icon: History },
         { href: "/divulgadores", label: "Directorio Divulgadores", icon: UserCircle },
         { href: "/estadisticas-capacitacion", label: "Estadísticas", icon: PieChart },
-        { href: "/encuesta-satisfaccion", label: "Encuesta Satisfacción", icon: MessageSquareHeart },
+        { href: "/encuesta-satisfaccion", label: "Anexo II - Encuesta de Satisfacción", icon: MessageSquareHeart },
       ]
     },
     {

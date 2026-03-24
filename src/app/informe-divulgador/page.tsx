@@ -379,7 +379,7 @@ function InformeContent() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
-      <Header title="Carga de Anexo III" />
+      <Header title="Anexo III - Informe del Divulgador" />
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6">
         
         <Card className="border-primary/20 shadow-md">
