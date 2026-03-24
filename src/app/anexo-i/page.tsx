@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,12 @@ import {
   CheckCircle2, 
   Building2, 
   Landmark,
+  Camera,
+  FileUp,
+  Trash2,
+  X,
+  ImageIcon,
+  FileText
 } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
 import { collection, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
@@ -26,6 +32,13 @@ import autoTable from 'jspdf-autotable';
 import { format, addDays, parseISO } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type AnexoIFila = {
   lugar: string;
@@ -45,6 +58,12 @@ export default function AnexoIPage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [tipoOficina, setTipoOficina] = useState<'REGISTRO' | 'CENTRO_CIVICO'>('REGISTRO');
   
+  // Estados de Archivo/Cámara
+  const [fotoRespaldo, setFotoRespaldo] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const [filas, setFilas] = useState<AnexoIFila[]>(
     Array.from({ length: 10 }, () => ({
       lugar: '',
@@ -73,6 +92,52 @@ export default function AnexoIPage() {
 
   const profile = user?.profile;
 
+  const startCamera = async () => {
+    setIsCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment', aspectRatio: { ideal: 0.75 } } 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; }
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error de Cámara" });
+      setIsCameraOpen(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+        setFotoRespaldo(dataUri);
+        stopCamera();
+      }
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setFotoRespaldo(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleFilaChange = (index: number, field: keyof AnexoIFila, value: string) => {
     const newFilas = [...filas];
     newFilas[index][field] = value;
@@ -88,6 +153,11 @@ export default function AnexoIPage() {
       return;
     }
 
+    if (!fotoRespaldo) {
+      toast({ variant: "destructive", title: "Respaldo requerido", description: "Debe adjuntar la foto del formulario físico firmado." });
+      return;
+    }
+
     setIsSubmitting(true);
     
     const batch = writeBatch(firestore);
@@ -98,6 +168,7 @@ export default function AnexoIPage() {
       departamento: profile?.departamento || '',
       distrito: profile?.distrito || '',
       filas: filledFilas,
+      foto_respaldo: fotoRespaldo,
       usuario_id: user.uid,
       fecha_creacion: new Date().toISOString(),
       server_timestamp: serverTimestamp(),
@@ -105,17 +176,15 @@ export default function AnexoIPage() {
 
     batch.set(anexoRef, anexoData);
 
-    // INTEGRACIÓN CON AGENDA: Generar registros individuales por día
     filledFilas.forEach(f => {
       if (!f.fecha_desde || !f.fecha_hasta) return;
       
       const start = parseISO(f.fecha_desde);
       const end = parseISO(f.fecha_hasta);
       
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+      if (isNaN(start.getTime()) || iNaN(end.getTime())) return;
 
       let current = start;
-      // Límite de seguridad para evitar bucles infinitos por fechas mal formadas
       let count = 0;
       while (current <= end && count < 365) {
         const agendaRef = doc(collection(firestore, 'solicitudes-capacitacion'));
@@ -150,6 +219,7 @@ export default function AnexoIPage() {
     batch.commit()
       .then(() => {
         toast({ title: "Planificación Guardada", description: "Los lugares fijos han sido agendados con éxito." });
+        setFotoRespaldo(null);
         setIsSubmitting(false);
       })
       .catch(async (error) => {
@@ -249,7 +319,7 @@ export default function AnexoIPage() {
                 <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-11 gap-2 shadow-sm" onClick={generatePDF}>
                     <Printer className="h-4 w-4" /> VISTA PREVIA PDF
                 </Button>
-                <Button className="font-black uppercase text-[10px] h-11 gap-2 shadow-xl" onClick={handleSave} disabled={isSubmitting}>
+                <Button className="font-black uppercase text-[10px] h-11 gap-2 shadow-xl" onClick={handleSave} disabled={isSubmitting || !fotoRespaldo}>
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     GUARDAR Y AGENDAR
                 </Button>
@@ -369,6 +439,51 @@ export default function AnexoIPage() {
                 </div>
             </div>
 
+            {/* SECCIÓN DE RESPALDO DOCUMENTAL */}
+            <div className="space-y-6 pt-6 border-t-2 border-dashed">
+                <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <Label className="font-black uppercase text-xs">Respaldo Documental (Anexo I Firmado) *</Label>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {fotoRespaldo ? (
+                        <div className="relative aspect-video rounded-3xl overflow-hidden border-4 border-white shadow-2xl group">
+                            <Image src={fotoRespaldo} alt="Respaldo Anexo I" fill className="object-cover" />
+                            <Button 
+                                variant="destructive" 
+                                size="icon" 
+                                className="absolute top-4 right-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                onClick={() => setFotoRespaldo(null)}
+                            >
+                                <Trash2 className="h-5 w-5" />
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4">
+                            <div 
+                                className="flex flex-col items-center justify-center h-48 border-4 border-dashed rounded-[2.5rem] cursor-pointer hover:bg-muted/50 transition-all bg-white group"
+                                onClick={startCamera}
+                            >
+                                <Camera className="h-12 w-12 text-muted-foreground group-hover:text-primary mb-2 transition-colors" />
+                                <span className="font-black uppercase text-[10px] text-muted-foreground">Capturar Formulario Físico</span>
+                            </div>
+                            <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-muted transition-all text-muted-foreground">
+                                <ImageIcon className="h-4 w-4" />
+                                <span className="text-[10px] font-black uppercase">Subir desde Galería</span>
+                                <Input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                            </label>
+                        </div>
+                    )}
+                    
+                    <div className="flex flex-col justify-center p-8 bg-muted/20 rounded-[2.5rem] border-2 border-dashed">
+                        <p className="text-[11px] font-bold text-muted-foreground uppercase leading-relaxed italic text-center">
+                            Es obligatorio adjuntar la fotografía del Anexo I con la firma y el sello de la jefatura para validar la planificación semanal.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <div className="p-6 bg-muted/20 rounded-3xl text-center">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed max-w-3xl mx-auto italic">
                     * Al guardar este formulario, el sistema generará automáticamente las entradas en la Agenda para cada día comprendido en los rangos de fecha seleccionados, facilitando la asignación del personal.
@@ -378,6 +493,20 @@ export default function AnexoIPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* DIÁLOGO DE CÁMARA */}
+      <Dialog open={isCameraOpen} onOpenChange={(o) => !o && stopCamera()}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-black rounded-[2rem]">
+          <div className="relative aspect-[3/4] w-full bg-black flex items-center justify-center">
+            <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+            <div className="absolute inset-8 border-2 border-white/20 rounded-xl pointer-events-none border-dashed" />
+          </div>
+          <DialogFooter className="p-8 bg-black/80 flex flex-row items-center justify-between gap-4">
+            <Button variant="outline" className="rounded-full h-14 w-14 border-white/20 bg-white/10 text-white" onClick={stopCamera}><X className="h-6 w-6" /></Button>
+            <Button className="flex-1 h-16 rounded-full bg-white text-black font-black uppercase text-sm shadow-2xl" onClick={takePhoto}>CAPTURAR FORMULARIO</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
