@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -289,14 +288,12 @@ export default function UsersPage() {
     ).sort((a,b) => a.username.localeCompare(b.username));
   }, [users, searchTerm]);
 
-  // Jerarquía Geográfica de Usuarios
   const userHierarchy = useMemo(() => {
     if (!datosData) return [];
     
     const term = searchTerm.toLowerCase().trim();
     const depts: Record<string, { name: string, districts: Record<string, { name: string, users: UserProfile[] }> }> = {};
 
-    // Inicializar con geografía completa
     datosData.forEach(d => {
       if (!depts[d.departamento]) depts[d.departamento] = { name: d.departamento, districts: {} };
       if (!depts[d.departamento].districts[d.distrito]) {
@@ -304,7 +301,6 @@ export default function UsersPage() {
       }
     });
 
-    // Casos especiales (Nacionales o usuarios sin jurisdicción explícita en datosData)
     const extraDepts: Record<string, { name: string, districts: Record<string, { name: string, users: UserProfile[] }> }> = {};
 
     filteredUsers.forEach(u => {
@@ -331,7 +327,6 @@ export default function UsersPage() {
         districts: Object.values(dept.districts).sort((a, b) => a.name.localeCompare(b.name))
       }))
       .filter(dept => {
-        // Si hay búsqueda, solo mostramos departamentos que tengan coincidencias o cuyos distritos tengan coincidencias
         if (!term) return true;
         return dept.name.toLowerCase().includes(term) || dept.districts.some(d => d.users.length > 0);
       })
@@ -610,7 +605,6 @@ export default function UsersPage() {
           </form>
         </Card>
 
-        {/* LISTADO JERÁRQUICO POR DEPARTAMENTO Y DISTRITO */}
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-primary p-6 rounded-xl shadow-lg">
                 <div className="flex items-center gap-3">
@@ -774,7 +768,7 @@ export default function UsersPage() {
                 <div className="p-8 space-y-10">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="space-y-3">
-                            <Label className="text- [10px] font-black uppercase text-muted-foreground">Nombre y Apellido</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Nombre y Apellido</Label>
                             <Input 
                                 value={editingUser.username} 
                                 onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}

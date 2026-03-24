@@ -578,7 +578,7 @@ export default function AgendaCapacitacionPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="font-black uppercase">¿ELIMINAR DEFINITIVAMENTE?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground pt-2">
-                Esta acción es irreversible y borrará el registro de la agenda.
+                Esta acción irreversible borrará el registro de la agenda.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6">
