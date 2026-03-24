@@ -78,7 +78,6 @@ function InformeContent() {
     fetchLogo();
   }, []);
 
-  // Sincronización: Cargar cantidad de encuestas realizadas para pre-marcar tablero
   useEffect(() => {
     if (!firestore || !selectedAgendaId) {
         setSurveysCount(0);
@@ -93,7 +92,6 @@ function InformeContent() {
             const count = snap.size;
             setSurveysCount(count);
             
-            // Pre-marcar celdas según encuestas realizadas
             const initialMarks = Array.from({ length: count }, (_, i) => i + 1);
             setMarcaciones(prev => {
                 const combined = new Set([...prev, ...initialMarks]);
@@ -251,11 +249,6 @@ function InformeContent() {
   };
 
   const toggleCell = (num: number) => {
-    // Si la celda es una de las marcadas automáticamente por encuesta QR, no permitir desmarcar para mantener coherencia
-    if (num <= surveysCount) {
-        toast({ title: "Marcación Protegida", description: "Esta práctica ya fue validada digitalmente mediante la encuesta QR del ciudadano." });
-        return;
-    }
     setMarcaciones(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]);
   };
 
@@ -429,8 +422,8 @@ function InformeContent() {
                         <Users className="h-5 w-5" />
                     </div>
                     <div className="flex-1">
-                        <p className="text-[10px] font-black text-green-800 uppercase tracking-widest">Sincronización Inteligente Activa</p>
-                        <p className="text-xs font-bold text-green-700 uppercase">Se han detectado {surveysCount} ciudadanos con encuesta QR completada. El tablero ha sido pre-marcado automáticamente.</p>
+                        <p className="text-[10px] font-black text-green-800 uppercase tracking-widest">Sincronización Digital Detectada</p>
+                        <p className="text-xs font-bold text-green-700 uppercase">Se han detectado {surveysCount} ciudadanos con encuesta QR completada. Se han sugerido marcaciones en el tablero.</p>
                     </div>
                 </CardContent>
             </Card>
@@ -560,7 +553,6 @@ function InformeContent() {
                 </div>
             </div>
 
-            {/* RESPALDO DOCUMENTAL - OBLIGATORIO */}
             <div className="space-y-4 pt-4 border-t-2 border-dashed border-black/10">
                 <div className="flex items-center gap-3 px-2">
                     <FileText className="h-5 w-5 text-primary" />
