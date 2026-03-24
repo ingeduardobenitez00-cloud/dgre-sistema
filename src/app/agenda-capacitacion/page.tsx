@@ -7,7 +7,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador } from '@/lib/data';
-import { Loader2, MapPin, Calendar, UserPlus, QrCode, Building2, LayoutList, Globe, Search, Trash2, Printer, CheckCircle2, User, Copy, Check, CalendarX } from 'lucide-react';
+import { Loader2, MapPin, Calendar, UserPlus, QrCode, Building2, LayoutList, Globe, Search, Trash2, Printer, CheckCircle2, User, Copy, Check, CalendarX, AlertCircle, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,6 @@ import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import jsPDF from 'jspdf';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -119,7 +118,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divuladoresQuery);
 
   useEffect(() => {
     if (!rawSolicitudes || !movimientosData || !informesData) return;
@@ -342,7 +341,6 @@ export default function AgendaCapacitacionPage() {
                 <AccordionContent className="px-8 pb-8 pt-2">
                   <Accordion type="multiple" className="space-y-4">
                     {Object.values(dept.dists).map((dist) => {
-                        // Agrupar items del distrito por local y entidad (Lote)
                         const batches: Record<string, SolicitudCapacitacion[]> = {};
                         dist.items.forEach(item => {
                             const key = `${item.solicitante_entidad}-${item.lugar_local}-${item.tipo_solicitud}`;
@@ -369,7 +367,6 @@ export default function AgendaCapacitacionPage() {
                                         return (
                                             <Card key={bIdx} className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white group/card">
                                                 <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch min-h-[140px]">
-                                                    {/* SECCIÓN SOLICITANTE */}
                                                     <div className="lg:col-span-3 p-8 bg-muted/5 border-r border-dashed border-black/10 flex flex-col justify-center gap-3">
                                                         <p className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.2em]">SOLICITANTE</p>
                                                         <h4 className="font-black text-sm uppercase leading-tight text-[#1A1A1A]">
@@ -380,14 +377,12 @@ export default function AgendaCapacitacionPage() {
                                                         </Badge>
                                                     </div>
 
-                                                    {/* SECCIÓN LUGAR Y FECHAS */}
                                                     <div className="lg:col-span-9 p-8 flex flex-col gap-6">
                                                         <div className="flex items-center gap-3">
                                                             <MapPin className="h-5 w-5 text-muted-foreground" />
                                                             <h3 className="text-lg font-black uppercase tracking-tight text-primary">{head.lugar_local}</h3>
                                                         </div>
 
-                                                        {/* LISTADO DE FECHAS (FILAS) */}
                                                         <div className="space-y-4">
                                                             {batch.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => {
                                                                 const mov = movimientosData?.find(m => m.solicitud_id === item.id);
@@ -399,17 +394,15 @@ export default function AgendaCapacitacionPage() {
                                                                 return (
                                                                     <div key={item.id} className={cn(
                                                                         "flex flex-col md:flex-row items-center gap-6 p-4 rounded-2xl border-2 transition-all",
-                                                                        isClosed ? "bg-green-50/30 border-green-200" : hasAlert ? "bg-destructive/[0.02] border-destructive/20" : "bg-[#F8F9FA] border-transparent hover:border-black/5"
+                                                                        isClosed ? "bg-green-50/30 border-green-200" : hasAlert ? "bg-destructive/[0.02] border-destructive/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]" : "bg-[#F8F9FA] border-transparent hover:border-black/5"
                                                                     )}>
-                                                                        {/* FECHA Y HORA */}
-                                                                        <div className="flex items-center gap-3 md:w-64">
+                                                                        <div className="flex items-center gap-3 md:w-48">
                                                                             <Calendar className={cn("h-4 w-4", hasAlert ? "text-destructive" : "text-muted-foreground")} />
                                                                             <p className={cn("font-black text-xs uppercase tracking-tighter", hasAlert ? "text-destructive" : "text-[#1A1A1A]")}>
                                                                                 {formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} HS
                                                                             </p>
                                                                         </div>
 
-                                                                        {/* DIVULGADOR */}
                                                                         <div className="flex-1 flex flex-col gap-1">
                                                                             <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">DIVULGADOR</p>
                                                                             {item.divulgador_nombre ? (
@@ -418,13 +411,31 @@ export default function AgendaCapacitacionPage() {
                                                                                     <span className="font-black text-[10px] uppercase">{item.divulgador_nombre}</span>
                                                                                 </div>
                                                                             ) : (
-                                                                                <span className="font-black text-[9px] text-destructive uppercase italic italic">SIN ASIGNAR</span>
+                                                                                <span className="font-black text-[9px] text-destructive uppercase italic">SIN ASIGNAR</span>
                                                                             )}
                                                                         </div>
 
-                                                                        {/* PANEL DE ACCIONES (2 FILAS) */}
+                                                                        <div className="md:w-32 flex flex-col gap-1">
+                                                                            <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">ESTADO</p>
+                                                                            {isClosed ? (
+                                                                                <div className="flex items-center gap-1.5 text-green-600 animate-in fade-in zoom-in duration-500">
+                                                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                                    <span className="font-black text-[9px] uppercase tracking-tighter">CUMPLIDO</span>
+                                                                                </div>
+                                                                            ) : hasAlert ? (
+                                                                                <div className="flex items-center gap-1.5 text-destructive animate-pulse">
+                                                                                    <AlertCircle className="h-3.5 w-3.5" />
+                                                                                    <span className="font-black text-[9px] uppercase tracking-tighter">INCUMPLIMIENTO</span>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="flex items-center gap-1.5 text-blue-600">
+                                                                                    <Clock className="h-3.5 w-3.5" />
+                                                                                    <span className="font-black text-[9px] uppercase tracking-tighter">EN AGENDA</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
                                                                         <div className="flex flex-col gap-1.5 md:w-[280px]">
-                                                                            {/* FILA 1: ASIGNACIÓN Y CONTROL */}
                                                                             <div className="flex gap-1.5 w-full">
                                                                                 <Button 
                                                                                     variant="outline" 
@@ -446,14 +457,13 @@ export default function AgendaCapacitacionPage() {
                                                                                     )}
                                                                                 </div>
                                                                             </div>
-                                                                            {/* FILA 2: QR E INFORME */}
                                                                             <div className="flex gap-1.5 w-full">
                                                                                 <Button variant="outline" size="icon" className="h-8 w-12 rounded-lg border-2 bg-white" onClick={() => setQrSolicitud(item)}>
                                                                                     <QrCode className="h-3.5 w-3.5" />
                                                                                 </Button>
                                                                                 <Link href={`/informe-divulgador?solicitudId=${item.id}`} className="flex-1">
                                                                                     <Button className={cn("h-8 w-full rounded-lg font-black uppercase text-[9px] shadow-sm", inf ? "bg-green-600 hover:bg-green-700" : "bg-black hover:bg-black/90")}>
-                                                                                        {inf ? 'CUMPLIDO' : 'INFORME'}
+                                                                                        {inf ? 'VER INFORME' : 'INFORME'}
                                                                                     </Button>
                                                                                 </Link>
                                                                             </div>
@@ -479,7 +489,6 @@ export default function AgendaCapacitacionPage() {
         )}
       </main>
 
-      {/* DIALOGS */}
       <Dialog open={!!assigningSolicitud} onOpenChange={(o) => !o && setAssigningSolicitud(null)}>
         <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-black text-white p-6">
