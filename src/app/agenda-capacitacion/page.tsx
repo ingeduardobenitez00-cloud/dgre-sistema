@@ -18,7 +18,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import jsPDF from 'jspdf';
 import {
@@ -125,7 +124,7 @@ export default function AgendaCapacitacionPage() {
     rawSolicitudes.forEach(sol => {
       const mov = movimientosData.find(m => m.solicitud_id === sol.id);
       const inf = informesData.find(i => i.solicitud_id === sol.id);
-      const isClosed = mov?.devolucion && inf;
+      const isClosed = !!(mov?.devolucion && inf);
 
       if (isClosed && !hiddenIds.has(sol.id) && !pendingArchiveIds.has(sol.id)) {
         setPendingArchiveIds(prev => new Set(prev).add(sol.id));
@@ -394,6 +393,9 @@ export default function AgendaCapacitacionPage() {
                                                                 const today = new Date().toISOString().split('T')[0];
                                                                 const hasAlert = item.fecha < today && !isClosed;
 
+                                                                const missingF02 = !mov?.devolucion;
+                                                                const missingAnexoIII = !inf;
+
                                                                 return (
                                                                     <div key={item.id} className={cn(
                                                                         "flex flex-col md:flex-row items-center gap-6 p-4 rounded-2xl border-2 transition-all",
@@ -426,9 +428,14 @@ export default function AgendaCapacitacionPage() {
                                                                                     <span className="font-black text-[9px] uppercase tracking-tighter">CUMPLIDO</span>
                                                                                 </div>
                                                                             ) : hasAlert ? (
-                                                                                <div className="flex items-center gap-1.5 text-destructive animate-pulse">
-                                                                                    <AlertCircle className="h-3.5 w-3.5" />
-                                                                                    <span className="font-black text-[9px] uppercase tracking-tighter">INCUMPLIMIENTO</span>
+                                                                                <div className="flex flex-col gap-0.5">
+                                                                                    <span className="text-[6px] font-black text-destructive uppercase tracking-tighter leading-none animate-pulse">
+                                                                                        {(missingF02 && missingAnexoIII) ? "FALTA F02 Y ANEXO III" : missingF02 ? "FALTA F02 (DEVOLUCIÓN)" : "FALTA ANEXO III"}
+                                                                                    </span>
+                                                                                    <div className="flex items-center gap-1.5 text-destructive animate-pulse">
+                                                                                        <AlertCircle className="h-3.5 w-3.5" />
+                                                                                        <span className="font-black text-[9px] uppercase tracking-tighter">INCUMPLIMIENTO</span>
+                                                                                    </div>
                                                                                 </div>
                                                                             ) : (
                                                                                 <div className="flex items-center gap-1.5 text-blue-600">
