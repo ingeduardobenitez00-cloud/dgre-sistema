@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -43,7 +44,8 @@ import {
   ClipboardList,
   CalendarCog,
   Archive,
-  Settings
+  Settings,
+  MapPin
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -64,7 +66,8 @@ export default function AppSidebar() {
     {
       label: "CIDEE - CAPACITACIONES",
       items: [
-        { href: "/solicitud-capacitacion", label: "Nueva Solicitud", icon: ClipboardCheck },
+        { href: "/anexo-i", label: "Anexo I - Lugares Fijos", icon: MapPin },
+        { href: "/solicitud-capacitacion", label: "Solicitud Capacitación", icon: ClipboardCheck },
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
         { href: "/control-movimiento-maquinas", label: "Movimiento de Máquinas", icon: ArrowLeftRight },
         { href: "/denuncia-lacres", label: "Denuncia de Lacres", icon: ShieldAlert },
@@ -139,10 +142,9 @@ export default function AppSidebar() {
   return (
     <div className="flex h-full flex-col bg-white border-r">
       <SidebarHeader className="py-6 px-6">
-        {/* ENCABEZADO MINIMALISTA SIN REDUNDANCIA DE LOGO */}
         <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">MENÚ DE GESTIÓN</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">SISTEMA DE GESTIÓN</span>
         </div>
       </SidebarHeader>
       

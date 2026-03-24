@@ -337,7 +337,7 @@ export default function SolicitudCapacitacionPage() {
             usuario_rol: profile?.role || 'funcionario',
             accion: 'PDF_GENERADO',
             modulo: 'solicitud-capacitacion',
-            detalles: `Generación de Proforma PDF para ${formData.lugar_local}`
+            detalles: `Generación de Solicitud PDF para ${formData.lugar_local}`
         });
     }
 
@@ -382,7 +382,7 @@ export default function SolicitudCapacitacionPage() {
     doc.rect(margin, 35, pageWidth - (margin * 2), 8, 'F');
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text("ANEXO V – PROFORMA DE SOLICITUD", pageWidth / 2, 40.5, { align: "center" });
+    doc.text("ANEXO V – SOLICITUD DE CAPACITACIÓN", pageWidth / 2, 40.5, { align: "center" });
 
     let y = 55;
     doc.setFontSize(10);
@@ -490,7 +490,7 @@ export default function SolicitudCapacitacionPage() {
     y += 30;
     doc.text("Firma del Solicitante: ________________________________________________", margin, y);
 
-    doc.save(`Solicitud-${formData.lugar_local.replace(/\s+/g, '-') || 'AnexoV'}.pdf`);
+    doc.save(`Solicitud-${formData.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
 
   const partidosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'partidos-politicos'), orderBy('nombre')) : null, [firestore]);
@@ -502,13 +502,13 @@ export default function SolicitudCapacitacionPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
-      <Header title="Nueva Solicitud" />
+      <Header title="Solicitud de Capacitación" />
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h1 className="text-3xl font-black tracking-tight text-primary uppercase">Nueva Solicitud</h1>
                 <p className="text-muted-foreground text-xs font-bold uppercase flex items-center gap-2 mt-1">
-                    <FileText className="h-3.5 w-3.5" /> Registro oficial con trazabilidad de auditoría activa.
+                    <FileText className="h-3.5 w-3.5" /> Registro oficial de pedidos de organizaciones políticas.
                 </p>
             </div>
             <div className="flex gap-2">
@@ -729,5 +729,3 @@ export default function SolicitudCapacitacionPage() {
     </div>
   );
 }
-
-    

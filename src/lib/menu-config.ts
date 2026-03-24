@@ -1,12 +1,18 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText, ClipboardList, CalendarCog, Archive } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText, ClipboardList, CalendarCog, Archive, MapPin } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
+    href: '/anexo-i',
+    label: 'Anexo I - Lugares Fijos',
+    icon: MapPin,
+    description: 'Planificación semanal de lugares fijos de divulgación.',
+  },
+  {
     href: '/solicitud-capacitacion',
-    label: 'Nueva Solicitud',
+    label: 'Solicitud de Capacitación',
     icon: ClipboardCheck,
-    description: 'Crea una nueva solicitud de capacitación con firma.',
+    description: 'Crea una nueva solicitud de capacitación para organizaciones políticas.',
   },
   {
     href: '/agenda-capacitacion',

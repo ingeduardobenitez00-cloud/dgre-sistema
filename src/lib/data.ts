@@ -85,11 +85,30 @@ export type Divulgador = {
   fecha_registro: string;
 }
 
+export type AnexoIFila = {
+  lugar: string;
+  direccion: string;
+  fecha_desde: string;
+  fecha_hasta: string;
+  hora_desde: string;
+  hora_hasta: string;
+}
+
+export type AnexoI = {
+  id: string;
+  tipo_oficina: 'REGISTRO' | 'CENTRO_CIVICO';
+  departamento: string;
+  distrito: string;
+  filas: AnexoIFila[];
+  usuario_id: string;
+  fecha_creacion: string;
+}
+
 export type SolicitudCapacitacion = {
   id: string;
   solicitante_entidad: string;
   otra_entidad?: string;
-  tipo_solicitud: 'divulgacion' | 'capacitacion';
+  tipo_solicitud: 'divulgacion' | 'capacitacion' | 'Lugar Fijo';
   fecha: string;
   hora_desde: string;
   hora_hasta: string;
@@ -150,6 +169,7 @@ export type InformeDivulgador = {
   fotos?: string[];
   usuario_id: string;
   fecha_creacion: string;
+  solicitud_id: string;
 }
 
 export type InformeSemanalFila = {
