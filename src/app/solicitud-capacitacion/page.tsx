@@ -217,6 +217,35 @@ export default function SolicitudCapacitacionPage() {
 
   const profile = user?.profile;
 
+  // FUNCIÓN DE COMPRESIÓN CENTRALIZADA
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const scaleSize = Math.min(1, MAX_WIDTH / img.width);
+          canvas.width = img.width * scaleSize;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const maquinasQuery = useMemoFirebase(() => {
     if (!firestore || !profile?.departamento || !profile?.distrito) return null;
     return query(collection(firestore, 'maquinas'), where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
@@ -259,24 +288,30 @@ export default function SolicitudCapacitacionPage() {
   const takePhoto = () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      const MAX_WIDTH = 1200;
+      const scaleSize = Math.min(1, MAX_WIDTH / videoRef.current.videoWidth);
+      canvas.width = videoRef.current.videoWidth * scaleSize;
+      canvas.height = videoRef.current.videoHeight * scaleSize;
+      
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0);
-        const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUri = canvas.toDataURL('image/jpeg', 0.7);
         setPhotoDataUri(dataUri);
         stopCamera();
       }
     }
   };
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoDataUri(reader.result as string);
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file);
+        setPhotoDataUri(compressed);
+      } catch (err) {
+        toast({ variant: 'destructive', title: "Error al procesar respaldo" });
+      }
     }
   };
 
@@ -549,6 +584,8 @@ export default function SolicitudCapacitacionPage() {
     const entidadFinal = formData.solicitante_entidad || formData.otra_entidad;
     return !!(entidadFinal && formData.lugar_local && formData.nombre_completo && photoDataUri && formData.fecha);
   }, [formData, photoDataUri]);
+
+  if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">

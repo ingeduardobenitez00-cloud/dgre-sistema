@@ -69,7 +69,7 @@ export default function AnexoIPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Inicialización limpia (campos vacíos para forzar carga manual AM/PM)
+  // Inicialización limpia
   const [filas, setFilas] = useState<AnexoIFila[]>(
     Array.from({ length: 10 }, () => ({
       lugar: '',
@@ -98,6 +98,35 @@ export default function AnexoIPage() {
 
   const profile = user?.profile;
 
+  // FUNCIÓN DE COMPRESIÓN CENTRALIZADA
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const scaleSize = Math.min(1, MAX_WIDTH / img.width);
+          canvas.width = img.width * scaleSize;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const startCamera = async () => {
     setIsCameraOpen(true);
     try {
@@ -123,24 +152,31 @@ export default function AnexoIPage() {
   const takePhoto = () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      // Aplicamos redimensión también en captura directa
+      const MAX_WIDTH = 1200;
+      const scaleSize = Math.min(1, MAX_WIDTH / videoRef.current.videoWidth);
+      canvas.width = videoRef.current.videoWidth * scaleSize;
+      canvas.height = videoRef.current.videoHeight * scaleSize;
+      
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0);
-        const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUri = canvas.toDataURL('image/jpeg', 0.7);
         setFotoRespaldo(dataUri);
         stopCamera();
       }
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setFotoRespaldo(reader.result as string);
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file);
+        setFotoRespaldo(compressed);
+      } catch (err) {
+        toast({ variant: 'destructive', title: "Error al procesar archivo" });
+      }
     }
   };
 

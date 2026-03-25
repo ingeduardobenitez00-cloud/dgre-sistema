@@ -77,6 +77,35 @@ function InformeContent() {
     fetchLogo();
   }, []);
 
+  // FUNCIÓN DE COMPRESIÓN CENTRALIZADA
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const scaleSize = Math.min(1, MAX_WIDTH / img.width);
+          canvas.width = img.width * scaleSize;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   useEffect(() => {
     if (!firestore || !selectedAgendaId) {
         setSurveysCount(0);
@@ -186,7 +215,7 @@ function InformeContent() {
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; }
     } catch (err) {
-      toast({ variant: "destructive", title: "Error de Cámara", description: "No se pudo acceder a la cámara del dispositivo." });
+      toast({ variant: "destructive", title: "Error de Cámara" });
       setIsCameraOpen(false);
     }
   };
@@ -202,19 +231,22 @@ function InformeContent() {
   const takePhoto = () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      const MAX_WIDTH = 1200;
+      const scaleSize = Math.min(1, MAX_WIDTH / videoRef.current.videoWidth);
+      canvas.width = videoRef.current.videoWidth * scaleSize;
+      canvas.height = videoRef.current.videoHeight * scaleSize;
+      
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0);
-        const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUri = canvas.toDataURL('image/jpeg', 0.7);
         setRespaldoPhoto(dataUri);
         stopCamera();
       }
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
       if (photos.length >= 5) {
@@ -222,24 +254,28 @@ function InformeContent() {
         return;
       }
       const remainingSlots = 5 - photos.length;
-      Array.from(files).slice(0, remainingSlots).forEach(file => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPhotos(prev => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-      });
+      const selection = Array.from(files).slice(0, remainingSlots);
+      
+      for (const file of selection) {
+        try {
+          const compressed = await compressImage(file);
+          setPhotos(prev => [...prev, compressed]);
+        } catch (err) {
+          toast({ variant: 'destructive', title: "Error al procesar foto" });
+        }
+      }
     }
   };
 
-  const handleRespaldoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRespaldoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setRespaldoPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file);
+        setRespaldoPhoto(compressed);
+      } catch (err) {
+        toast({ variant: 'destructive', title: "Error al procesar respaldo" });
+      }
     }
   };
 

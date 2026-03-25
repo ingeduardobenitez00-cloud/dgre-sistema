@@ -68,6 +68,35 @@ function DenunciaContent() {
     fetchLogo();
   }, []);
 
+  // FUNCIÓN DE COMPRESIÓN CENTRALIZADA
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const scaleSize = Math.min(1, MAX_WIDTH / img.width);
+          canvas.width = img.width * scaleSize;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const agendaQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !user?.profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
@@ -135,12 +164,15 @@ function DenunciaContent() {
   const takePhoto = () => {
     if (videoRef.current && activeCameraTarget) {
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      const MAX_WIDTH = 1200;
+      const scaleSize = Math.min(1, MAX_WIDTH / videoRef.current.videoWidth);
+      canvas.width = videoRef.current.videoWidth * scaleSize;
+      canvas.height = videoRef.current.videoHeight * scaleSize;
+      
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0);
-        const dataUri = canvas.toDataURL('image/jpeg', 0.8);
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUri = canvas.toDataURL('image/jpeg', 0.7);
         if (activeCameraTarget === 'evidencia') {
             setDenunciaFotos(prev => [...prev, dataUri].slice(0, 5));
         }
@@ -150,21 +182,28 @@ function DenunciaContent() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'evidencia' | 'respaldo') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'evidencia' | 'respaldo') => {
     const files = e.target.files;
     if (files) {
       if (target === 'respaldo') {
           const file = files[0];
-          const reader = new FileReader();
-          reader.onload = () => setRespaldoPhoto(reader.result as string);
-          reader.readAsDataURL(file);
+          try {
+            const compressed = await compressImage(file);
+            setRespaldoPhoto(compressed);
+          } catch (err) {
+            toast({ variant: 'destructive', title: "Error al procesar respaldo" });
+          }
       } else {
           const remaining = 5 - denunciaFotos.length;
-          Array.from(files).slice(0, remaining).forEach(file => {
-              const reader = new FileReader();
-              reader.onload = () => setDenunciaFotos(prev => [...prev, reader.result as string].slice(0, 5));
-              reader.readAsDataURL(file);
-          });
+          const selection = Array.from(files).slice(0, remaining);
+          for (const file of selection) {
+            try {
+              const compressed = await compressImage(file);
+              setDenunciaFotos(prev => [...prev, compressed].slice(0, 5));
+            } catch (err) {
+              toast({ variant: 'destructive', title: "Error al procesar evidencia" });
+            }
+          }
       }
     }
   };
