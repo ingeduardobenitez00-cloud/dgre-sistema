@@ -109,13 +109,15 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       const jefeModules = [
+        'anexo-i',
         'solicitud-capacitacion',
         'agenda-capacitacion',
         'control-movimiento-maquinas',
         'denuncia-lacres',
         'informe-divulgador',
         'informe-semanal-puntos-fijos',
-        'encuesta-satisfaccion'
+        'encuesta-satisfaccion',
+        'archivo-capacitaciones'
       ];
 
       const jefePermissions = [
