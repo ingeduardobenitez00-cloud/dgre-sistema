@@ -12,6 +12,7 @@ import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/
 import { collection, addDoc, serverTimestamp, query, where, doc } from 'firebase/firestore';
 import { type Dato, type InformeSemanalRegistro } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from "@/components/ui/separator";
 import { formatDateToDDMMYYYY, cn } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -375,7 +376,7 @@ export default function InformeSemanalRegistroPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">Cant. de Inscripciones 1ra Vez</Label>
-                        <Input type="number" value={formData.inscripciones_1ra_vez} onChange={e => setFormData(p => ({...p, json_inscripciones_1ra_vez: parseInt(e.target.value) || 0}))} className="h-12 font-bold border-2 bg-muted/10 rounded-xl" />
+                        <Input type="number" value={formData.inscripciones_1ra_vez} onChange={e => setFormData(p => ({...p, inscripciones_1ra_vez: parseInt(e.target.value) || 0}))} className="h-12 font-bold border-2 bg-muted/10 rounded-xl" />
                     </div>
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tight">Cant. de Actualización de Datos (Automática)</Label>
@@ -422,6 +423,8 @@ export default function InformeSemanalRegistroPage() {
                 </div>
             )}
 
+            <Separator />
+
             {/* Boletas y Otros */}
             <div className="space-y-6">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Boletas de Inscripción y Otros</Label>
@@ -463,7 +466,7 @@ export default function InformeSemanalRegistroPage() {
 
           </CardContent>
           <CardFooter className="p-0 border-t bg-black overflow-hidden">
-            <Button onClick={handleSave} disabled={isSubmitting || !dateRange?.from} className="w-full h-20 text-xl font-black uppercase rounded-none tracking-[0.2em] bg-black hover:bg-black/90 text-white">
+            <Button onClick={handleSave} disabled={isSubmitting || !dateRange?.from} className="w-full h-16 bg-black hover:bg-black/90 text-white text-xl font-black uppercase rounded-none tracking-[0.2em]">
                 {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <ClipboardList className="mr-3 h-6 w-6" />}
                 ENVIAR INFORME SEMANAL
             </Button>

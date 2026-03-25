@@ -31,6 +31,8 @@ import { formatDateToDDMMYYYY, cn } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Separator } from "@/components/ui/separator";
+import { Badge } from '@/components/ui/badge';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Image from 'next/image';
@@ -81,7 +83,7 @@ export default function InformeSemanalAnexoIVPage() {
   const isJefeView = !isAdminView && !isDistView && (profile?.role === 'jefe' || profile?.permissions?.includes('department_filter'));
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
-  const { data: datosData } = useCollection<Dato>(datosQuery);
+  const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
   const departments = useMemo(() => {
     if (!datosData) return [];
