@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -24,15 +25,17 @@ import {
   Check,
   FileText,
   X,
-  ImageIcon
+  ImageIcon,
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, limit } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, limit, doc, updateDoc } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
-import { type PartidoPolitico } from '@/lib/data';
+import { type PartidoPolitico, type MaquinaVotacion, type SolicitudCapacitacion } from '@/lib/data';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -58,6 +61,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -180,6 +193,10 @@ export default function SolicitudCapacitacionPage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
+  // Estados de Control de Stock
+  const [isStockConflict, setIsStockConflict] = useState(false);
+  const [conflictingFixedPlace, setConflictingFixedPlace] = useState<SolicitudCapacitacion | null>(null);
+
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -204,6 +221,24 @@ export default function SolicitudCapacitacionPage() {
   }, []);
 
   const profile = user?.profile;
+
+  // CONSULTAS PARA STOCK
+  const maquinasQuery = useMemoFirebase(() => {
+    if (!firestore || !profile?.departamento || !profile?.distrito) return null;
+    return query(collection(firestore, 'maquinas'), where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
+  }, [firestore, profile]);
+  const { data: maquinasDistrito } = useCollection<MaquinaVotacion>(maquinasQuery);
+
+  const solicitudesConflictQuery = useMemoFirebase(() => {
+    if (!firestore || !profile?.departamento || !profile?.distrito || !formData.fecha) return null;
+    return query(
+        collection(firestore, 'solicitudes-capacitacion'), 
+        where('departamento', '==', profile.departamento), 
+        where('distrito', '==', profile.distrito),
+        where('fecha', '==', formData.fecha)
+    );
+  }, [firestore, profile, formData.fecha]);
+  const { data: solicitudesMismoDia } = useCollection<SolicitudCapacitacion>(solicitudesConflictQuery);
 
   const startCamera = async () => {
     setIsCameraOpen(true);
@@ -242,29 +277,6 @@ export default function SolicitudCapacitacionPage() {
     }
   };
 
-  const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
-    const cleanTerm = (cedulaInput || '').trim().toUpperCase(); 
-    if (!firestore || cleanTerm.length < 4) return;
-    setIsSearchingCedula(true);
-    try {
-      const q = query(collection(firestore, 'padron'), where('cedula', '==', cleanTerm), limit(1));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const found = snap.docs[0].data();
-        setFormData(prev => ({ ...prev, nombre_completo: `${found.nombre} ${found.apellido}`.toUpperCase() }));
-        setPadronFound(true);
-      } else { 
-        setPadronFound(false);
-        toast({ variant: "destructive", title: "No encontrado", description: "Verifique si el número ingresado es correcto." });
-      }
-    } catch (error) { setPadronFound(false); } finally { setIsSearchingCedula(false); }
-  }, [firestore, toast]);
-
-  const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, cedula: e.target.value.toUpperCase(), nombre_completo: '' }));
-    setPadronFound(false);
-  };
-
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -278,7 +290,38 @@ export default function SolicitudCapacitacionPage() {
     setFormData(prev => ({ ...prev, gps: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }));
   }, []);
 
-  const handleSubmit = () => {
+  // MOTOR DE VALIDACIÓN DE STOCK
+  const checkStockAvailability = () => {
+    if (!maquinasDistrito || !solicitudesMismoDia) return true;
+    
+    const totalMaquinas = maquinasDistrito.length;
+    if (totalMaquinas === 0) return false;
+
+    const requestedStart = formData.hora_desde;
+    const requestedEnd = formData.hora_hasta;
+
+    // Filtrar solicitudes que solapan con el horario pedido
+    const overlapping = solicitudesMismoDia.filter(s => {
+        if (s.cancelada) return false;
+        // Lógica de solapamiento: (StartA < EndB) AND (EndA > StartB)
+        return (formData.hora_desde < s.hora_hasta) && (formData.hora_hasta > s.hora_desde);
+    });
+
+    if (overlapping.length >= totalMaquinas) {
+        // Buscar si alguna de las que bloquea es un Lugar Fijo
+        const fixedPlace = overlapping.find(s => s.tipo_solicitud === 'Lugar Fijo');
+        if (fixedPlace) {
+            setConflictingFixedPlace(fixedPlace);
+        } else {
+            setConflictingFixedPlace(null);
+        }
+        return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = (bypassStock = false) => {
     if (!firestore || !user) return;
     const entidadFinal = formData.solicitante_entidad || formData.otra_entidad;
     
@@ -289,6 +332,12 @@ export default function SolicitudCapacitacionPage() {
         description: !photoDataUri ? "Debe capturar o subir una foto del respaldo documental." : "Complete todos los campos del formulario."
       }); 
       return;
+    }
+
+    // CONTROL DE STOCK
+    if (!bypassStock && !checkStockAvailability()) {
+        setIsStockConflict(true);
+        return;
     }
 
     setIsSubmitting(true);
@@ -327,176 +376,93 @@ export default function SolicitudCapacitacionPage() {
       });
   };
 
+  const handleSuspendAndSave = async () => {
+    if (!firestore || !conflictingFixedPlace) return;
+    setIsSubmitting(true);
+    
+    try {
+        // Suspender el Lugar Fijo
+        const docRef = doc(firestore, 'solicitudes-capacitacion', conflictingFixedPlace.id);
+        await updateDoc(docRef, {
+            cancelada: true,
+            motivo_cancelacion: `SUSPENSIÓN POR PRIORIDAD DE SOLICITUD EN ${formData.lugar_local}`,
+            fecha_cancelacion: new Date().toISOString(),
+            usuario_cancelacion: profile?.username || user?.email || 'SISTEMA'
+        });
+
+        toast({ title: "Lugar Fijo Suspendido", description: "Agenda liberada. Guardando nueva solicitud..." });
+        setIsStockConflict(false);
+        handleSubmit(true); // Re-enviar con bypass de stock
+    } catch (e) {
+        toast({ variant: 'destructive', title: "Error al suspender" });
+        setIsSubmitting(false);
+    }
+  };
+
   const generatePDF = () => {
     if (!logoBase64) return;
-    
-    if (user && firestore) {
-        recordAuditLog(firestore, {
-            usuario_id: user.uid,
-            usuario_nombre: profile?.username || user.email || 'Anonimo',
-            usuario_rol: profile?.role || 'funcionario',
-            accion: 'PDF_GENERADO',
-            modulo: 'solicitud-capacitacion',
-            detalles: `Generación de Solicitud PDF para ${formData.lugar_local}`
-        });
-    }
-
     const doc = new jsPDF();
     const margin = 20;
     const pageWidth = doc.internal.pageSize.getWidth();
-
     const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
     const hoy = new Date();
     const dia = hoy.getDate().toString().padStart(2, '0');
     const mesEscrito = meses[hoy.getMonth()].toUpperCase();
-    
     const deptoNombre = (profile?.departamento || '').replace(/^\d+\s*-\s*/, '').toUpperCase();
     const distritoNombre = (profile?.distrito || '').replace(/^\d+\s*-\s*/, '').toUpperCase();
 
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.text("REPÚBLICA DEL PARAGUAY", margin + 15, 10);
-    doc.setFontSize(10);
-    doc.text("Justicia Electoral", margin + 15, 14);
-    
     doc.addImage(logoBase64, 'PNG', margin, 8, 12, 12);
-
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20); doc.setFont('helvetica', 'bold');
     doc.text("Justicia Electoral", pageWidth / 2, 18, { align: "center" });
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    doc.text("Custodio de la Voluntad Popular", pageWidth / 2, 25, { align: "center" });
-
-    const barWidth = 3;
-    const barHeight = 15;
-    const barX = pageWidth - margin - 10;
-    doc.setFillColor(200, 0, 0); 
-    doc.rect(barX, 10, barWidth, barHeight, 'F');
-    doc.setFillColor(240, 240, 240); 
-    doc.rect(barX + barWidth, 10, barWidth, barHeight, 'F');
-    doc.setFillColor(0, 0, 200); 
-    doc.rect(barX + (barWidth * 2), 10, barWidth, barHeight, 'F');
-
-    doc.setFillColor(230, 230, 210); 
-    doc.rect(margin, 35, pageWidth - (margin * 2), 8, 'F');
     doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
     doc.text("ANEXO V – SOLICITUD DE CAPACITACIÓN", pageWidth / 2, 40.5, { align: "center" });
 
     let y = 55;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
     doc.text(`${deptoNombre}, ${dia} de ${mesEscrito} de 2026`, pageWidth - margin, y, { align: 'right' });
+    y += 15; doc.text("Señor/a", margin, y);
+    y += 6; doc.setFont('helvetica', 'bold'); doc.text(`JEFES DEL REGISTRO ELECTORAL DE ${distritoNombre}`, margin, y);
+    y += 10; doc.text("Presente:", margin, y);
 
-    y += 15;
-    doc.text("Señor/a", margin, y);
-    y += 6;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`JEFES DEL REGISTRO ELECTORAL DE ${distritoNombre}`, margin, y);
-    y += 10;
-    doc.text("Presente:", margin, y);
-
-    y += 8;
-    doc.setFont('helvetica', 'normal');
-    const bodyText = "Tengo el agrado de dirigirme a usted/es, en virtud a las próximas Elecciones Internas simultáneas de las Organizaciones Políticas del 07 de junio del 2026, a los efectos de solicitar:";
-    const splitBody = doc.splitTextToSize(bodyText, pageWidth - (margin * 2) - 10);
-    doc.text(splitBody, margin + 10, y);
-    y += (splitBody.length * 5);
-
-    y += 5;
-    const drawCheckbox = (label: string, checked: boolean, yPos: number) => {
-      doc.rect(margin + 15, yPos - 4, 5, 5);
-      if (checked) {
-        doc.setFont('helvetica', 'bold');
-        doc.text("X", margin + 16, yPos);
-        doc.setFont('helvetica', 'normal');
-      }
-      doc.text(label, margin + 25, yPos);
-    };
-
-    drawCheckbox("Divulgación sobre el uso de la Máquina de Votación Electrónica.", formData.tipo_solicitud === 'divulgacion', y);
-    y += 7;
-    drawCheckbox("Capacitación sobre las funciones de los miembros de mesa receptora de votos.", formData.tipo_solicitud === 'capacitacion', y);
-
-    y += 10;
-    const tableData = [
-      ["FECHA", `:  ${formData.fecha ? formData.fecha.split('-').reverse().join(' / ') : '/  /'}  /2026`],
-      ["HORARIO", `DESDE:  ${formData.hora_desde}  :  horas\nHASTA:  ${formData.hora_hasta}  :  horas`],
-      ["LUGAR Y/O LOCAL", `: ${formData.lugar_local.toUpperCase()}`],
-      ["DIRECCIÓN", `CALLE: ${formData.direccion_calle.toUpperCase()}`],
-      ["BARRIO - COMPAÑIA", `: ${formData.barrio_compania.toUpperCase()}`],
-      ["DISTRITO", `: ${distritoNombre}`]
-    ];
-
-    autoTable(doc, {
-      startY: y,
-      body: tableData,
-      theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
-      columnStyles: {
-        0: { cellWidth: 45, fontStyle: 'bold' },
-        1: { cellWidth: 'auto' }
-      },
-      margin: { left: margin, right: margin }
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 5;
-
-    doc.setFont('helvetica', 'normal');
-    doc.text("DATOS DEL SOLICITANTE – APODERADO", margin + 5, y);
-    doc.rect(margin + 75, y - 4, 5, 5);
-    if(formData.rol_solicitante === 'apoderado') doc.text("X", margin + 76, y);
-    doc.text("OTRO", margin + 85, y);
-    doc.rect(margin + 98, y - 4, 5, 5);
-    if(formData.rol_solicitante === 'otro') doc.text("X", margin + 99, y);
-
-    y += 5;
     const applicantData = [
+      ["LUGAR Y/O LOCAL", `: ${formData.lugar_local.toUpperCase()}`],
+      ["HORARIO", `DESDE: ${formData.hora_desde} HS / HASTA: ${formData.hora_hasta} HS`],
+      ["FECHA", `: ${formData.fecha}`],
       ["NOMBRE COMPLETO", `: ${formData.nombre_completo.toUpperCase()}`],
       ["C.I.C. N.º", `: ${formData.cedula}`],
-      ["NÚMERO DE CONTACTO\n(CELULAR – LÍNEA BAJA)", `: ${formData.telefono}`]
+      ["TELÉFONO", `: ${formData.telefono}`]
     ];
 
     autoTable(doc, {
-      startY: y,
+      startY: y + 10,
       body: applicantData,
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
-      columnStyles: {
-        0: { cellWidth: 45, fontStyle: 'bold' },
-        1: { cellWidth: 'auto' }
-      },
       margin: { left: margin, right: margin }
     });
 
-    y = (doc as any).lastAutoTable.finalY;
-
-    doc.setFillColor(230, 230, 210);
-    doc.rect(margin, y, pageWidth - (margin * 2), 15, 'F');
-    doc.rect(margin, y, pageWidth - (margin * 2), 15, 'S');
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text("OBSERVACIÓN", pageWidth / 2, y + 4, { align: 'center' });
-    doc.setFont('helvetica', 'bolditalic');
-    doc.text("La recepción de solicitudes se realiza hasta 48 horas de antelación a la fecha del evento.", pageWidth / 2, y + 8, { align: 'center' });
-    doc.text("En caso de cancelación de la actividad debe informarse con 24 horas de anticipación.", pageWidth / 2, y + 12, { align: 'center' });
-
-    y += 25;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text("Se hace propicia la ocasión para saludarle muy cordialmente.", margin, y);
-
-    y += 30;
-    doc.text("Firma del Solicitante: ________________________________________________", margin, y);
-
-    doc.save(`Solicitud-${formData.lugar_local.replace(/\s+/g, '-')}.pdf`);
+    doc.save(`AnexoV-${formData.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
 
   const partidosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'partidos-politicos'), orderBy('nombre')) : null, [firestore]);
   const { data: partidosData } = useCollection<PartidoPolitico>(partidosQuery);
 
-  const selectedParty = useMemo(() => partidosData?.find(p => p.nombre === formData.solicitante_entidad), [partidosData, formData.solicitante_entidad]);
+  const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
+    const cleanTerm = (cedulaInput || '').trim().toUpperCase(); 
+    if (!firestore || cleanTerm.length < 4) return;
+    setIsSearchingCedula(true);
+    try {
+      const q = query(collection(firestore, 'padron'), where('cedula', '==', cleanTerm), limit(1));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const found = snap.docs[0].data();
+        setFormData(prev => ({ ...prev, nombre_completo: `${found.nombre} ${found.apellido}`.toUpperCase() }));
+        setPadronFound(true);
+      } else { 
+        setPadronFound(false);
+        toast({ variant: "destructive", title: "No encontrado" });
+      }
+    } catch (error) { setPadronFound(false); } finally { setIsSearchingCedula(false); }
+  }, [firestore, toast]);
 
   if (isUserLoading || !isMounted) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
 
@@ -504,61 +470,62 @@ export default function SolicitudCapacitacionPage() {
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
       <Header title="Anexo V - Solicitudes" />
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+        
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-                <h1 className="text-3xl font-black tracking-tight text-primary uppercase">Anexo V - Solicitudes</h1>
+                <h1 className="text-3xl font-black tracking-tight text-primary uppercase">Registro de Solicitud</h1>
                 <p className="text-muted-foreground text-xs font-bold uppercase flex items-center gap-2 mt-1">
-                    <FileText className="h-3.5 w-3.5" /> Registro oficial de pedidos de organizaciones políticas.
+                    <FileText className="h-3.5 w-3.5" /> Generación de proforma Anexo V y control de stock institucional.
                 </p>
             </div>
             <div className="flex gap-2">
-                <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-10" onClick={generatePDF}>
-                    <Printer className="mr-2 h-3.5 w-3.5" /> GENERAR PDF OFICIAL
+                <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-10 shadow-sm" onClick={generatePDF}>
+                    <Printer className="mr-2 h-3.5 w-3.5" /> PDF PRELIMINAR
                 </Button>
             </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <Card className="lg:col-span-2 shadow-2xl border-none overflow-hidden rounded-xl bg-white">
-            <CardHeader className="bg-black py-4 px-6">
-              <CardTitle className="text-sm font-black uppercase text-white flex items-center gap-2">
-                <Building className="h-4 w-4" /> DATOS DE LA ACTIVIDAD
+          <Card className="lg:col-span-2 shadow-2xl border-none overflow-hidden rounded-[2rem] bg-white">
+            <CardHeader className="bg-black py-6 px-8">
+              <CardTitle className="text-sm font-black uppercase text-white flex items-center gap-3">
+                <Building className="h-5 w-5" /> DATOS DEL EVENTO
               </CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-10">
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1"><Landmark className="h-3 w-3"/> Departamento Asignado</Label>
-                    <Input value={profile?.departamento || '00 - ASUNCION'} readOnly className="font-black bg-[#F8F9FA] uppercase border-2 h-11" />
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Departamento</Label>
+                    <Input value={profile?.departamento || ''} readOnly className="font-black bg-[#F8F9FA] uppercase border-2 h-12 rounded-xl" />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1"><Navigation className="h-3 w-3"/> Distrito / Oficina</Label>
-                    <Input value={profile?.distrito || 'SIN ASIGNAR'} readOnly className="font-black bg-[#F8F9FA] uppercase border-2 h-11" />
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Distrito / Oficina</Label>
+                    <Input value={profile?.distrito || ''} readOnly className="font-black bg-[#F8F9FA] uppercase border-2 h-12 rounded-xl" />
                 </div>
               </div>
 
               <div className="space-y-6">
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Grupo Político Solicitante</Label>
+                    <Label className="text-[9px] font-black uppercase text-primary">Grupo Político o Institución Solicitante</Label>
                     <div className="flex gap-2">
                         <Popover open={isPartyPopoverOpen} onOpenChange={setIsPartyPopoverOpen}>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" className="flex-1 justify-between h-12 font-bold text-lg border-2 overflow-hidden">
-                                    <span className="truncate">{selectedParty ? `${selectedParty.nombre} (${selectedParty.siglas})` : "Seleccionar de la lista..."}</span>
+                                <Button variant="outline" className="flex-1 justify-between h-14 font-black text-xl border-2 rounded-xl overflow-hidden uppercase">
+                                    <span className="truncate">{formData.solicitante_entidad || "Seleccionar..."}</span>
                                     <Search className="ml-2 h-5 w-5 opacity-30 shrink-0" />
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 shadow-2xl">
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 shadow-2xl rounded-xl border-none overflow-hidden">
                                 <Command>
                                     <CommandInput placeholder="Buscar partido..." />
                                     <CommandList>
                                         <CommandEmpty>No encontrado.</CommandEmpty>
                                         <CommandGroup>
                                             {partidosData?.map(p => (
-                                                <CommandItem key={p.id} value={p.nombre} onSelect={() => { setFormData(prev => ({...prev, solicitante_entidad: p.nombre, otra_entidad: ''})); setIsPartyPopoverOpen(false); }} className="flex flex-col items-start gap-1 p-3 cursor-pointer">
+                                                <CommandItem key={p.id} value={p.nombre} onSelect={() => { setFormData(prev => ({...prev, solicitante_entidad: p.nombre, otra_entidad: ''})); setIsPartyPopoverOpen(false); }} className="flex flex-col items-start gap-1 p-4 cursor-pointer hover:bg-muted">
                                                     <span className="font-black text-xs uppercase text-left">{p.nombre}</span>
-                                                    <span className="text-[10px] font-black text-primary uppercase">{p.siglas}</span>
+                                                    <span className="text-[10px] font-black text-primary uppercase opacity-40">{p.siglas}</span>
                                                 </CommandItem>
                                             ))}
                                         </CommandGroup>
@@ -566,100 +533,82 @@ export default function SolicitudCapacitacionPage() {
                                 </Command>
                             </PopoverContent>
                         </Popover>
-                        {formData.solicitante_entidad && (
-                            <Button variant="outline" size="icon" className="h-12 w-12 border-2 border-destructive text-destructive" onClick={() => setFormData(prev => ({...prev, solicitante_entidad: ''}))}><X className="h-5 w-5" /></Button>
-                        )}
                     </div>
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Otra Entidad</Label>
-                    <Input placeholder="Especifique si no es un partido..." value={formData.otra_entidad} onChange={(e) => setFormData(prev => ({ ...prev, otra_entidad: e.target.value, solicitante_entidad: '' }))} className="h-11 font-bold border-2" />
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">En caso de no ser un partido (Opcional)</Label>
+                    <Input placeholder="Ej: Comisión Vecinal, Cooperativa..." value={formData.otra_entidad} onChange={(e) => setFormData(prev => ({ ...prev, otra_entidad: e.target.value, solicitante_entidad: '' }))} className="h-12 font-bold border-2 rounded-xl" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="p-8 border-2 border-dashed rounded-[2rem] bg-[#F8F9FA] space-y-6">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">TIPO DE SOLICITUD</Label>
+                <div className="p-8 border-2 border-dashed rounded-[2rem] bg-muted/5 space-y-6">
+                    <Label className="text-[10px] font-black uppercase text-primary tracking-widest">TIPO DE SOLICITUD</Label>
                     <div className="space-y-4">
-                        <div className={cn("flex items-center space-x-4 p-5 rounded-2xl border-2 cursor-pointer", formData.tipo_solicitud === 'divulgacion' ? "bg-white border-black" : "bg-[#F8F9FA] border-muted")} onClick={() => setFormData(p => ({...p, tipo_solicitud: 'divulgacion'}))}>
-                            <div className={cn("h-6 w-6 rounded-md border-2 flex items-center justify-center", formData.tipo_solicitud === 'divulgacion' ? "bg-black text-white" : "border-muted-foreground/30")}>
-                              {formData.tipo_solicitud === 'divulgacion' && <Check className="h-4 w-4 stroke-[4]" />}
+                        {[
+                            { id: 'divulgacion', label: 'DIVULGACIÓN (MV)' },
+                            { id: 'capacitacion', label: 'CAPACITACIÓN (MM)' }
+                        ].map(t => (
+                            <div key={t.id} className={cn("flex items-center space-x-4 p-5 rounded-2xl border-2 cursor-pointer transition-all", formData.tipo_solicitud === t.id ? "bg-white border-black shadow-lg scale-[1.02]" : "bg-muted/10 border-transparent")} onClick={() => setFormData(p => ({...p, tipo_solicitud: t.id as any}))}>
+                                <div className={cn("h-6 w-6 rounded-lg border-2 flex items-center justify-center", formData.tipo_solicitud === t.id ? "bg-black text-white" : "border-muted-foreground/30")}>
+                                  {formData.tipo_solicitud === t.id && <Check className="h-4 w-4 stroke-[4]" />}
+                                </div>
+                                <Label className="font-black uppercase text-sm cursor-pointer">{t.label}</Label>
                             </div>
-                            <Label className="font-black uppercase text-sm cursor-pointer">DIVULGACIÓN (MÁQUINA)</Label>
-                        </div>
-                        <div className={cn("flex items-center space-x-4 p-5 rounded-2xl border-2 cursor-pointer", formData.tipo_solicitud === 'capacitacion' ? "bg-white border-black" : "bg-[#F8F9FA] border-muted")} onClick={() => setFormData(p => ({...p, tipo_solicitud: 'capacitacion'}))}>
-                            <div className={cn("h-6 w-6 rounded-md border-2 flex items-center justify-center", formData.tipo_solicitud === 'capacitacion' ? "bg-black text-white" : "border-muted-foreground/30")}>
-                              {formData.tipo_solicitud === 'capacitacion' && <Check className="h-4 w-4 stroke-[4]" />}
-                            </div>
-                            <Label className="font-black uppercase text-sm cursor-pointer">CAPACITACIÓN (MESA)</Label>
-                        </div>
+                        ))}
                     </div>
                 </div>
                 <div className="flex flex-col justify-center space-y-8">
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground">FECHA PROPUESTA</Label>
+                        <Label className="text-[10px] font-black uppercase text-primary">FECHA DEL EVENTO</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <div className="h-14 w-full flex items-center px-4 font-black text-lg border-2 rounded-xl bg-white cursor-pointer">
-                              {formData.fecha ? format(parseISO(formData.fecha), "dd/MM/yyyy") : "SELECCIONAR FECHA"}
+                            <div className="h-14 w-full flex items-center px-5 font-black text-xl border-2 rounded-[1.2rem] bg-white cursor-pointer hover:border-black transition-all">
+                              <CalendarIcon className="mr-3 h-5 w-5 opacity-30" />
+                              {formData.fecha ? format(parseISO(formData.fecha), "dd/MM/yyyy") : "__/__/____"}
                             </div>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 rounded-2xl border-none overflow-hidden" align="end">
+                          <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
                             <Calendar mode="single" selected={formData.fecha ? parseISO(formData.fecha) : undefined} onSelect={(date) => setFormData(p => ({ ...p, fecha: date ? format(date, "yyyy-MM-dd") : '' }))} locale={es} initialFocus className="bg-white" />
                           </PopoverContent>
                         </Popover>
                     </div>
                     <div className="grid grid-cols-2 gap-6">
-                        <TimePickerInput label="DESDE" value={formData.hora_desde} onChange={(val) => setFormData(p => ({ ...p, hora_desde: val }))} />
-                        <TimePickerInput label="HASTA" value={formData.hora_hasta} onChange={(val) => setFormData(p => ({ ...p, hora_hasta: val }))} />
+                        <TimePickerInput label="HORA INICIO" value={formData.hora_desde} onChange={(val) => setFormData(p => ({ ...p, hora_desde: val }))} />
+                        <TimePickerInput label="HORA FIN" value={formData.hora_hasta} onChange={(val) => setFormData(p => ({ ...p, hora_hasta: val }))} />
                     </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Lugar y/o Local</Label>
-                    <Input value={formData.lugar_local} onChange={e => setFormData(p => ({...p, lugar_local: e.target.value}))} className="h-11 font-bold border-2" />
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Local / Lugar</Label>
+                    <Input value={formData.lugar_local} onChange={e => setFormData(p => ({...p, lugar_local: e.target.value.toUpperCase()}))} className="h-12 font-black border-2 rounded-xl" />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Dirección (Calle)</Label>
-                    <Input value={formData.direccion_calle} onChange={e => setFormData(p => ({...p, direccion_calle: e.target.value}))} className="h-11 font-bold border-2" />
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Dirección (Calle / Referencia)</Label>
+                    <Input value={formData.direccion_calle} onChange={e => setFormData(p => ({...p, direccion_calle: e.target.value.toUpperCase()}))} className="h-12 font-black border-2 rounded-xl" />
                 </div>
               </div>
 
               <div className="space-y-8 pt-4">
                 <div className="flex items-center gap-4">
-                    <h3 className="font-black uppercase text-xs shrink-0">Datos del Solicitante</h3>
+                    <h3 className="font-black uppercase text-xs text-primary shrink-0">Solicitante Autorizado</h3>
                     <Separator className="flex-1" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-2">
-                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Nombre Completo</Label>
-                        <Input value={formData.nombre_completo} readOnly={padronFound} className={cn("h-11 font-bold uppercase border-2", padronFound && "bg-green-50")} />
+                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Nombre y Apellido</Label>
+                        <Input value={formData.nombre_completo} readOnly={padronFound} className={cn("h-12 font-black uppercase border-2 rounded-xl", padronFound && "bg-green-50/50 border-green-200")} />
                     </div>
                     <div className="space-y-2">
                         <Label className="text-[9px] font-black uppercase text-muted-foreground">C.I.C. N°</Label>
                         <div className="flex gap-2">
-                            <Input value={formData.cedula} onChange={handleCedulaChange} className="h-11 font-black border-2 uppercase" />
-                            <Button variant="secondary" size="icon" className="h-11 w-11 shrink-0" onClick={() => searchCedulaInPadron(formData.cedula)} disabled={isSearchingCedula}>
+                            <Input value={formData.cedula} onChange={e => setFormData(p => ({...p, cedula: e.target.value.toUpperCase(), nombre_completo: ''}))} className="h-12 font-black border-2 uppercase rounded-xl" />
+                            <Button variant="secondary" size="icon" className="h-12 w-12 shrink-0 rounded-xl" onClick={() => searchCedulaInPadron(formData.cedula)} disabled={isSearchingCedula}>
                                 {isSearchingCedula ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
                             </Button>
                         </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Número de Celular</Label>
-                        <Input 
-                            value={formData.telefono} 
-                            onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                let formatted = val;
-                                if (val.length > 4) formatted = `${val.slice(0, 4)}-${val.slice(4)}`;
-                                if (val.length > 7) formatted = `${val.slice(0, 4)}-${val.slice(4, 7)}-${val.slice(7)}`;
-                                setFormData(prev => ({ ...prev, telefono: formatted }));
-                            }} 
-                            placeholder="09XX-XXX-XXX"
-                            className="h-11 font-bold border-2" 
-                        />
                     </div>
                 </div>
               </div>
@@ -667,15 +616,16 @@ export default function SolicitudCapacitacionPage() {
           </Card>
 
           <div className="space-y-8">
-            <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
+            <Card className="shadow-2xl border-none overflow-hidden rounded-[2rem] bg-white">
               <CardContent className="p-8">
                 <MapModule onLocationSelect={handleLocationSelect} />
               </CardContent>
             </Card>
-            <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
-              <CardHeader className="bg-white border-b py-6 px-8">
-                <CardTitle className="text-lg font-black uppercase text-primary flex items-center gap-3">
-                    <Camera className="h-5 w-5" /> RESPALDO DOCUMENTAL
+            
+            <Card className="shadow-2xl border-none overflow-hidden rounded-[2rem] bg-white">
+              <CardHeader className="bg-muted/10 border-b py-6 px-8">
+                <CardTitle className="text-sm font-black uppercase text-primary flex items-center gap-3">
+                    <Camera className="h-5 w-5" /> RESPALDO ANEXO V
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-4">
@@ -683,25 +633,25 @@ export default function SolicitudCapacitacionPage() {
                     <div className="relative aspect-video w-full rounded-2xl overflow-hidden border-4 border-white shadow-xl group">
                         {photoDataUri.startsWith('data:application/pdf') ? (
                             <div className="w-full h-full flex flex-col items-center justify-center bg-muted/30">
-                                <FileText className="h-16 w-16 text-primary opacity-40 mb-2" />
-                                <p className="text-[10px] font-black uppercase text-primary/60">Documento PDF Cargado</p>
+                                <FileText className="h-12 w-12 text-primary opacity-40 mb-2" />
+                                <p className="text-[9px] font-black uppercase text-primary/60">Documento PDF</p>
                             </div>
                         ) : (
                             <Image src={photoDataUri} alt="Respaldo" fill className="object-cover" />
                         )}
-                        <Button variant="destructive" size="icon" className="absolute top-4 right-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setPhotoDataUri(null)}>
-                            <Trash2 className="h-5 w-5" />
+                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setPhotoDataUri(null)}>
+                            <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        <div className="flex flex-col items-center justify-center gap-3 h-32 border-2 border-dashed rounded-[1.5rem] cursor-pointer hover:bg-muted/10 transition-all bg-muted/5 group" onClick={startCamera}>
-                            <Camera className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest text-center">CÁMARA EN VIVO</span>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/10 transition-all bg-muted/5" onClick={startCamera}>
+                            <Camera className="h-6 w-6 text-primary opacity-30" />
+                            <span className="text-[8px] font-black uppercase text-primary/40">CÁMARA</span>
                         </div>
-                        <label className="flex flex-col items-center justify-center gap-3 h-32 border-2 border-dashed rounded-[1.5rem] cursor-pointer hover:bg-muted/10 transition-all bg-muted/5 group">
-                            <FileUp className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest text-center">GALERÍA / PDF</span>
+                        <label className="flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/10 transition-all bg-muted/5">
+                            <FileUp className="h-6 w-6 text-primary opacity-30" />
+                            <span className="text-[8px] font-black uppercase text-primary/40">GALERÍA</span>
                             <Input type="file" accept="image/*,.pdf" className="hidden" onChange={handlePhotoCapture} />
                         </label>
                     </div>
@@ -710,16 +660,58 @@ export default function SolicitudCapacitacionPage() {
             </Card>
 
             <Button 
-              onClick={handleSubmit} 
+              onClick={() => handleSubmit(false)} 
               disabled={isSubmitting} 
-              className="w-full h-20 bg-black hover:bg-black/90 text-white text-xs sm:text-sm md:text-base font-black uppercase rounded-2xl tracking-widest shadow-2xl px-4"
+              className="w-full h-20 bg-black hover:bg-black/90 text-white font-black uppercase rounded-[1.5rem] tracking-[0.2em] shadow-2xl px-4"
             >
               {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <CheckCircle2 className="mr-3 h-6 w-6" />}
-              GUARDAR Y AGENDAR ACTIVIDAD
+              GUARDAR Y AGENDAR
             </Button>
           </div>
         </div>
       </main>
+
+      {/* DIÁLOGO DE CONFLICTO DE STOCK */}
+      <AlertDialog open={isStockConflict} onOpenChange={setIsStockConflict}>
+        <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8">
+            <AlertDialogHeader className="space-y-4">
+                <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-2 border-4 border-destructive/20">
+                    <ShieldAlert className="h-8 w-8 text-destructive" />
+                </div>
+                <AlertDialogTitle className="text-2xl font-black uppercase text-center tracking-tight">STOCK DE MÁQUINAS AGOTADO</AlertDialogTitle>
+                <AlertDialogDescription className="text-center space-y-4">
+                    <p className="text-xs font-bold uppercase text-muted-foreground leading-relaxed">
+                        No hay equipos de votación disponibles para el periodo <span className="text-primary">{formData.hora_desde} a {formData.hora_hasta} HS</span> del día <span className="text-primary">{formatDateToDDMMYYYY(formData.fecha)}</span> en este distrito.
+                    </p>
+                    
+                    {conflictingFixedPlace && (
+                        <div className="bg-amber-50 border-2 border-dashed border-amber-200 p-6 rounded-2xl space-y-3">
+                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Sugerencia de Optimización:</p>
+                            <p className="text-xs font-bold uppercase text-amber-800 leading-tight">
+                                Se ha detectado que un <span className="font-black">LUGAR FIJO</span> bloquea la agenda:
+                                <br/><br/>
+                                <span className="text-sm font-black underline">{conflictingFixedPlace.lugar_local}</span>
+                            </p>
+                            <p className="text-[9px] font-medium text-amber-600 uppercase italic">¿Desea suspender este lugar fijo para liberar una máquina?</p>
+                        </div>
+                    )}
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-8 sm:justify-center gap-4">
+                <AlertDialogCancel className="h-14 rounded-xl font-black uppercase text-[10px] px-8 border-2" onClick={() => setIsStockConflict(false)}>CERRAR</AlertDialogCancel>
+                {conflictingFixedPlace && (
+                    <Button 
+                        variant="destructive" 
+                        className="h-14 rounded-xl font-black uppercase text-[10px] px-8 shadow-xl bg-destructive hover:bg-destructive/90"
+                        onClick={handleSuspendAndSave}
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "SUSPENDER FIJO Y AGENDAR"}
+                    </Button>
+                )}
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={isCameraOpen} onOpenChange={(o) => !o && stopCamera()}>
         <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-black rounded-[2rem]">
