@@ -100,6 +100,7 @@ export type AnexoI = {
   departamento: string;
   distrito: string;
   filas: AnexoIFila[];
+  foto_respaldo: string;
   usuario_id: string;
   fecha_creacion: string;
 }
@@ -133,6 +134,7 @@ export type SolicitudCapacitacion = {
   motivo_cancelacion?: string;
   fecha_cancelacion?: string;
   usuario_cancelacion?: string;
+  qr_habilitado?: boolean;
 }
 
 export type EncuestaSatisfaccion = {
@@ -149,6 +151,7 @@ export type EncuestaSatisfaccion = {
   departamento: string;
   distrito: string;
   usuario_id: string;
+  solicitud_id: string;
   fecha_creacion: string;
 }
 
@@ -167,6 +170,7 @@ export type InformeDivulgador = {
   total_personas: number;
   marcaciones: number[];
   fotos?: string[];
+  foto_respaldo_documental: string;
   usuario_id: string;
   fecha_creacion: string;
   solicitud_id: string;
@@ -208,6 +212,8 @@ export type InformeSemanalRegistro = {
   fotos?: string[];
   usuario_id: string;
   fecha_creacion: string;
+  archivado?: boolean;
+  id_archivo?: string;
 }
 
 export type MovimientoMaquinaRegistro = {

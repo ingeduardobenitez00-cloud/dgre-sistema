@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, Suspense, useMemo } from 'react';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Check, X, DatabaseZap, Users, Clock, Lock } from 'lucide-react';
+import { Loader2, Check, Lock, DatabaseZap } from 'lucide-react';
 import { useUser, useFirebase, useMemoFirebase, useDoc, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, query, where, getDocs } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type InformeDivulgador } from '@/lib/data';
@@ -23,17 +24,11 @@ function EncuestaContent() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const router = useRouter();
   
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [internalSolicitudId, setInternalSolicitudId] = useState<string | null>(null);
   
-  const [reportTotal, setReportTotal] = useState(0);
-  const [existingSurveysCount, setExistingSurveysCount] = useState(0);
-  const [isLoadingSync, setIsLoadingSync] = useState(false);
-
   const solicitudIdFromUrl = searchParams.get('solicitudId');
   const effectiveSolicitudId = solicitudIdFromUrl || internalSolicitudId;
 
@@ -75,43 +70,11 @@ function EncuestaContent() {
 
   // VALIDACIÓN MANUAL: Solo se bloquea si el usuario no es funcionario y el toggle está apagado
   const isPublicDisabled = useMemo(() => {
-    if (user) return false; // El personal siempre puede cargar encuestas de respaldo
-    if (!solicitudIdFromUrl) return false; // Carga libre
-    if (!linkedSolicitud) return false; // Mientras carga
-    return !linkedSolicitud.qr_habilitado; // Respeta el botón manual de la Agenda
+    if (user) return false; 
+    if (!solicitudIdFromUrl) return false; 
+    if (!linkedSolicitud) return false; 
+    return !linkedSolicitud.qr_habilitado; 
   }, [linkedSolicitud, user, solicitudIdFromUrl]);
-
-  useEffect(() => {
-    if (!firestore || !effectiveSolicitudId) {
-        setReportTotal(0);
-        setExistingSurveysCount(0);
-        return;
-    }
-
-    const fetchSyncData = async () => {
-        setIsLoadingSync(true);
-        try {
-            const reportQuery = query(collection(firestore, 'informes-divulgador'), where('solicitud_id', '==', effectiveSolicitudId));
-            const reportSnap = await getDocs(reportQuery);
-            if (!reportSnap.empty) {
-                const report = reportSnap.docs[0].data() as InformeDivulgador;
-                setReportTotal(report.total_personas || 0);
-            } else {
-                setReportTotal(0);
-            }
-
-            const surveysQuery = query(collection(firestore, 'encuestas-satisfaccion'), where('solicitud_id', '==', effectiveSolicitudId));
-            const surveysSnap = await getDocs(surveysQuery);
-            setExistingSurveysCount(surveysSnap.size);
-        } catch (e) {
-            console.error("Error en sincronización de encuestas:", e);
-        } finally {
-            setIsLoadingSync(false);
-        }
-    };
-
-    fetchSyncData();
-  }, [firestore, effectiveSolicitudId]);
 
   useEffect(() => {
     if (linkedSolicitud) {
@@ -134,21 +97,6 @@ function EncuestaContent() {
         }));
     }
   }, [linkedSolicitud, effectiveSolicitudId]);
-
-  useEffect(() => {
-    const fetchLogo = async () => {
-      try {
-        const response = await fetch('/logo.png');
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => setLogoBase64(reader.result as string);
-        reader.readAsDataURL(blob);
-      } catch (error) {
-        console.error("Error fetching logo:", error);
-      }
-    };
-    fetchLogo();
-  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -207,7 +155,6 @@ function EncuestaContent() {
           seguridad_maquina: ''
         }));
         
-        setExistingSurveysCount(prev => prev + 1);
         setIsSubmitting(false);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       })

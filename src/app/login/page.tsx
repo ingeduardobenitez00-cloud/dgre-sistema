@@ -125,6 +125,7 @@ export default function LoginPage() {
         'district_filter'
       ];
 
+      // Asignar permisos automáticos para cada módulo
       jefeModules.forEach(mod => {
         jefePermissions.push(`${mod}:view`);
         jefePermissions.push(`${mod}:add`);
@@ -139,7 +140,8 @@ export default function LoginPage() {
         distrito: regData.distrito,
         modules: jefeModules,
         permissions: jefePermissions,
-        fecha_registro: new Date().toISOString()
+        fecha_registro: new Date().toISOString(),
+        active: true
       });
 
       // Auditoría de nuevo registro
@@ -159,7 +161,7 @@ export default function LoginPage() {
       
       toast({ 
         title: 'Registro exitoso', 
-        description: 'Su cuenta de Jefe ha sido creada con filtro distrital automático. Por favor, inicie sesión.' 
+        description: 'Su cuenta de Jefe ha sido creada con acceso a todos los Anexos y módulos CIDEE. Por favor, inicie sesión.' 
       });
     } catch (error: any) {
       toast({
@@ -250,7 +252,7 @@ export default function LoginPage() {
               {mode === 'login' ? 'Acceso al Sistema' : 'Registro de Jefe'}
             </CardTitle>
             <CardDescription className="text-center font-bold uppercase text-[9px] tracking-widest opacity-60">
-              {mode === 'login' ? 'Ingrese sus credenciales oficiales' : 'Cree su perfil regional con filtro automático'}
+              {mode === 'login' ? 'Ingrese sus credenciales oficiales' : 'Cree su perfil regional con acceso a Anexos I-V'}
             </CardDescription>
           </CardHeader>
 

@@ -8,6 +8,12 @@ export const dashboardMenuItems = [
     description: 'Planificación semanal de lugares fijos de divulgación.',
   },
   {
+    href: '/lista-anexo-i',
+    label: 'Listado de Anexo I',
+    icon: ClipboardList,
+    description: 'Consulta y visualización de formularios de lugares fijos enviados.',
+  },
+  {
     href: '/solicitud-capacitacion',
     label: 'Anexo V - Solicitudes',
     icon: ClipboardCheck,

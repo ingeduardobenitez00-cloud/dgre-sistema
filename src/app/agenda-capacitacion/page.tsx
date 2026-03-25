@@ -28,10 +28,15 @@ import {
   Clock, 
   ImageIcon, 
   Power, 
-  PowerOff 
+  PowerOff,
+  Eye,
+  FileText,
+  Navigation,
+  Phone,
+  Download
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import Image from 'next/image';
 
 export default function AgendaCapacitacionPage() {
   const { user, isUserLoading } = useUser();
@@ -64,6 +70,7 @@ export default function AgendaCapacitacionPage() {
   const [qrSolicitud, setQrSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [cancellingSolicitud, setCancellingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingSolicitud, setDeletingSolicitud] = useState<SolicitudCapacitacion | null>(null);
+  const [viewingSolicitud, setViewingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   
   const [isUpdating, setIsUpdating] = useState(false);
@@ -450,9 +457,19 @@ export default function AgendaCapacitacionPage() {
                                                     </div>
 
                                                     <div className="lg:col-span-9 p-8 flex flex-col gap-6">
-                                                        <div className="flex items-center gap-3">
-                                                            <MapPin className="h-5 w-5 text-muted-foreground" />
-                                                            <h3 className="text-lg font-black uppercase tracking-tight text-primary">{head.lugar_local}</h3>
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <MapPin className="h-5 w-5 text-muted-foreground" />
+                                                                <h3 className="text-lg font-black uppercase tracking-tight text-primary">{head.lugar_local}</h3>
+                                                            </div>
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm" 
+                                                                className="rounded-full font-black text-[9px] uppercase gap-2"
+                                                                onClick={() => setViewingSolicitud(head)}
+                                                            >
+                                                                <Eye className="h-3 w-3" /> VER SOLICITUD
+                                                            </Button>
                                                         </div>
 
                                                         <div className="space-y-4">
@@ -723,8 +740,8 @@ export default function AgendaCapacitacionPage() {
                 {copied ? 'Copiado' : 'Link'}
               </Button>
               <Button variant="outline" className="font-black text-[9px] uppercase rounded-xl gap-2 h-10" onClick={generateQrPNG} disabled={isGeneratingPng}>
-                {isGeneratingPng ? <Loader2 className="animate-spin h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
-                Descargar PNG
+                {isGeneratingPng ? <Loader2 className="animate-spin h-3 w-3" /> : <Download className="h-3 w-3" />}
+                PNG
               </Button>
               <Button className="col-span-2 bg-black font-black text-[9px] uppercase rounded-xl gap-2 h-10" onClick={() => qrSolicitud && generateQrPDF(qrSolicitud)} disabled={isGeneratingPdf}>
                 {isGeneratingPdf ? <Loader2 className="animate-spin h-3 w-3" /> : <Printer className="h-3 w-3" />}
@@ -732,6 +749,121 @@ export default function AgendaCapacitacionPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingSolicitud} onOpenChange={(o) => !o && setViewingSolicitud(null)}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 border-none shadow-2xl overflow-hidden rounded-[2rem]">
+          {viewingSolicitud && (
+            <div className="flex flex-col h-full bg-[#F8F9FA]">
+                <div className="bg-primary p-8 text-white shrink-0">
+                    <DialogHeader>
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center">
+                                <FileText className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-2xl font-black uppercase leading-none">FICHA DE SOLICITUD - ANEXO V</DialogTitle>
+                                <DialogDescription className="text-white/60 font-bold uppercase text-[10px] mt-2">
+                                    ID: {viewingSolicitud.id.substring(0,8)} | REGISTRADO: {formatDateToDDMMYYYY(viewingSolicitud.fecha_creacion.split('T')[0])}
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+                </div>
+
+                <ScrollArea className="flex-1 p-8">
+                    <div className="space-y-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="bg-white p-6 rounded-2xl border-2 shadow-sm space-y-1">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Entidad Solicitante</p>
+                                <p className="font-black text-sm uppercase text-primary leading-tight">{viewingSolicitud.solicitante_entidad || viewingSolicitud.otra_entidad}</p>
+                            </div>
+                            <div className="bg-white p-6 rounded-2xl border-2 shadow-sm space-y-1">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Tipo de Pedido</p>
+                                <Badge className="bg-black text-white font-black uppercase text-[10px]">{viewingSolicitud.tipo_solicitud}</Badge>
+                            </div>
+                            <div className="bg-white p-6 rounded-2xl border-2 shadow-sm space-y-1">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Lugar de Evento</p>
+                                <p className="font-black text-sm uppercase text-primary leading-tight">{viewingSolicitud.lugar_local}</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <Card className="border-none shadow-xl rounded-[2rem] bg-white overflow-hidden">
+                                <div className="bg-muted/30 px-6 py-3 border-b">
+                                    <p className="text-[10px] font-black uppercase tracking-widest">Detalle de Ubicación</p>
+                                </div>
+                                <CardContent className="p-6 space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <Navigation className="h-4 w-4 text-primary opacity-40" />
+                                        <p className="text-xs font-bold uppercase"><span className="text-muted-foreground">Calle:</span> {viewingSolicitud.direccion_calle || 'S/N'}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <MapPin className="h-4 w-4 text-primary opacity-40" />
+                                        <p className="text-xs font-bold uppercase"><span className="text-muted-foreground">GPS:</span> {viewingSolicitud.gps || 'NO DISPONIBLE'}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Clock className="h-4 w-4 text-primary opacity-40" />
+                                        <p className="text-xs font-bold uppercase"><span className="text-muted-foreground">Horario:</span> {viewingSolicitud.hora_desde} a {viewingSolicitud.hora_hasta} HS</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-none shadow-xl rounded-[2rem] bg-white overflow-hidden">
+                                <div className="bg-muted/30 px-6 py-3 border-b">
+                                    <p className="text-[10px] font-black uppercase tracking-widest">Contacto del Solicitante</p>
+                                </div>
+                                <CardContent className="p-6 space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <User className="h-4 w-4 text-primary opacity-40" />
+                                        <p className="text-xs font-black uppercase">{viewingSolicitud.nombre_completo}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Badge variant="outline" className="text-[10px] font-bold">C.I. {viewingSolicitud.cedula}</Badge>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Phone className="h-4 w-4 text-primary opacity-40" />
+                                        <p className="text-xs font-bold">{viewingSolicitud.telefono || 'SIN TELÉFONO'}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 px-2">
+                                <ImageIcon className="h-5 w-5 text-primary" />
+                                <h3 className="font-black uppercase text-xs">Respaldo Documental (Anexo V Firmado)</h3>
+                            </div>
+                            {viewingSolicitud.foto_firma ? (
+                                <div className="relative aspect-video w-full rounded-[2.5rem] overflow-hidden border-8 border-white shadow-2xl bg-muted">
+                                    {viewingSolicitud.foto_firma.startsWith('data:application/pdf') ? (
+                                        <div className="w-full h-full flex flex-col items-center justify-center bg-white">
+                                            <FileText className="h-20 w-20 text-primary opacity-40 mb-4" />
+                                            <p className="text-sm font-black uppercase text-primary">Documento PDF Cargado</p>
+                                            <Button variant="outline" className="mt-6 font-black uppercase text-[10px] border-2" asChild>
+                                                <a href={viewingSolicitud.foto_firma} download={`AnexoV-${viewingSolicitud.lugar_local}.pdf`}>DESCARGAR ARCHIVO</a>
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <Image src={viewingSolicitud.foto_firma} alt="Firma" fill className="object-cover" />
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="p-20 text-center border-4 border-dashed rounded-[2.5rem] opacity-20">
+                                    <ImageIcon className="h-16 w-16 mx-auto mb-4" />
+                                    <p className="font-black uppercase text-sm">Sin respaldo visual registrado</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </ScrollArea>
+
+                <div className="p-8 bg-white border-t flex justify-end">
+                    <Button onClick={() => setViewingSolicitud(null)} className="font-black uppercase text-xs h-12 px-10 shadow-xl">Cerrar Ficha</Button>
+                </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

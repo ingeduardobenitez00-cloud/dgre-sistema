@@ -29,7 +29,7 @@ function DenunciaContent() {
   const agendaId = searchParams.get('solicitudId');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [denunciaFoto, setDenunciaFoto] = useState<string | null>(null);
+  const [denunciaFotos, setDenunciaFotos] = useState<string[]>([]);
   const [respaldoFoto, setRespaldoPhoto] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [selectedAgendaId, setSelectedAgendaId] = useState<string | null>(agendaId);
@@ -141,7 +141,9 @@ function DenunciaContent() {
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0);
         const dataUri = canvas.toDataURL('image/jpeg', 0.8);
-        if (activeCameraTarget === 'evidencia') setDenunciaFoto(dataUri);
+        if (activeCameraTarget === 'evidencia') {
+            setDenunciaFotos(prev => [...prev, dataUri].slice(0, 5));
+        }
         else setRespaldoPhoto(dataUri);
         stopCamera();
       }
@@ -149,28 +151,35 @@ function DenunciaContent() {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'evidencia' | 'respaldo') => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (target === 'evidencia') setDenunciaFoto(reader.result as string);
-        else setRespaldoPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files) {
+      if (target === 'respaldo') {
+          const file = files[0];
+          const reader = new FileReader();
+          reader.onload = () => setRespaldoPhoto(reader.result as string);
+          reader.readAsDataURL(file);
+      } else {
+          const remaining = 5 - denunciaFotos.length;
+          Array.from(files).slice(0, remaining).forEach(file => {
+              const reader = new FileReader();
+              reader.onload = () => setDenunciaFotos(prev => [...prev, reader.result as string].slice(0, 5));
+              reader.readAsDataURL(file);
+          });
+      }
     }
   };
 
   const handleSubmit = () => {
     if (!firestore || !user || !selectedSolicitud) return;
     if (!formData.detalles) {
-        toast({ variant: "destructive", title: "Faltan datos" });
+        toast({ variant: "destructive", title: "Faltan detalles de la denuncia" });
         return;
     }
-    if (!denunciaFoto || !respaldoFoto) {
+    if (denunciaFotos.length === 0 || !respaldoFoto) {
         toast({ 
             variant: "destructive", 
             title: "Faltan imágenes obligatorias", 
-            description: "Debe adjuntar tanto la evidencia del daño como el respaldo documental físico." 
+            description: "Debe adjuntar al menos una evidencia del daño y el respaldo documental físico." 
         });
         return;
     }
@@ -182,7 +191,7 @@ function DenunciaContent() {
       departamento: selectedSolicitud.departamento,
       distrito: selectedSolicitud.distrito,
       lugar: selectedSolicitud.lugar_local,
-      foto_evidencia: denunciaFoto,
+      foto_evidencia: denunciaFotos,
       foto_respaldo_documental: respaldoFoto,
       usuario_id: user.uid,
       username: user.profile?.username || '',
@@ -196,7 +205,7 @@ function DenunciaContent() {
       .then(() => {
         toast({ title: "¡Denuncia Registrada!" });
         setFormData(p => ({ ...p, detalles: '' }));
-        setDenunciaFoto(null);
+        setDenunciaFotos([]);
         setRespaldoPhoto(null);
         setIsSubmitting(false);
       })
@@ -393,38 +402,43 @@ function DenunciaContent() {
                         {/* EVIDENCIA DEL DAÑO */}
                         <div className="space-y-4">
                             <Label className="text-[10px] font-black uppercase text-primary flex items-center gap-2">
-                                <FileWarning className="h-4 w-4" /> Evidencia Fotográfica / PDF del Daño *
+                                <FileWarning className="h-4 w-4" /> Evidencia Fotográfica / PDF del Daño (Máx. 5) *
                             </Label>
-                            {denunciaFoto ? (
-                                <div className="relative aspect-video w-full rounded-2xl overflow-hidden border-4 border-white shadow-xl group">
-                                    {denunciaFoto.startsWith('data:application/pdf') ? (
-                                        <div className="w-full h-full flex flex-col items-center justify-center bg-muted/30">
-                                            <FileText className="h-16 w-16 text-primary opacity-40 mb-2" />
-                                            <p className="text-[10px] font-black uppercase text-primary/60">Documento PDF Cargado</p>
-                                        </div>
-                                    ) : (
-                                        <Image src={denunciaFoto} alt="Evidencia" fill className="object-cover" />
-                                    )}
-                                    <Button variant="destructive" size="icon" className="absolute top-4 right-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDenunciaFoto(null)}>
-                                        <Trash2 className="h-5 w-5" />
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div 
-                                        className="flex flex-col items-center justify-center h-40 border-4 border-dashed rounded-3xl border-destructive/20 cursor-pointer hover:bg-destructive/5 transition-all bg-white"
-                                        onClick={() => startCamera('evidencia')}
-                                    >
-                                        <Camera className="h-10 w-10 text-destructive opacity-30 mb-2" />
-                                        <span className="font-black uppercase text-[10px] text-destructive opacity-60">Capturar Daño</span>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                {denunciaFotos.map((foto, idx) => (
+                                    <div key={idx} className="relative aspect-video w-full rounded-xl overflow-hidden border-4 border-white shadow-xl group">
+                                        {foto.startsWith('data:application/pdf') ? (
+                                            <div className="w-full h-full flex flex-col items-center justify-center bg-muted/30">
+                                                <FileText className="h-10 w-10 text-primary opacity-40 mb-1" />
+                                                <p className="text-[8px] font-black uppercase text-primary/60">PDF</p>
+                                            </div>
+                                        ) : (
+                                            <Image src={foto} alt={`Evidencia ${idx + 1}`} fill className="object-cover" />
+                                        )}
+                                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDenunciaFotos(prev => prev.filter((_, i) => i !== idx))}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
-                                    <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted transition-all text-muted-foreground">
-                                        <ImageIcon className="h-4 w-4" />
-                                        <span className="text-[10px] font-black uppercase">Subir de Galería / PDF</span>
-                                        <Input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'evidencia')} />
-                                    </label>
-                                </div>
-                            )}
+                                ))}
+                                
+                                {denunciaFotos.length < 5 && (
+                                    <div className="col-span-full space-y-3">
+                                        <div 
+                                            className="flex flex-col items-center justify-center h-32 border-4 border-dashed rounded-3xl border-destructive/20 cursor-pointer hover:bg-destructive/5 transition-all bg-white"
+                                            onClick={() => startCamera('evidencia')}
+                                        >
+                                            <Camera className="h-8 w-8 text-destructive opacity-30 mb-1" />
+                                            <span className="font-black uppercase text-[9px] text-destructive opacity-60">Añadir Evidencia</span>
+                                        </div>
+                                        <label className="flex items-center justify-center gap-2 p-2 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted transition-all text-muted-foreground">
+                                            <ImageIcon className="h-4 w-4" />
+                                            <span className="text-[9px] font-black uppercase">Subir Galería / PDF</span>
+                                            <Input type="file" accept="image/*,.pdf" multiple className="hidden" onChange={(e) => handleFileUpload(e, 'evidencia')} />
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* RESPALDO DOCUMENTAL */}
