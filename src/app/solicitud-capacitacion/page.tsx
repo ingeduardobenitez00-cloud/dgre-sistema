@@ -390,8 +390,9 @@ export default function SolicitudCapacitacionPage() {
   const generatePDF = () => {
     if (!logoBase64) return;
     const doc = new jsPDF();
-    const margin = 20;
+    const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
+    
     const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
     const hoy = new Date();
     const dia = hoy.getDate().toString().padStart(2, '0');
@@ -399,34 +400,122 @@ export default function SolicitudCapacitacionPage() {
     const deptoNombre = (profile?.departamento || '').replace(/^\d+\s*-\s*/, '').toUpperCase();
     const distritoNombre = (profile?.distrito || '').replace(/^\d+\s*-\s*/, '').toUpperCase();
 
-    doc.addImage(logoBase64, 'PNG', margin, 8, 12, 12);
-    doc.setFontSize(20); doc.setFont('helvetica', 'bold');
-    doc.text("Justicia Electoral", pageWidth / 2, 18, { align: "center" });
-    doc.setFontSize(11);
-    doc.text("ANEXO V – SOLICITUD DE CAPACITACIÓN", pageWidth / 2, 40.5, { align: "center" });
+    // 1. HEADER
+    doc.addImage(logoBase64, 'PNG', margin, 10, 15, 15);
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text("REPÚBLICA DEL PARAGUAY", margin + 18, 14);
+    doc.text("Justicia Electoral", margin + 18, 18);
+    
+    doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+    doc.text("Justicia Electoral", pageWidth / 2, 16, { align: "center" });
+    doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+    doc.text("Custodio de la Voluntad Popular", pageWidth / 2, 22, { align: "center" });
 
-    let y = 55;
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-    doc.text(`${deptoNombre}, ${dia} de ${mesEscrito} de 2026`, pageWidth - margin, y, { align: 'right' });
-    y += 15; doc.text("Señor/a", margin, y);
-    y += 6; doc.setFont('helvetica', 'bold'); doc.text(`JEFES DEL REGISTRO ELECTORAL DE ${distritoNombre}`, margin, y);
-    y += 10; doc.text("Presente:", margin, y);
+    // Barras de colores
+    const barW = 3; const barH = 15; const barX = pageWidth - margin - (barW * 2);
+    doc.setFillColor(200, 0, 0); doc.rect(barX, 10, barW, barH, 'F');
+    doc.setFillColor(0, 0, 200); doc.rect(barX + barW, 10, barW, barH, 'F');
 
-    const applicantData = [
-      ["LUGAR Y/O LOCAL", `: ${formData.lugar_local.toUpperCase()}`],
-      ["HORARIO", `DESDE: ${formData.hora_desde} HS / HASTA: ${formData.hora_hasta} HS`],
-      ["FECHA", `: ${formData.fecha}`],
-      ["NOMBRE COMPLETO", `: ${formData.nombre_completo.toUpperCase()}`],
-      ["C.I.C. N.º", `: ${formData.cedula}`],
-      ["TELÉFONO", `: ${formData.telefono}`]
+    // 2. TÍTULO
+    let y = 35;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y, pageWidth - (margin * 2), 8, 'F');
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text("ANEXO V – SOLICITUD DE CAPACITACIÓN", pageWidth / 2, y + 5.5, { align: 'center' });
+
+    // 3. FECHA Y LUGAR
+    y += 18;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(`${distritoNombre}, ${dia} DE ${mesEscrito} DE 2026`, pageWidth - margin, y, { align: 'right' });
+
+    y += 15;
+    doc.text("Señor/a", margin, y);
+    y += 6; doc.setFont('helvetica', 'bold');
+    doc.text(`JEFES DEL REGISTRO ELECTORAL DE ${distritoNombre}`, margin, y);
+    y += 10;
+    doc.text("Presente:", margin, y);
+
+    // 4. CUERPO
+    y += 10;
+    doc.setFont('helvetica', 'normal');
+    const intro = "Tengo el agrado de dirigirme a usted/es, en virtud a las próximas Elecciones Internas simultáneas de las Organizaciones Políticas del 07 de junio del 2026, a los efectos de solicitar:";
+    const introLines = doc.splitTextToSize(intro, pageWidth - (margin * 2) - 10);
+    doc.text(introLines, margin + 5, y);
+
+    y += 15;
+    const drawCheck = (lbl: string, x: number, yPos: number, active: boolean) => {
+        doc.rect(x, yPos - 4, 5, 5);
+        if(active) { doc.setFont('helvetica', 'bold'); doc.text("X", x + 1, yPos); }
+        doc.setFont('helvetica', 'normal');
+        doc.text(lbl, x + 8, yPos);
+    }
+    drawCheck("Divulgación sobre el uso de la Máquina de Votación Electrónica.", margin + 15, y, formData.tipo_solicitud === 'divulgacion');
+    y += 8;
+    drawCheck("Capacitación sobre las funciones de los miembros de mesa receptora de votos.", margin + 15, y, formData.tipo_solicitud === 'capacitacion');
+
+    // 5. TABLA DE DATOS
+    y += 12;
+    const dataRows = [
+        ["FECHA", `: ${formatDateToDDMMYYYY(formData.fecha)} / 2026`],
+        ["HORARIO", `DESDE: ${formData.hora_desde}  horas\nHASTA: ${formData.hora_hasta}  horas`],
+        ["LUGAR Y/O LOCAL", `: ${formData.lugar_local.toUpperCase()}`],
+        ["DIRECCIÓN", `: ${formData.direccion_calle.toUpperCase()}`],
+        ["BARRIO - COMPAÑIA", `: ${formData.barrio_compania.toUpperCase()}`],
+        ["DISTRITO", `: ${distritoNombre}`],
     ];
 
     autoTable(doc, {
-      startY: y + 10,
-      body: applicantData,
-      theme: 'grid',
-      margin: { left: margin, right: margin }
+        startY: y,
+        body: dataRows,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.1 },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 } },
+        margin: { left: margin, right: margin }
     });
+
+    y = (doc as any).lastAutoTable.finalY + 5;
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.text("DATOS DEL SOLICITANTE – APODERADO", margin + 5, y + 4);
+    doc.rect(margin + 75, y, 5, 5);
+    if(formData.rol_solicitante === 'apoderado') doc.text("X", margin + 76, y + 4);
+    doc.text("OTRO", margin + 85, y + 4);
+    doc.rect(margin + 98, y, 5, 5);
+    if(formData.rol_solicitante === 'otro') doc.text("X", margin + 99, y + 4);
+
+    y += 8;
+    const applicantRows = [
+        ["NOMBRE COMPLETO", `: ${formData.nombre_completo.toUpperCase()}`],
+        ["C.I.C. N.º", `: ${formData.cedula}`],
+        ["NÚMERO DE CONTACTO\n(CELULAR – LÍNEA BAJA)", `: ${formData.telefono}`]
+    ];
+
+    autoTable(doc, {
+        startY: y,
+        body: applicantRows,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.1 },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 } },
+        margin: { left: margin, right: margin }
+    });
+
+    // 6. OBSERVACIÓN
+    y = (doc as any).lastAutoTable.finalY + 2;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y, pageWidth - (margin * 2), 18, 'F');
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text("OBSERVACIÓN", pageWidth / 2, y + 5, { align: 'center' });
+    doc.setFont('helvetica', 'bolditalic');
+    doc.text("La recepción de solicitudes se realiza hasta 48 horas de antelación a la fecha del evento.", pageWidth / 2, y + 10, { align: 'center' });
+    doc.text("En caso de cancelación de la actividad debe informarse con 24 horas de anticipación.", pageWidth / 2, y + 14, { align: 'center' });
+
+    // 7. FOOTER
+    y += 25;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text("Se hace propicia la ocasión para saludarle muy cordialmente.", margin, y);
+
+    y += 40;
+    doc.line(margin + 30, y, pageWidth - margin - 30, y);
+    doc.text("Firma del Solicitante:", margin, y + 1);
 
     doc.save(`AnexoV-${formData.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
@@ -470,8 +559,8 @@ export default function SolicitudCapacitacionPage() {
                 </p>
             </div>
             <div className="flex gap-2">
-                <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-10 shadow-sm" onClick={generatePDF}>
-                    <Printer className="mr-2 h-3.5 w-3.5" /> PDF PRELIMINAR
+                <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-10 gap-2 shadow-sm" onClick={generatePDF}>
+                    <Printer className="mr-2 h-3.5 w-3.5" /> PDF PRELIMINAR (PROFORMA)
                 </Button>
             </div>
         </div>
