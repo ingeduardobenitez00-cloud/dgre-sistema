@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -34,7 +33,7 @@ import { collection, addDoc, serverTimestamp, query, orderBy, where, getDocs, li
 import { Separator } from '@/components/ui/separator';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { cn } from '@/lib/utils';
+import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
 import { type PartidoPolitico, type MaquinaVotacion, type SolicitudCapacitacion } from '@/lib/data';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
@@ -297,10 +296,6 @@ export default function SolicitudCapacitacionPage() {
     const totalMaquinas = maquinasDistrito.length;
     if (totalMaquinas === 0) return false;
 
-    const requestedStart = formData.hora_desde;
-    const requestedEnd = formData.hora_hasta;
-
-    // Filtrar solicitudes que solapan con el horario pedido
     const overlapping = solicitudesMismoDia.filter(s => {
         if (s.cancelada) return false;
         // Lógica de solapamiento: (StartA < EndB) AND (EndA > StartB)
