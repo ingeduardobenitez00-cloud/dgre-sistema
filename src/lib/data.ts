@@ -139,12 +139,13 @@ export type SolicitudCapacitacion = {
   divulgador_vinculo?: string;
   // Nueva estructura multi-personal
   asignados?: Asignado[];
+  divulgadores?: Asignado[];
   fecha_creacion: string;
   cancelada?: boolean;
   motivo_cancelacion?: string;
   fecha_cancelacion?: string;
   usuario_cancelacion?: string;
-  qr_habilitado?: boolean;
+  qr_enabled?: boolean;
 }
 
 export type EncuestaSatisfaccion = {
@@ -194,6 +195,11 @@ export type MaquinaMovimiento = {
   acrilico: boolean;
   boletas: boolean;
   lacre_estado?: 'correcto' | 'violentado';
+  // Campos de retorno
+  retorno_credencial?: boolean;
+  retorno_auricular?: boolean;
+  retorno_acrilico?: boolean;
+  retorno_boletas?: boolean;
 }
 
 export type MovimientoMaquina = {
