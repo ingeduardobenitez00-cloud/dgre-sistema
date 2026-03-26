@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -117,7 +116,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divuladoresQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
 
   const groupedData = useMemo(() => {
     if (!rawSolicitudes || !datosData) return [];
@@ -129,6 +128,7 @@ export default function AgendaCapacitacionPage() {
         const mov = movimientosData?.find(m => m.solicitud_id === sol.id);
         const inf = informesData?.find(i => i.solicitud_id === sol.id);
         const isPast = sol.fecha < today;
+        // Ciclo cerrado si tiene fecha de devolución e informe Anexo III
         const isClosed = mov?.fecha_devolucion && inf;
         return !(isPast && isClosed);
     });
