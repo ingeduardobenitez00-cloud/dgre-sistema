@@ -28,9 +28,10 @@ import {
   ImageIcon,
   FileText,
   Cpu,
-  Minus
+  Minus,
+  User
 } from 'lucide-react';
-import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where, doc, updateDoc } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import { type SolicitudCapacitacion, type MovimientoMaquina, type MaquinaVotacion, type MaquinaMovimiento } from '@/lib/data';
@@ -44,9 +45,6 @@ import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 
@@ -119,14 +117,14 @@ export default function ControlMovimientoMaquinasPage() {
     return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
   }, [firestore, isUserLoading, profile]);
 
-  const { data: rawAgendaItems } = useCollection<SolicitudCapacitacion>(agendaQuery);
+  const { data: rawAgendaItems, isLoading: isLoadingAgenda } = useCollection<SolicitudCapacitacion>(agendaQuery);
 
   const maquinasQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !profile) return null;
     return query(collection(firestore, 'maquinas'), where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
   }, [firestore, isUserLoading, profile]);
 
-  const { data: maquinasInventario } = useCollection<MaquinaVotacion>(maquinasQuery);
+  const { data: maquinasInventario, isLoading: isLoadingMaquinas } = useCollection<MaquinaVotacion>(maquinasQuery);
 
   const movimientosQueryAll = useMemoFirebase(() => firestore ? collection(firestore, 'movimientos-maquinas') : null, [firestore]);
   const { data: allMovimientos } = useCollection<MovimientoMaquina>(movimientosQueryAll);
