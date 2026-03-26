@@ -48,7 +48,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Textarea } from '@/components/ui/textarea';
-import jsPDF from 'jsPDF';
+import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import {
   AlertDialog,

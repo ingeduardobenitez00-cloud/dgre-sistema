@@ -367,9 +367,6 @@ export default function InformeSemanalRegistroPage() {
                             </PopoverContent>
                         )}
                     </Popover>
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">
-                        {isDateLocked ? "Rango establecido por la Administración Nacional." : "Rango de fechas de configuración."}
-                    </p>
                 </div>
 
                 <div className="space-y-2">
@@ -462,9 +459,6 @@ export default function InformeSemanalRegistroPage() {
                             <Camera className="h-4 w-4" /> Usar Cámara
                         </Button>
                     </div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60 leading-relaxed italic">
-                        Adjunta fotos de boletas, documentos o archivos PDF relevantes. Puedes subir varios.
-                    </p>
                 </div>
 
                 {photos.length > 0 && (
@@ -496,12 +490,6 @@ export default function InformeSemanalRegistroPage() {
             </Button>
           </CardFooter>
         </Card>
-
-        <div className="text-center pb-12">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] opacity-40 italic">
-                * Sistema de Reporte Operativo Oficial - Registro Electoral - Justicia Electoral
-            </p>
-        </div>
       </main>
 
       <Dialog open={isCameraOpen} onOpenChange={(o) => !o && stopCamera()}>

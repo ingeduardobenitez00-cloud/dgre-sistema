@@ -44,7 +44,6 @@ function InformeContent() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [selectedAgendaId, setSelectedAgendaId] = useState<string | null>(agendaIdFromUrl);
   
-  // Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -404,7 +403,6 @@ function InformeContent() {
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
       <Header title="Anexo III - Informe del Divulgador" />
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6">
-        
         <Card className="border-primary/20 shadow-md">
             <CardHeader className="py-4 bg-primary/5">
                 <CardTitle className="text-[10px] font-black flex items-center gap-2 uppercase tracking-widest text-primary">
@@ -462,38 +460,21 @@ function InformeContent() {
 
         <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
           <CardContent className="p-8 space-y-8">
-            
             <div className="border-2 border-black p-6 space-y-4">
                 <div className="flex items-center gap-3">
                     <Label className="font-black uppercase text-xs shrink-0">LUGAR DE DIVULGACIÓN:</Label>
-                    <Input 
-                        value={formData.lugar_divulgacion} 
-                        readOnly 
-                        className="border-0 border-b-2 border-black rounded-none h-8 font-bold uppercase focus-visible:ring-0 bg-transparent px-0 opacity-70" 
-                    />
+                    <Input value={formData.lugar_divulgacion} readOnly className="border-0 border-b-2 border-black rounded-none h-8 font-bold uppercase focus-visible:ring-0 bg-transparent px-0 opacity-70" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="flex items-center gap-3">
                         <Label className="font-black uppercase text-xs shrink-0">FECHA:</Label>
-                        <Input 
-                            value={formatDateToDDMMYYYY(formData.fecha)} 
-                            readOnly 
-                            className="border-0 border-b-2 border-black rounded-none h-8 font-bold focus-visible:ring-0 bg-transparent px-0 opacity-70" 
-                        />
+                        <Input value={formatDateToDDMMYYYY(formData.fecha)} readOnly className="border-0 border-b-2 border-black rounded-none h-8 font-bold focus-visible:ring-0 bg-transparent px-0 opacity-70" />
                     </div>
                     <div className="flex items-center gap-3">
                         <Label className="font-black uppercase text-xs shrink-0">HORARIO DE:</Label>
-                        <Input 
-                            value={formData.hora_desde} 
-                            readOnly 
-                            className="border-0 border-b-2 border-black rounded-none h-8 w-20 font-bold focus-visible:ring-0 bg-transparent px-0 text-center opacity-70" 
-                        />
+                        <Input value={formData.hora_desde} readOnly className="border-0 border-b-2 border-black rounded-none h-8 w-20 font-bold focus-visible:ring-0 bg-transparent px-0 text-center opacity-70" />
                         <Label className="font-black uppercase text-xs">A</Label>
-                        <Input 
-                            value={formData.hora_hasta} 
-                            readOnly 
-                            className="border-0 border-b-2 border-black rounded-none h-8 w-20 font-bold focus-visible:ring-0 bg-transparent px-0 text-center opacity-70" 
-                        />
+                        <Input value={formData.hora_hasta} readOnly className="border-0 border-b-2 border-black rounded-none h-8 w-20 font-bold focus-visible:ring-0 bg-transparent px-0 text-center opacity-70" />
                         <Label className="font-black uppercase text-xs">HS.</Label>
                     </div>
                 </div>
@@ -502,28 +483,16 @@ function InformeContent() {
             <div className="border-2 border-black p-6 space-y-4">
                 <div className="flex items-center gap-3">
                     <Label className="font-black uppercase text-xs shrink-0">NOMBRE COMPLETO DIVULGADOR:</Label>
-                    <Input 
-                        value={formData.nombre_divulgador} 
-                        readOnly 
-                        className="border-0 border-b-2 border-black rounded-none h-8 font-black uppercase focus-visible:ring-0 bg-transparent px-0 text-primary" 
-                    />
+                    <Input value={formData.nombre_divulgador} readOnly className="border-0 border-b-2 border-black rounded-none h-8 font-black uppercase focus-visible:ring-0 bg-transparent px-0 text-primary" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="flex items-center gap-3">
                         <Label className="font-black uppercase text-xs shrink-0">C.I.C. N.º:</Label>
-                        <Input 
-                            value={formData.cedula_divulgador} 
-                            readOnly 
-                            className="border-0 border-b-2 border-black rounded-none h-8 font-bold focus-visible:ring-0 bg-transparent px-0" 
-                        />
+                        <Input value={formData.cedula_divulgador} readOnly className="border-0 border-b-2 border-black rounded-none h-8 font-bold focus-visible:ring-0 bg-transparent px-0" />
                     </div>
                     <div className="flex items-center gap-3">
                         <Label className="font-black uppercase text-xs shrink-0">VÍNCULO:</Label>
-                        <Input 
-                            value={formData.vinculo} 
-                            readOnly 
-                            className="border-0 border-b-2 border-black rounded-none h-8 font-bold uppercase focus-visible:ring-0 bg-transparent px-0" 
-                        />
+                        <Input value={formData.vinculo} readOnly className="border-0 border-b-2 border-black rounded-none h-8 font-bold uppercase focus-visible:ring-0 bg-transparent px-0" />
                     </div>
                 </div>
             </div>
@@ -577,21 +546,13 @@ function InformeContent() {
                             ) : (
                                 <Image src={respaldoPhoto} alt="Respaldo Documental" fill className="object-cover" />
                             )}
-                            <Button 
-                                variant="destructive" 
-                                size="icon" 
-                                className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-2xl"
-                                onClick={() => setRespaldoPhoto(null)}
-                            >
+                            <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-2xl" onClick={() => setRespaldoPhoto(null)}>
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <div 
-                                className="flex flex-col items-center justify-center aspect-video border-4 border-dashed border-primary/20 rounded-2xl cursor-pointer hover:bg-primary/[0.02] transition-all group bg-white shadow-inner"
-                                onClick={startCamera}
-                            >
+                            <div className="flex flex-col items-center justify-center aspect-video border-4 border-dashed border-primary/20 rounded-2xl cursor-pointer hover:bg-primary/[0.02] transition-all group bg-white shadow-inner" onClick={startCamera}>
                                 <Camera className="h-12 w-12 text-primary opacity-20 group-hover:opacity-100 transition-all mb-2" />
                                 <span className="text-[10px] font-black uppercase text-primary/40 group-hover:text-primary transition-colors text-center px-4">ADJUNTAR FOTO FORMULARIO</span>
                             </div>
@@ -619,12 +580,7 @@ function InformeContent() {
                     {photos.map((photo, idx) => (
                         <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border-2 border-black/10 group">
                             <Image src={photo} alt={`Evidencia ${idx}`} fill className="object-cover" />
-                            <Button 
-                                variant="destructive" 
-                                size="icon" 
-                                className="absolute top-2 right-2 h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                                onClick={() => removePhoto(idx)}
-                            >
+                            <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => removePhoto(idx)}>
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </div>
@@ -641,19 +597,12 @@ function InformeContent() {
 
             <div className="flex justify-center py-4">
                 <p className="font-black uppercase text-sm flex items-center gap-4">
-                    TOTAL DE PERSONAS: 
-                    <span className="inline-block border-b-2 border-black w-32 text-center text-xl text-primary">{markedCells.length}</span> 
-                    ciudadanos.
+                    TOTAL DE PERSONAS: <span className="inline-block border-b-2 border-black w-32 text-center text-xl text-primary">{markedCells.length}</span> ciudadanos.
                 </p>
             </div>
-
           </CardContent>
           <CardFooter className="p-0 border-t bg-black overflow-hidden">
-            <Button 
-                onClick={handleSubmit} 
-                disabled={isSubmitting || markedCells.length === 0} 
-                className="w-full h-16 bg-black hover:bg-black/90 text-white text-xl font-black uppercase rounded-none tracking-widest"
-            >
+            <Button onClick={handleSubmit} disabled={isSubmitting || markedCells.length === 0} className="w-full h-16 bg-black hover:bg-black/90 text-white text-xl font-black uppercase rounded-none tracking-widest">
               {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <CheckCircle2 className="mr-3 h-6 w-6" />}
               GUARDAR REPORTE INDIVIDUAL
             </Button>
@@ -664,26 +613,12 @@ function InformeContent() {
       <Dialog open={isCameraOpen} onOpenChange={(open) => !open && stopCamera()}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none bg-black">
           <div className="relative aspect-[3/4] bg-black">
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              className="w-full h-full object-cover"
-            />
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
             <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-4 px-4">
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={stopCamera}
-                className="rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20"
-              >
+              <Button variant="outline" size="icon" onClick={stopCamera} className="rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20">
                 <X className="h-6 w-6" />
               </Button>
-              <Button 
-                size="lg" 
-                onClick={takePhoto}
-                className="rounded-full h-16 w-16 bg-white hover:bg-white/90 text-black border-4 border-black/20"
-              >
+              <Button size="lg" onClick={takePhoto} className="rounded-full h-16 w-16 bg-white hover:bg-white/90 text-black border-4 border-black/20">
                 <Camera className="h-8 w-8" />
               </Button>
             </div>

@@ -43,7 +43,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command";
+} from "@/components/command";
 import {
   Popover,
   PopoverContent,
@@ -424,10 +424,7 @@ export default function SolicitudCapacitacionPage() {
     const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
     const hoy = new Date();
-    const dia = hoy.getDate().toString().padStart(2, '0');
-    const mesEscrito = meses[hoy.getMonth()].toUpperCase();
     const distritoNombre = (profile?.distrito || '').replace(/^\d+\s*-\s*/, '').toUpperCase();
 
     doc.addImage(logoBase64, 'PNG', margin, 8, 18, 18);
@@ -674,7 +671,7 @@ export default function SolicitudCapacitacionPage() {
                           <PopoverTrigger asChild>
                             <div className="h-14 w-full flex items-center px-5 font-black text-xl border-2 rounded-[1.2rem] bg-white cursor-pointer hover:border-black transition-all">
                               <CalendarIcon className="mr-3 h-5 w-5 opacity-30" />
-                              {formData.fecha ? format(parseISO(formData.fecha), "dd/MM/yyyy") : "__/__/____"}
+                              {formData.fecha ? formatDateToDDMMYYYY(formData.fecha) : "__/__/____"}
                             </div>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">

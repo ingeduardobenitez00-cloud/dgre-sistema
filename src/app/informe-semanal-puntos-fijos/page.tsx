@@ -323,7 +323,6 @@ export default function InformeSemanalAnexoIVPage() {
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
       <Header title="Anexo IV - Informe Semanal" />
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
-        
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h1 className="text-3xl font-black tracking-tight text-primary uppercase">Anexo IV - Informe Semanal</h1>
@@ -346,7 +345,6 @@ export default function InformeSemanalAnexoIVPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
-                    
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground">Departamento</Label>
                         {isAdminView ? (
