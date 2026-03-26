@@ -1,15 +1,15 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '@/components/header';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useFirebase, useUser, useCollection } from '@/firebase';
-import { collection, doc, setDoc, query, where, Timestamp } from 'firebase/firestore';
+import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc, setDoc, query, where } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type InformeDivulgador } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, FileText, ChevronsUpDown, Check, Calendar, User, X, Camera } from 'lucide-react';
@@ -23,7 +23,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 function InformeContent() {
   const { firestore } = useFirebase();
-  const { user, isUserLoading, profile: userProfile } = useUser();
+  const { user, isUserLoading, isProfileLoading } = useUser();
+  const userProfile = user?.profile;
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const solicitudIdFromUrl = searchParams.get('solicitudId');
@@ -35,23 +36,23 @@ function InformeContent() {
   // Estados de Cámara
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
-  const videoRef = (typeof window !== 'undefined') ? { current: null as any } : { current: null }; // Placeholder para SSR
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  // Consulta de informes ya presentados para evitar duplicados
-  const informesQuery = useMemo(() => (firestore ? collection(firestore, 'informes-divulgador') : null), [firestore]);
+  // Consulta de informes ya presentados
+  const informesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'informes-divulgador') : null), [firestore]);
   const { data: submittedInformes } = useCollection<InformeDivulgador>(informesQuery);
 
-  // Consulta centralizada de solicitudes (Anexo I y V están aquí)
-  const solicitudesQuery = useMemo(() => {
-    if (!firestore || !userProfile || !user?.uid) return null;
+  // Consulta centralizada de solicitudes
+  const solicitudesQuery = useMemoFirebase(() => {
+    if (!firestore || isProfileLoading || !userProfile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
     
-    // Filtros por jurisdicción básicos
     const role = userProfile.role;
     const permissions = userProfile.permissions || [];
-    const isManager = role === 'admin' || role === 'director' || permissions.includes('admin_filter');
+    const isAdminGlobal = role === 'admin' || role === 'director' || permissions.includes('admin_filter');
 
-    if (isManager) return colRef;
+    if (isAdminGlobal) return colRef;
     
     if (permissions.includes('department_filter') && userProfile.departamento) {
         return query(colRef, where('departamento', '==', userProfile.departamento));
@@ -61,14 +62,13 @@ function InformeContent() {
         return query(colRef, where('departamento', '==', userProfile.departamento), where('distrito', '==', userProfile.distrito));
     }
 
-    return colRef; // Divulgadores filtran en memoria para mayor robustez
-  }, [firestore, user, userProfile]);
+    return colRef; 
+  }, [firestore, isProfileLoading, userProfile]);
 
   const { data: rawSolicitudes, isLoading: isLoadingSolicitudes } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
 
-  // Lógica de vinculación: Filtra actividades activas donde el usuario está asignado
   const linkedActivities = useMemo(() => {
-    if (!rawSolicitudes || !user || !userProfile) return [];
+    if (!rawSolicitudes || !userProfile || !user) return [];
     
     const submittedReportKeys = new Set(submittedInformes?.map(inf => `${inf.solicitud_id}_${inf.divulgador_id}`) || []);
     const isManager = ['admin', 'director', 'jefe'].includes(userProfile.role || '') || userProfile.permissions?.includes('admin_filter');
@@ -76,14 +76,11 @@ function InformeContent() {
     return rawSolicitudes.flatMap(act => {
       if (act.cancelada) return [];
       
-      // Obtenemos los divulgadores del evento
       const divulgadores = act.divulgadores || act.asignados || [];
       
       return divulgadores
         .filter(div => {
-          // Si es manager, ve todo lo que tenga personal asignado
           if (isManager) return true;
-          // Si es divulgador, solo ve donde él esté asignado (por ID)
           return div.id === user.uid;
         })
         .filter(div => !submittedReportKeys.has(`${act.id}_${div.id}`))
@@ -107,6 +104,42 @@ function InformeContent() {
       if (matching) setSelectedActivityKey(matching.id);
     }
   }, [solicitudIdFromUrl, linkedActivities, selectedActivityKey]);
+
+  const startCamera = async () => {
+    setIsCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment', aspectRatio: { ideal: 0.75 } } 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; }
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error de Cámara" });
+      setIsCameraOpen(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        setPhoto(canvas.toDataURL('image/jpeg', 0.7));
+        stopCamera();
+      }
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -139,6 +172,7 @@ function InformeContent() {
       participantes_femeninos: f,
       participantes_otros: o,
       observaciones: formData.get('observaciones') as string,
+      foto_respaldo_documental: photo || '',
       fecha_creacion: new Date().toISOString(),
       usuario_id: user.uid
     };
@@ -148,6 +182,7 @@ function InformeContent() {
       await setDoc(doc(firestore, 'informes-divulgador', docId), informeData);
       toast({ title: 'Informe Guardado' });
       setSelectedActivityKey(undefined);
+      setPhoto(null);
       event.currentTarget.reset();
     } catch (error) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'informes-divulgador', operation: 'create' }));
@@ -156,7 +191,7 @@ function InformeContent() {
     }
   };
 
-  if (isUserLoading || isLoadingSolicitudes) {
+  if (isUserLoading || isProfileLoading || isLoadingSolicitudes) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
 
@@ -189,7 +224,7 @@ function InformeContent() {
                           <Command>
                               <CommandInput placeholder="Buscar por local o divulgador..." className="h-12" />
                               <CommandList>
-                                  <CommandEmpty className="py-10 text-center text-[10px] font-black uppercase text-muted-foreground">No hay actividades pendientes para usted.</CommandEmpty>
+                                  <CommandEmpty className="py-10 text-center text-[10px] font-black uppercase text-muted-foreground">No hay actividades pendientes.</CommandEmpty>
                                   <CommandGroup>
                                   {linkedActivities.map((act) => (
                                       <CommandItem key={act.id} value={act.label} onSelect={() => { setSelectedActivityKey(act.id); setOpen(false);}} className="font-bold py-4 border-b last:border-0 cursor-pointer">
@@ -241,28 +276,83 @@ function InformeContent() {
                         </div>
                     </div>
 
+                    <div className="space-y-4">
+                        <Label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] text-center block">3. RESPALDO DOCUMENTAL *</Label>
+                        {photo ? (
+                            <div className="relative aspect-video rounded-3xl overflow-hidden border-4 border-white shadow-2xl group">
+                                <img src={photo} alt="Respaldo" className="w-full h-full object-cover" />
+                                <Button variant="destructive" size="icon" className="absolute top-4 right-4 rounded-full" onClick={() => setPhoto(null)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center p-10 border-4 border-dashed rounded-[2.5rem] bg-muted/5 cursor-pointer hover:bg-muted/10 transition-all" onClick={startCamera}>
+                                <Camera className="h-12 w-12 text-primary opacity-20 mb-2" />
+                                <span className="text-[10px] font-black uppercase text-primary/40">Capturar Anexo III Firmado</span>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black text-muted-foreground uppercase">3. Observaciones del Informe</Label>
+                        <Label className="text-[10px] font-black text-muted-foreground uppercase">4. Observaciones del Informe</Label>
                         <Input name="observaciones" placeholder="Detalles relevantes de la jornada..." className="h-14 font-bold border-2 rounded-xl uppercase text-xs" />
                     </div>
                 </div>
               )}
             </CardContent>
             <CardFooter className="bg-muted/30 border-t p-8">
-              <Button type="submit" className="w-full h-16 font-black uppercase text-lg tracking-[0.2em] shadow-xl" disabled={isSubmitting || !selectedActivityKey}>
+              <Button type="submit" className="w-full h-16 font-black uppercase text-lg tracking-[0.2em] shadow-xl" disabled={isSubmitting || !selectedActivityKey || !photo}>
                 {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : "ENVIAR ANEXO III"}
               </Button>
             </CardFooter>
           </Card>
         </form>
       </main>
+
+      {/* Diálogo de Cámara */}
+      <Dialog open={isCameraOpen} onOpenChange={(open) => !open && stopCamera()}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none bg-black">
+          <div className="relative aspect-[3/4] bg-black">
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-4 px-4">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={stopCamera}
+                className="rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <X className="h-6 w-6" />
+              </Button>
+              <Button 
+                size="lg" 
+                onClick={takePhoto}
+                className="rounded-full h-16 w-16 bg-white hover:bg-white/90 text-black border-4 border-black/20"
+              >
+                <Camera className="h-8 w-8" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-export default function InformeDivulgadorPage() {
+const Trash2 = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+);
+
+// Exportación con Suspense para evitar errores de build con useSearchParams
+export default function AnexoIII() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>}>
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="animate-spin h-8 w-8 text-primary"/>
+      </div>
+    }>
       <InformeContent />
     </Suspense>
   );
