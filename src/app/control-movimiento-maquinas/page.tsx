@@ -30,7 +30,9 @@ import {
   Plus,
   CheckCircle2,
   PackageCheck,
-  ClipboardList
+  ClipboardList,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -162,17 +164,12 @@ export default function ControlMovimientoMaquinasPage() {
         const mov = allMovimientos.find(m => m.solicitud_id === item.id);
         const den = allDenuncias.find(d => d.solicitud_id === item.id);
         
-        // 1. Si no tiene movimiento, se muestra para carga de salida
         if (!mov) return true;
-        
-        // 2. Si no tiene devolución, se muestra para carga de retorno
         if (!mov.fecha_devolucion) return true;
         
-        // 3. Si tiene devolución violenta pero no tiene denuncia, se muestra
         const hasTampering = mov.maquinas.some(m => m.lacre_estado === 'violentado');
         if (hasTampering && !den) return true;
         
-        // En cualquier otro caso (ciclo cerrado o exitoso), se oculta
         return false;
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -461,29 +458,35 @@ export default function ControlMovimientoMaquinasPage() {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;
-    const lineHeight = 5;
+    const boxWidth = pageWidth - (margin * 2);
+
+    const responsibles = selectedSolicitud.divulgadores || selectedSolicitud.asignados || [];
+    const respNames = responsibles.map(r => r.nombre.toUpperCase()).join(" / ");
+    const ciText = responsibles.map(r => r.cedula).join(" / ");
 
     movimientoData.maquinas.forEach((maq, index) => {
       if (index > 0) doc.addPage();
 
       // HEADER
-      const coatOfArmsWidth = 20;
-      doc.addImage(logoBase64, 'PNG', margin, 5, coatOfArmsWidth, coatOfArmsWidth);
-
-      const dgreLogoWidth = 35;
-      doc.addImage(logoDGREBase64, 'PNG', pageWidth - margin - dgreLogoWidth, 5, dgreLogoWidth, 15);
+      doc.addImage(logoBase64, 'PNG', margin, 5, 20, 20);
+      doc.addImage(logoDGREBase64, 'PNG', pageWidth - margin - 35, 5, 35, 15);
 
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 25, { align: "center" });
 
-      // SECCION A
+      // SECCION A: SALIDA
       let y = 30;
       doc.setDrawColor(0);
       doc.setLineWidth(0.5);
-      doc.roundedRect(margin, y, pageWidth - (margin * 2), 110, 5, 5);
+      
+      // Box A - Dynamic Height based on names
+      const nameLines = doc.splitTextToSize(respNames, boxWidth - 30);
+      const nameBoxHeight = Math.max(10, nameLines.length * 5 + 4);
+      
+      doc.roundedRect(margin, y, boxWidth, 110 + (nameBoxHeight - 10), 5, 5);
 
-      // Letra A en circulo
+      // Circle A
       doc.circle(margin + 10, y + 8, 5);
       doc.text("A", margin + 10, y + 9, { align: 'center' });
       doc.text("SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, y + 8, { align: 'center' });
@@ -493,21 +496,17 @@ export default function ControlMovimientoMaquinasPage() {
       doc.setFont('helvetica', 'bold');
       doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin + 10, y);
 
-      y += lineHeight;
+      y += 4;
       doc.setFont('helvetica', 'normal');
-      const responsibles = selectedSolicitud.divulgadores || selectedSolicitud.asignados || [];
-      const respNames = responsibles.map(r => r.nombre.toUpperCase()).join(" / ");
-      
-      doc.roundedRect(margin + 10, y, pageWidth - (margin * 2) - 20, 8, 4, 4);
-      doc.text(respNames, margin + 15, y + 5.5);
+      doc.roundedRect(margin + 10, y, boxWidth - 20, nameBoxHeight, 4, 4);
+      doc.text(nameLines, margin + 15, y + (nameBoxHeight / 2) + 1, { baseline: 'middle' });
 
-      y += 12;
+      y += nameBoxHeight + 4;
       doc.setFont('helvetica', 'bold');
       doc.text("N° C.I.:", margin + 10, y);
       
-      y += lineHeight;
-      const ciText = responsibles.map(r => r.cedula).join(" / ");
-      doc.roundedRect(margin + 10, y, 80, 8, 4, 4);
+      y += 4;
+      doc.roundedRect(margin + 10, y, 100, 8, 4, 4);
       doc.setFont('helvetica', 'normal');
       doc.text(ciText, margin + 15, y + 5.5);
 
@@ -518,7 +517,7 @@ export default function ControlMovimientoMaquinasPage() {
       let vx = margin + 35;
       vinculos.forEach(v => {
         doc.rect(vx, y - 3, 4, 4);
-        if (responsibles.some(r => r.vinculo === v)) doc.text("X", vx + 0.5, y);
+        if (responsibles.some(r => r.vinculo?.toUpperCase() === v)) doc.text("X", vx + 0.5, y);
         doc.text(v, vx + 6, y);
         vx += 45;
       });
@@ -526,12 +525,12 @@ export default function ControlMovimientoMaquinasPage() {
       y += 10;
       doc.setFont('helvetica', 'bold');
       doc.text(`HORA DE SALIDA:  ${movimientoData.hora_salida} HS`, margin + 10, y);
-      doc.text(`FECHA:  ${formatDateToDDMMYYYY(movimientoData.fecha_salida).replace(/-/g, ' / ')}`, pageWidth - margin - 60, y);
+      doc.text(`FECHA:  ${formatDateToDDMMYYYY(movimientoData.fecha_salida).replace(/-/g, ' / ')}`, pageWidth - margin - 65, y);
 
       y += 10;
       doc.setFont('helvetica', 'bold');
       doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
-      y += lineHeight;
+      y += 4;
       doc.setFont('helvetica', 'normal');
       doc.roundedRect(margin + 10, y, 80, 8, 4, 4);
       doc.text(maq.codigo || '', margin + 15, y + 5.5);
@@ -539,9 +538,9 @@ export default function ControlMovimientoMaquinasPage() {
       y += 12;
       doc.setFont('helvetica', 'bold');
       doc.text("LUGAR DE LA DIVULGACIÓN", margin + 10, y);
-      y += lineHeight;
+      y += 4;
       doc.setFont('helvetica', 'normal');
-      doc.roundedRect(margin + 10, y, pageWidth - (margin * 2) - 20, 8, 4, 4);
+      doc.roundedRect(margin + 10, y, boxWidth - 20, 8, 4, 4);
       doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 15, y + 5.5);
 
       // Signatures A
@@ -587,17 +586,10 @@ export default function ControlMovimientoMaquinasPage() {
         }
       });
 
-      // OBS
-      y = 145;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN", pageWidth / 2, y, { align: 'center' });
-      doc.text("ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y + 4, { align: 'center' });
-
-      // SECCION B
-      y = 155;
+      // SECCION B: DEVOLUCIÓN
+      y = 155 + (nameBoxHeight - 10);
       doc.setDrawColor(0);
-      doc.roundedRect(margin, y, pageWidth - (margin * 2), 110, 5, 5);
+      doc.roundedRect(margin, y, boxWidth, 110, 5, 5);
 
       doc.circle(margin + 10, y + 8, 5);
       doc.text("B", margin + 10, y + 9, { align: 'center' });
@@ -611,7 +603,7 @@ export default function ControlMovimientoMaquinasPage() {
       y += 10;
       doc.setFont('helvetica', 'bold');
       doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
-      y += lineHeight;
+      y += 4;
       doc.setFont('helvetica', 'normal');
       doc.roundedRect(margin + 10, y, 80, 8, 4, 4);
       doc.text(maq.codigo || '', margin + 15, y + 5.5);
@@ -922,7 +914,7 @@ export default function ControlMovimientoMaquinasPage() {
               </CardFooter>
             </Card>
 
-            {/* SECCION C: DENUNCIA INLINE (Aparece si hay violentados tras guardar recepción) */}
+            {/* SECCION C: DENUNCIA INLINE */}
             {isDevolucionGuardada && movimientoData.maquinas.some(m => m.lacre_estado === 'violentado') && (
                 <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white animate-in zoom-in duration-500">
                     <CardHeader className="p-8 border-b bg-destructive text-white">
