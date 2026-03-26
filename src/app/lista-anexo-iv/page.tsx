@@ -106,7 +106,7 @@ export default function ListaAnexoIVPage() {
             <div className="grid grid-cols-1 gap-4">
                 {filteredAnexos.map((anexo) => {
                     const totalP = anexo.filas?.reduce((acc, f) => acc + (f.cantidad_personas || 0), 0) || 0;
-                    const totalD = new Set(anexo.filas?.map(f => f.cedula)).size;
+                    const totalD = new Set(anexo.filas?.map(f => f.cedula || (f as any).divulgador_cedula)).size;
 
                     return (
                         <Card key={anexo.id} className="border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden bg-white group">
@@ -184,9 +184,9 @@ export default function ListaAnexoIVPage() {
                                         <TableRow key={idx} className="border-b last:border-0">
                                             <TableCell className="px-6 py-4 font-black text-[10px] uppercase text-primary leading-tight">{f.lugar}</TableCell>
                                             <TableCell className="text-[9px] font-bold uppercase text-muted-foreground">{formatDateToDDMMYYYY(f.fecha)}</TableCell>
-                                            <TableCell className="font-black text-[10px] uppercase text-primary">{f.nombre_divulgador}</TableCell>
-                                            <TableCell className="text-[10px] font-bold">C.I. {f.cedula}</TableCell>
-                                            <TableCell><Badge variant="outline" className="text-[8px] font-black uppercase bg-muted/20 border-primary/10">{f.vinculo}</Badge></TableCell>
+                                            <TableCell className="font-black text-[10px] uppercase text-primary">{f.nombre_divulgador || (f as any).divulgador_nombre}</TableCell>
+                                            <TableCell className="text-[10px] font-bold">C.I. {f.cedula || (f as any).divulgador_cedula}</TableCell>
+                                            <TableCell><Badge variant="outline" className="text-[8px] font-black uppercase bg-muted/20 border-primary/10">{f.vinculo || (f as any).divulgador_vinculo}</Badge></TableCell>
                                             <TableCell className="text-right px-6 font-black text-sm text-primary">
                                                 {f.cantidad_personas}
                                             </TableCell>

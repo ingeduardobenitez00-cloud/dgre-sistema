@@ -147,7 +147,7 @@ export default function InformeSemanalAnexoIVPage() {
   }, [informesAnexoIII]);
 
   const totalDivulgadores = useMemo(() => {
-    const cedulas = new Set(informesAnexoIII.map(inf => inf.cedula_divulgador));
+    const cedulas = new Set(informesAnexoIII.map(inf => inf.cedula_divulgador || (inf as any).divulgador_cedula));
     return cedulas.size;
   }, [informesAnexoIII]);
 
@@ -233,15 +233,21 @@ export default function InformeSemanalAnexoIVPage() {
     doc.text(`DISTRITO:  ${(selectedDistrict || '').toUpperCase()}`, margin, 55);
     doc.text(`DEPARTAMENTO:  ${(selectedDepartment || '').toUpperCase()}`, pageWidth / 2 - 20, 55);
 
-    const tableBody = informesAnexoIII.map((inf, idx) => [
-        idx + 1,
-        inf.lugar_divulgacion.toUpperCase(),
-        inf.fecha.split('-').reverse().join('/'),
-        inf.nombre_divulgador.toUpperCase(),
-        inf.cedula_divulgador,
-        inf.vinculo.toUpperCase(),
-        inf.total_personas
-    ]);
+    const tableBody = informesAnexoIII.map((inf, idx) => {
+        const nombre = inf.nombre_divulgador || (inf as any).divulgador_nombre || '';
+        const ci = inf.cedula_divulgador || (inf as any).divulgador_cedula || '';
+        const vinc = inf.vinculo || (inf as any).divulgador_vinculo || '';
+        
+        return [
+            idx + 1,
+            inf.lugar_divulgacion.toUpperCase(),
+            inf.fecha.split('-').reverse().join('/'),
+            nombre.toUpperCase(),
+            ci,
+            vinc.toUpperCase(),
+            inf.total_personas
+        ];
+    });
 
     while (tableBody.length < 12) {
         tableBody.push([tableBody.length + 1, '', '', '', '', '', '']);
@@ -300,9 +306,9 @@ export default function InformeSemanalAnexoIVPage() {
         fecha: inf.fecha,
         hora_desde: inf.hora_desde,
         hora_hasta: inf.hora_hasta,
-        nombre_divulgador: inf.nombre_divulgador,
-        cedula: inf.cedula_divulgador,
-        vinculo: inf.vinculo,
+        nombre_divulgador: inf.nombre_divulgador || (inf as any).divulgador_nombre || '',
+        cedula: inf.cedula_divulgador || (inf as any).divulgador_cedula || '',
+        vinculo: inf.vinculo || (inf as any).divulgador_vinculo || '',
         cantidad_personas: inf.total_personas || 0,
       })),
       usuario_id: user.uid,
@@ -508,17 +514,23 @@ export default function InformeSemanalAnexoIVPage() {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        informesAnexoIII.map((inf, idx) => (
-                                            <TableRow key={inf.id} className="hover:bg-muted/30 transition-colors border-b">
-                                                <TableCell className="font-black text-xs text-muted-foreground">{idx + 1}</TableCell>
-                                                <TableCell className="font-black text-[10px] uppercase text-primary leading-tight">{inf.lugar_divulgacion}</TableCell>
-                                                <TableCell className="text-[9px] font-bold">{formatDateToDDMMYYYY(inf.fecha)}</TableCell>
-                                                <TableCell className="font-black text-[10px] uppercase text-primary">{inf.nombre_divulgador}</TableCell>
-                                                <TableCell className="text-[10px] font-bold">C.I. {inf.cedula_divulgador}</TableCell>
-                                                <TableCell><Badge variant="secondary" className="text-[8px] font-black uppercase bg-primary/5 text-primary border-none">{inf.vinculo}</Badge></TableCell>
-                                                <TableCell className="text-right font-black text-primary">{inf.total_personas}</TableCell>
-                                            </TableRow>
-                                        ))
+                                        informesAnexoIII.map((inf, idx) => {
+                                            const nombre = inf.nombre_divulgador || (inf as any).divulgador_nombre || '---';
+                                            const ci = inf.cedula_divulgador || (inf as any).divulgador_cedula || '---';
+                                            const vinc = inf.vinculo || (inf as any).divulgador_vinculo || '---';
+
+                                            return (
+                                                <TableRow key={inf.id} className="hover:bg-muted/30 transition-colors border-b">
+                                                    <TableCell className="font-black text-xs text-muted-foreground">{idx + 1}</TableCell>
+                                                    <TableCell className="font-black text-[10px] uppercase text-primary leading-tight">{inf.lugar_divulgacion}</TableCell>
+                                                    <TableCell className="text-[9px] font-bold">{formatDateToDDMMYYYY(inf.fecha)}</TableCell>
+                                                    <TableCell className="font-black text-[10px] uppercase text-primary">{nombre}</TableCell>
+                                                    <TableCell className="text-[10px] font-bold">C.I. {ci}</TableCell>
+                                                    <TableCell><Badge variant="secondary" className="text-[8px] font-black uppercase bg-primary/5 text-primary border-none">{vinc}</Badge></TableCell>
+                                                    <TableCell className="text-right font-black text-primary">{inf.total_personas}</TableCell>
+                                                </TableRow>
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>

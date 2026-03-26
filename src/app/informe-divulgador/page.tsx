@@ -177,9 +177,9 @@ function InformeContent() {
     const informeData: Omit<InformeDivulgador, 'id'> = {
       solicitud_id: selectedEntry.solicitudId,
       divulgador_id: selectedEntry.divulgador.id,
-      divulgador_nombre: selectedEntry.divulgador.nombre,
-      divulgador_cedula: selectedEntry.divulgador.cedula,
-      divulgador_vinculo: selectedEntry.divulgador.vinculo,
+      nombre_divulgador: selectedEntry.divulgador.nombre,
+      cedula_divulgador: selectedEntry.divulgador.cedula,
+      vinculo: selectedEntry.divulgador.vinculo,
       lugar_divulgacion: selectedEntry.activityData.lugar_local,
       fecha: selectedEntry.activityData.fecha,
       hora_desde: selectedEntry.activityData.hora_desde,
@@ -202,7 +202,6 @@ function InformeContent() {
       setSubmitSuccess(true);
       toast({ title: '¡ENVIADO!', description: 'El informe ha sido enviado correctamente.' });
 
-      // Esperar 2 segundos antes de dejar disponible el módulo para seguir la carga
       setTimeout(() => {
         setSubmitSuccess(false);
         setSelectedActivityKey(undefined);
