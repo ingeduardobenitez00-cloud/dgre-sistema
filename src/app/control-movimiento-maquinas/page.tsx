@@ -25,12 +25,13 @@ import {
   FileText,
   Cpu,
   Minus,
-  User
+  User,
+  Plus,
+  CheckCircle2
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where, doc, updateDoc } from 'firebase/firestore';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { type SolicitudCapacitacion, type MovimientoMaquina, type MaquinaVotacion, type MaquinaMovimiento } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
@@ -338,21 +339,16 @@ export default function ControlMovimientoMaquinasPage() {
   };
 
   const generatePDF = () => {
-    if (!selectedSolicitud || !logoBase64 || !logo1Base64) return;
+    if (!selectedSolicitud || !logoBase64) return;
     const doc = new jsPDF();
     const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    const drawHeader = () => {
-        doc.addImage(logoBase64, 'PNG', margin, 8, 22, 22);
-        doc.addImage(logo1Base64, 'PNG', pageWidth - margin - 38, 10, 38, 16);
-        doc.setLineWidth(0.4);
-        doc.line(margin, 35, pageWidth - margin, 35);
-        doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-        doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE EQUIPOS", pageWidth / 2, 42, { align: "center" });
-    };
-
-    drawHeader();
+    doc.addImage(logoBase64, 'PNG', margin, 8, 22, 22);
+    doc.setLineWidth(0.4);
+    doc.line(margin, 35, pageWidth - margin, 35);
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE EQUIPOS", pageWidth / 2, 42, { align: "center" });
 
     let y = 48;
     doc.setLineWidth(0.2);
