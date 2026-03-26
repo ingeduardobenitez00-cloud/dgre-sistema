@@ -43,6 +43,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { recordAuditLog } from '@/lib/audit';
 
 export default function ControlMovimientoMaquinasPage() {
   const { user, isUserLoading } = useUser();
@@ -143,18 +144,24 @@ export default function ControlMovimientoMaquinasPage() {
 
   const agendaItems = useMemo(() => {
     if (!rawAgendaItems || !allMovimientos || !allDenuncias) return [];
+    
     return [...rawAgendaItems]
       .filter(item => {
         if (item.cancelada) return false;
         const mov = allMovimientos.find(m => m.solicitud_id === item.id);
         const den = allDenuncias.find(d => d.solicitud_id === item.id);
         
+        // 1. Si no tiene movimiento, se muestra para carga de salida
         if (!mov) return true;
+        
+        // 2. Si no tiene devolución, se muestra para carga de retorno
         if (!mov.fecha_devolucion) return true;
         
+        // 3. Si tiene devolución violenta pero no tiene denuncia, se muestra
         const hasTampering = mov.maquinas.some(m => m.lacre_estado === 'violentado');
         if (hasTampering && !den) return true;
         
+        // En cualquier otro caso (ciclo cerrado o exitoso), se oculta
         return false;
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -410,7 +417,17 @@ export default function ControlMovimientoMaquinasPage() {
     };
 
     addDoc(collection(firestore, 'denuncias-lacres'), denunciaData)
-        .then(() => {
+        .then((docRef) => {
+            recordAuditLog(firestore, {
+                usuario_id: user.uid,
+                usuario_nombre: profile?.username || user.email || 'Usuario',
+                usuario_rol: profile?.role || 'funcionario',
+                accion: 'CREAR',
+                modulo: 'denuncia-lacres',
+                documento_id: docRef.id,
+                detalles: `Acta de denuncia para ${selectedSolicitud.lugar_local} - Máquinas: ${tampered.join(', ')}`
+            });
+
             toast({ title: "¡Denuncia Registrada!", description: "El proceso ha sido cerrado formalmente." });
             setDenunciaDetalles('');
             setDenunciaEvidencias([]);
@@ -468,7 +485,10 @@ export default function ControlMovimientoMaquinasPage() {
               <SelectTrigger className="h-12 border-2 font-bold"><SelectValue placeholder="Seleccione una capacitación..." /></SelectTrigger>
               <SelectContent>
                 {agendaItems.length === 0 ? (
-                  <div className="p-10 text-center opacity-40"><CheckCircle2 className="h-8 w-8 mx-auto text-green-600 mb-2" /><p className="text-[9px] font-black uppercase">Sin actividades pendientes</p></div>
+                  <div className="p-10 text-center space-y-2 opacity-40">
+                    <CheckCircle2 className="h-8 w-8 mx-auto text-green-600" />
+                    <p className="text-[9px] font-black uppercase tracking-widest">No hay actividades activas en agenda</p>
+                  </div>
                 ) : agendaItems.map(item => (
                     <SelectItem key={item.id} value={item.id} className="font-bold text-xs uppercase">{formatDateToDDMMYYYY(item.fecha)} | {item.lugar_local}</SelectItem>
                 ))}
