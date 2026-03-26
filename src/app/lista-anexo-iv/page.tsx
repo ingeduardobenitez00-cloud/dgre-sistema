@@ -119,7 +119,7 @@ export default function ListaAnexoIVPage() {
                                         <h2 className="text-lg font-black uppercase text-[#1A1A1A] truncate">{anexo.distrito}</h2>
                                         <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/10">CONSOLIDADO SEMANAL</Badge>
                                     </div>
-                                    <div className="flex flex-wrap gap-4 text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
+                                    <div className="flex wrap gap-4 text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
                                         <span className="flex items-center gap-1"><Landmark className="h-3 w-3" /> {anexo.departamento}</span>
                                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateToDDMMYYYY(anexo.semana_desde)} al {formatDateToDDMMYYYY(anexo.semana_hasta)}</span>
                                         <span className="flex items-center gap-1 text-primary"><Users className="h-3 w-3" /> {totalD} Funcionarios</span>
@@ -185,7 +185,7 @@ export default function ListaAnexoIVPage() {
                                         <TableRow key={idx} className="border-b last:border-0">
                                             <TableCell className="px-6 py-4 font-black text-[10px] uppercase text-primary leading-tight">{f.lugar}</TableCell>
                                             <TableCell className="text-[9px] font-bold uppercase text-muted-foreground">{formatDateToDDMMYYYY(f.fecha)}</TableCell>
-                                            <TableCell className="text-[9px] font-black text-muted-foreground uppercase">{f.hora_desde} a {f.hora_hasta}</TableCell>
+                                            <TableCell className="text-[9px] font-black text-muted-foreground uppercase">{f.hora_desde} A {f.hora_hasta} HS</TableCell>
                                             <TableCell className="font-black text-[10px] uppercase text-primary">{f.nombre_divulgador || (f as any).divulgador_nombre}</TableCell>
                                             <TableCell className="text-[10px] font-bold">C.I. {f.cedula || (f as any).divulgador_cedula}</TableCell>
                                             <TableCell><Badge variant="outline" className="text-[8px] font-black uppercase bg-muted/20 border-primary/10">{f.vinculo || (f as any).divulgador_vinculo}</Badge></TableCell>

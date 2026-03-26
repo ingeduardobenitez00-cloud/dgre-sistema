@@ -238,7 +238,7 @@ export default function InformeSemanalAnexoIVPage() {
         const nombre = inf.nombre_divulgador || (inf as any).divulgador_nombre || '';
         const ci = inf.cedula_divulgador || (inf as any).divulgador_cedula || '';
         const vinc = inf.vinculo || (inf as any).divulgador_vinculo || '';
-        const horario = `${inf.hora_desde} a ${inf.hora_hasta}`;
+        const horario = `${inf.hora_desde} A ${inf.hora_hasta} HS`;
         
         return [
             idx + 1,
@@ -381,7 +381,7 @@ export default function InformeSemanalAnexoIVPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[11px] font-black uppercase text-black tracking-tight">RANGO SEMANAL (DESDE - HASTA)</Label>
+                        <Label className="text-[11px] font-black uppercase text-black tracking-tight">RANGO SEMANAL</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <div className="relative group cursor-pointer">
@@ -531,7 +531,7 @@ export default function InformeSemanalAnexoIVPage() {
                                                     <TableCell className="text-[9px] font-bold">{formatDateToDDMMYYYY(inf.fecha)}</TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-1 text-[9px] font-black uppercase text-muted-foreground">
-                                                            <Clock className="h-2.5 w-2.5" /> {inf.hora_desde} a {inf.hora_hasta}
+                                                            <Clock className="h-2.5 w-2.5" /> {inf.hora_desde} A {inf.hora_hasta} HS
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="font-black text-[10px] uppercase text-primary">{nombre}</TableCell>

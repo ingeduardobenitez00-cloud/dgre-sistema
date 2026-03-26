@@ -485,7 +485,7 @@ export default function SolicitudCapacitacionPage() {
     y += 12;
     const tableData = [
         ["FECHA", `: ${formData.fecha ? formatDateToDDMMYYYY(formData.fecha) : '    /    '} / 2026`],
-        ["HORARIO", `DESDE: ${formData.hora_desde}  horas\nHASTA: ${formData.hora_hasta}  horas`],
+        ["HORARIO", `: ${formData.hora_desde} A ${formData.hora_hasta} HS`],
         ["LUGAR Y/O LOCAL", `: ${formData.lugar_local.toUpperCase()}`],
         ["DIRECCIÓN", `CALLE: ${formData.direccion_calle.toUpperCase()}`],
         ["BARRIO - COMPAÑIA", `: ${formData.barrio_compania.toUpperCase()}`],
@@ -790,7 +790,7 @@ export default function SolicitudCapacitacionPage() {
                 <AlertDialogTitle className="text-2xl font-black uppercase text-center tracking-tight">STOCK DE MÁQUINAS AGOTADO</AlertDialogTitle>
                 <AlertDialogDescription className="text-center space-y-4">
                     <p className="text-xs font-bold uppercase text-muted-foreground leading-relaxed">
-                        No hay equipos de votación disponibles para el periodo <span className="text-primary">{formData.hora_desde} a {formData.hora_hasta} HS</span> del día <span className="text-primary">{formatDateToDDMMYYYY(formData.fecha)}</span> en este distrito.
+                        No hay equipos de votación disponibles para el periodo <span className="text-primary">{formData.hora_desde} A {formData.hora_hasta} HS</span> del día <span className="text-primary">{formatDateToDDMMYYYY(formData.fecha)}</span> en este distrito.
                     </p>
                     
                     {conflictingFixedPlace && (

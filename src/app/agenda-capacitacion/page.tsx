@@ -117,7 +117,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
+  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divuladoresQuery);
 
   const groupedData = useMemo(() => {
     if (!rawSolicitudes || !datosData) return [];
@@ -182,7 +182,6 @@ export default function AgendaCapacitacionPage() {
     updateDoc(docRef, { divulgadores: arrayUnion(newDivulgador) })
       .then(() => {
         toast({ title: "Personal Asignado" });
-        // Optimistically update local state
         setAssigningSolicitud(prev => prev ? { ...prev, divulgadores: [...(prev.divulgadores || []), newDivulgador] } : null);
         setIsUpdating(false);
       })
@@ -222,7 +221,6 @@ export default function AgendaCapacitacionPage() {
     setShowCompletedAlert(true);
     setTimeout(() => {
       setShowCompletedAlert(false);
-      // Here you can add the logic to move the activity to history/archive if needed.
     }, 5000);
   };
 
@@ -301,7 +299,7 @@ export default function AgendaCapacitacionPage() {
         doc.setFontSize(12);
         doc.text(`LOCAL: ${qrSolicitud.lugar_local.toUpperCase()}`, pageWidth / 2, 75, { align: 'center' });
         doc.text(`DISTRITO: ${qrSolicitud.distrito.toUpperCase()} | DEPTO: ${qrSolicitud.departamento.toUpperCase()}`, pageWidth / 2, 83, { align: 'center' });
-        doc.text(`FECHA: ${formatDateToDDMMYYYY(qrSolicitud.fecha)} | HORARIO: ${qrSolicitud.hora_desde} HS.`, pageWidth / 2, 91, { align: 'center' });
+        doc.text(`FECHA: ${formatDateToDDMMYYYY(qrSolicitud.fecha)} | HORARIO: ${qrSolicitud.hora_desde} A ${qrSolicitud.hora_hasta} HS`, pageWidth / 2, 91, { align: 'center' });
         const response = await fetch(qrImageUrl);
         const blob = await response.blob();
         const qrBase64 = await new Promise<string>((resolve) => {
@@ -435,7 +433,7 @@ export default function AgendaCapacitacionPage() {
                                                     <div className="flex items-center gap-3">
                                                         <Calendar className={cn("h-4 w-4", hasAlert ? "text-destructive" : "text-muted-foreground")} />
                                                         <p className={cn("font-black text-[12px] uppercase", hasAlert ? "text-destructive" : "text-[#1A1A1A]")}>
-                                                            {formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} HS
+                                                            {formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} A {item.hora_hasta} HS
                                                         </p>
                                                     </div>
                                                 </div>
@@ -526,7 +524,7 @@ export default function AgendaCapacitacionPage() {
                                     <div>
                                         <p className="font-black text-xs uppercase">{d.nombre}</p>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <Badge variant="secondary" className="text-[8px] font-black">C.I. {d.cedula}</Badge>
+                                            <Badge variant="outline" className="text-[8px] font-black">C.I. {d.cedula}</Badge>
                                             <span className="text-[9px] font-bold text-muted-foreground uppercase">{d.vinculo}</span>
                                         </div>
                                     </div>

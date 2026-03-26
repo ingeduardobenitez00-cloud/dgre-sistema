@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -63,13 +64,11 @@ export default function AnexoIPage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [tipoOficina, setTipoOficina] = useState<'REGISTRO' | 'CENTRO_CIVICO'>('REGISTRO');
   
-  // Estados de Archivo/Cámara
   const [fotoRespaldo, setFotoRespaldo] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Inicialización limpia
   const [filas, setFilas] = useState<AnexoIFila[]>(
     Array.from({ length: 10 }, () => ({
       lugar: '',
@@ -98,7 +97,6 @@ export default function AnexoIPage() {
 
   const profile = user?.profile;
 
-  // FUNCIÓN DE COMPRESIÓN CENTRALIZADA
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (file.type === 'application/pdf') {
@@ -152,7 +150,6 @@ export default function AnexoIPage() {
   const takePhoto = () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
-      // Aplicamos redimensión también en captura directa
       const MAX_WIDTH = 1200;
       const scaleSize = Math.min(1, MAX_WIDTH / videoRef.current.videoWidth);
       canvas.width = videoRef.current.videoWidth * scaleSize;
@@ -280,17 +277,6 @@ export default function AnexoIPage() {
     const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Helper para formato AM/PM
-    const formatTo12h = (t: string) => {
-      if (!t) return '';
-      const [h, m] = t.split(':');
-      const hh = parseInt(h);
-      const suffix = hh >= 12 ? 'PM' : 'AM';
-      const h12 = hh % 12 || 12;
-      return `${h12}:${m} ${suffix}`;
-    };
-
-    // Header
     doc.addImage(logoBase64, 'PNG', margin, 10, 15, 15);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
@@ -322,8 +308,8 @@ export default function AnexoIPage() {
         : 'DEL:   /   AL:   /   / 2026';
       
       const horaStr = (f.hora_desde && f.hora_hasta)
-        ? `DE: ${formatTo12h(f.hora_desde)} A: ${formatTo12h(f.hora_hasta)}`
-        : 'DE:       A:       ';
+        ? `${f.hora_desde} A ${f.hora_hasta} HS`
+        : '____ A ____ HS';
 
       return [
         i + 1,
@@ -336,7 +322,7 @@ export default function AnexoIPage() {
 
     autoTable(doc, {
       startY: y + 10,
-      head: [['N.º', 'LUGAR FIJO PARA DIVULGACIÓN', 'DIRECCIÓN', 'FECHA', 'HORARIO (AM/PM)']],
+      head: [['N.º', 'LUGAR FIJO PARA DIVULGACIÓN', 'DIRECCIÓN', 'FECHA', 'HORARIO']],
       body: tableBody,
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 2, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.1 },
@@ -378,7 +364,7 @@ export default function AnexoIPage() {
             </div>
             <div className="flex gap-3">
                 <Button variant="outline" className="font-black uppercase text-[10px] border-2 h-11 gap-2 shadow-sm" onClick={generatePDF}>
-                    <Printer className="h-4 w-4" /> VISTA PREVIA PDF (AM/PM)
+                    <Printer className="h-4 w-4" /> VISTA PREVIA PDF
                 </Button>
                 <Button className="font-black uppercase text-[10px] h-11 gap-2 shadow-xl" onClick={handleSave} disabled={isSubmitting || !fotoRespaldo}>
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -437,7 +423,7 @@ export default function AnexoIPage() {
                                 <th className="p-4 text-[9px] font-black uppercase text-left">Lugar Fijo para Divulgación</th>
                                 <th className="p-4 text-[9px] font-black uppercase text-left">Dirección</th>
                                 <th className="p-4 text-[9px] font-black uppercase text-center w-[300px]">Fecha (Desde - Hasta)</th>
-                                <th className="p-4 text-[9px] font-black uppercase text-center w-[220px]">Horario (AM/PM)</th>
+                                <th className="p-4 text-[9px] font-black uppercase text-center w-[220px]">Horario</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-black/10">
@@ -533,7 +519,6 @@ export default function AnexoIPage() {
                 </div>
             </div>
 
-            {/* SECCIÓN DE RESPALDO DOCUMENTAL */}
             <div className="space-y-6 pt-6 border-t-2 border-dashed">
                 <div className="flex items-center gap-3">
                     <FileText className="h-5 w-5 text-primary" />
@@ -595,7 +580,6 @@ export default function AnexoIPage() {
         </Card>
       </main>
 
-      {/* DIÁLOGO DE CÁMARA */}
       <Dialog open={isCameraOpen} onOpenChange={(o) => !o && stopCamera()}>
         <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-black rounded-[2rem]">
           <div className="relative aspect-[3/4] w-full bg-black flex items-center justify-center">
