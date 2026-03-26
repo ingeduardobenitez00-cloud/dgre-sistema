@@ -17,7 +17,6 @@ import {
   CalendarDays, 
   Printer,
   ShieldAlert,
-  FileWarning,
   Check,
   Camera,
   FileUp,
@@ -30,7 +29,6 @@ import {
   Plus,
   CheckCircle2,
   PackageCheck,
-  ClipboardList,
   Power,
   PowerOff
 } from 'lucide-react';
@@ -58,17 +56,14 @@ export default function ControlMovimientoMaquinasPage() {
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<string | null>(null);
   const [isDevolucionGuardada, setIsDevolucionGuardada] = useState(false);
   
-  // Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeCameraTarget, setActiveCameraTarget] = useState<'salida' | 'devolucion' | 'denuncia_evidencia' | 'denuncia_respaldo' | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Photos States
   const [salidaFoto, setSalidaFoto] = useState<string | null>(null);
   const [devolucionFoto, setDevolucionFoto] = useState<string | null>(null);
   
-  // Denuncia Inline States
   const [denunciaDetalles, setDenunciaDetalles] = useState('');
   const [denunciaEvidencias, setDenunciaEvidencias] = useState<string[]>([]);
   const [denunciaRespaldo, setDenunciaRespaldo] = useState<string | null>(null);
@@ -227,6 +222,10 @@ export default function ControlMovimientoMaquinasPage() {
   }, [currentMovimiento]);
 
   const handleAddMaquina = () => {
+    if (movimientoData.maquinas.length >= 3) {
+        toast({ variant: 'destructive', title: "Límite alcanzado", description: "Máximo 3 equipos por solicitud." });
+        return;
+    }
     setMovimientoData(prev => ({
       ...prev,
       maquinas: [
@@ -333,7 +332,7 @@ export default function ControlMovimientoMaquinasPage() {
   const handleSaveSalida = () => {
     if (!firestore || !user || !selectedSolicitud) return;
     if (movimientoData.maquinas.some(m => !m.codigo)) {
-      toast({ variant: 'destructive', title: 'Falta Serie' }); return;
+      toast({ variant: 'destructive', title: 'Faltan Series', description: 'Todas las máquinas deben tener nro. de serie.' }); return;
     }
     if (!salidaFoto) {
       toast({ variant: 'destructive', title: 'Falta Respaldo', description: 'Capture el F01 firmado.' }); return;
@@ -457,205 +456,157 @@ export default function ControlMovimientoMaquinasPage() {
     
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 10;
+    const margin = 15;
     const boxWidth = pageWidth - (margin * 2);
 
     const responsibles = selectedSolicitud.divulgadores || selectedSolicitud.asignados || [];
-    const respNames = responsibles.map(r => r.nombre.toUpperCase()).join(" / ");
-    const ciText = responsibles.map(r => r.cedula).join(" / ");
 
-    movimientoData.maquinas.forEach((maq, index) => {
-      if (index > 0) doc.addPage();
+    // HEADER
+    doc.addImage(logoBase64, 'PNG', margin, 10, 20, 20);
+    doc.addImage(logoDGREBase64, 'PNG', pageWidth - margin - 40, 10, 40, 18);
 
-      // HEADER
-      doc.addImage(logoBase64, 'PNG', margin, 5, 20, 20);
-      doc.addImage(logoDGREBase64, 'PNG', pageWidth - margin - 35, 5, 35, 15);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 35, { align: "center" });
 
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 25, { align: "center" });
+    // SECCION A: SALIDA
+    let y = 42;
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.5);
+    
+    // Circle A
+    doc.circle(margin + 10, y + 5, 5);
+    doc.text("A", margin + 10, y + 6, { align: 'center' });
+    doc.setFontSize(11);
+    doc.text("SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, y + 6, { align: 'center' });
 
-      // SECCION A: SALIDA
-      let y = 30;
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.5);
-      
-      // Box A - Dynamic Height based on names
-      const nameLines = doc.splitTextToSize(respNames, boxWidth - 30);
-      const nameBoxHeight = Math.max(10, nameLines.length * 5 + 4);
-      
-      doc.roundedRect(margin, y, boxWidth, 110 + (nameBoxHeight - 10), 5, 5);
+    y += 15;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin, y);
 
-      // Circle A
-      doc.circle(margin + 10, y + 8, 5);
-      doc.text("A", margin + 10, y + 9, { align: 'center' });
-      doc.text("SALIDA DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, y + 8, { align: 'center' });
-
-      y += 15;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text("NOMBRE Y APELLIDO DEL FUNCIONARIO RESPONSABLE DE LA DIVULGACIÓN", margin + 10, y);
-
-      y += 4;
-      doc.setFont('helvetica', 'normal');
-      doc.roundedRect(margin + 10, y, boxWidth - 20, nameBoxHeight, 4, 4);
-      doc.text(nameLines, margin + 15, y + (nameBoxHeight / 2) + 1, { baseline: 'middle' });
-
-      y += nameBoxHeight + 4;
-      doc.setFont('helvetica', 'bold');
-      doc.text("N° C.I.:", margin + 10, y);
-      
-      y += 4;
-      doc.roundedRect(margin + 10, y, 100, 8, 4, 4);
-      doc.setFont('helvetica', 'normal');
-      doc.text(ciText, margin + 15, y + 5.5);
-
-      y += 12;
-      doc.setFont('helvetica', 'bold');
-      doc.text("VÍNCULO:", margin + 10, y);
-      const vinculos = ["PERMANENTE", "CONTRATADO", "COMISIONADO"];
-      let vx = margin + 35;
-      vinculos.forEach(v => {
-        doc.rect(vx, y - 3, 4, 4);
-        if (responsibles.some(r => r.vinculo?.toUpperCase() === v)) doc.text("X", vx + 0.5, y);
-        doc.text(v, vx + 6, y);
-        vx += 45;
-      });
-
-      y += 10;
-      doc.setFont('helvetica', 'bold');
-      doc.text(`HORA DE SALIDA:  ${movimientoData.hora_salida} HS`, margin + 10, y);
-      doc.text(`FECHA:  ${formatDateToDDMMYYYY(movimientoData.fecha_salida).replace(/-/g, ' / ')}`, pageWidth - margin - 65, y);
-
-      y += 10;
-      doc.setFont('helvetica', 'bold');
-      doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
-      y += 4;
-      doc.setFont('helvetica', 'normal');
-      doc.roundedRect(margin + 10, y, 80, 8, 4, 4);
-      doc.text(maq.codigo || '', margin + 15, y + 5.5);
-
-      y += 12;
-      doc.setFont('helvetica', 'bold');
-      doc.text("LUGAR DE LA DIVULGACIÓN", margin + 10, y);
-      y += 4;
-      doc.setFont('helvetica', 'normal');
-      doc.roundedRect(margin + 10, y, boxWidth - 20, 8, 4, 4);
-      doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 15, y + 5.5);
-
-      // Signatures A
-      y += 15;
-      doc.setFontSize(7);
-      const sigW = 55;
-      doc.line(margin + 10, y, margin + 10 + sigW, y);
-      doc.text("FIRMA JEFE\nACLARACIÓN: _________________", margin + 10, y + 3);
-
-      doc.line(margin + 70, y, margin + 70 + sigW, y);
-      doc.text("FIRMA JEFE\nACLARACIÓN: _________________", margin + 70, y + 3);
-
-      doc.line(margin + 130, y, margin + 130 + sigW, y);
-      doc.text("FIRMA DEL DIVULGADOR\nACLARACIÓN: _________________", margin + 130, y + 3);
-
-      // Kits A
-      y += 15;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text("KITS DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
-      const kitAStartY = y + 6;
-      const kitItemX = margin + 15;
-      const kitCircleX = margin + 75;
-      
-      const kitItemsA = [
-        { label: "N° DE SERIE DEL PENDRIVE", val: maq.pendrive_serie, isVal: true },
-        { label: "CREDENCIAL GENÉRICA", active: maq.credencial },
-        { label: "AURICULAR GENÉRICO", active: maq.auricular },
-        { label: "ACRÍLICO GENÉRICO", active: maq.acrilico },
-        { label: "5 BOLETAS DE CAPACITACIÓN", active: maq.boletas },
-      ];
-      
-      doc.setFont('helvetica', 'normal');
-      kitItemsA.forEach((item, kIdx) => {
-        const itemY = kitAStartY + kIdx * 5;
-        doc.text(`•  ${item.label}`, kitItemX, itemY);
-        if (item.isVal) {
-            doc.roundedRect(kitItemX + 50, itemY - 4, 60, 6, 2, 2);
-            doc.text(item.val || '', kitItemX + 55, itemY);
-        } else {
-            doc.circle(kitCircleX, itemY - 1, 2.5);
-            if (item.active) doc.text("X", kitCircleX - 1, itemY);
+    y += 5;
+    // Boxes for Responsibles (3 Blocks)
+    const cardW = (boxWidth - 10) / 3;
+    const cardH = 22;
+    
+    for (let i = 0; i < 3; i++) {
+        const cx = margin + (i * (cardW + 5));
+        const resp = responsibles[i];
+        
+        doc.setDrawColor(220);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(cx, y, cardW, cardH, 3, 3, 'D');
+        
+        if (resp) {
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.text(resp.nombre.toUpperCase(), cx + 8, y + 8);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6);
+            doc.text(`C.I. ${resp.cedula}`, cx + 8, y + 15);
+            
+            // Badge Vínculo
+            doc.roundedRect(cx + cardW - 25, y + 12, 20, 5, 1, 1, 'D');
+            doc.setFontSize(5);
+            doc.text(resp.vinculo.toUpperCase(), cx + cardW - 15, y + 15.5, { align: 'center' });
         }
-      });
+    }
 
-      // SECCION B: DEVOLUCIÓN
-      y = 155 + (nameBoxHeight - 10);
-      doc.setDrawColor(0);
-      doc.roundedRect(margin, y, boxWidth, 110, 5, 5);
+    y += cardH + 15;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`HORA DE SALIDA: `, margin, y);
+    doc.roundedRect(margin + 35, y - 6, 25, 8, 4, 4);
+    doc.text(`${movimientoData.hora_salida} HS`, margin + 40, y - 0.5);
 
-      doc.circle(margin + 10, y + 8, 5);
-      doc.text("B", margin + 10, y + 9, { align: 'center' });
-      doc.text("DEVOLUCIÓN DE MÁQUINA DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, y + 8, { align: 'center' });
+    doc.text(`FECHA: `, pageWidth - margin - 45, y);
+    doc.text(formatDateToDDMMYYYY(movimientoData.fecha_salida).replace(/-/g, ' / '), pageWidth - margin - 30, y);
 
-      y += 15;
-      doc.setFont('helvetica', 'bold');
-      doc.text(`FECHA:  ${formatDateToDDMMYYYY(movimientoData.fecha_devolucion).replace(/-/g, ' / ')}`, margin + 10, y);
-      doc.text(`HORA DE DEVOLUCIÓN:  ${movimientoData.hora_devolucion} HS`, pageWidth - margin - 75, y);
+    y += 12;
+    doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin, y);
+    y += 4;
+    doc.roundedRect(margin, y, 100, 10, 5, 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(movimientoData.maquinas[0]?.codigo || '', margin + 5, y + 6.5);
 
-      y += 10;
-      doc.setFont('helvetica', 'bold');
-      doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
-      y += 4;
-      doc.setFont('helvetica', 'normal');
-      doc.roundedRect(margin + 10, y, 80, 8, 4, 4);
-      doc.text(maq.codigo || '', margin + 15, y + 5.5);
+    y += 18;
+    doc.setFont('helvetica', 'bold');
+    doc.text("LUGAR DE LA DIVULGACIÓN", margin, y);
+    y += 4;
+    doc.roundedRect(margin, y, boxWidth, 10, 5, 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 5, y + 6.5);
 
-      // Lacre B
-      const lacreY = y - 10;
-      doc.roundedRect(pageWidth - margin - 90, lacreY, 80, 22, 5, 5);
-      doc.setFont('helvetica', 'bold');
-      doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", pageWidth - margin - 85, lacreY + 6);
-      doc.setFont('helvetica', 'normal');
-      
-      doc.circle(pageWidth - margin - 80, lacreY + 14, 3);
-      doc.text("CORRECTO", pageWidth - margin - 75, lacreY + 15);
-      if (maq.lacre_estado === 'correcto') doc.text("X", pageWidth - margin - 81, lacreY + 15.5);
+    // Signature Boxes
+    y += 20;
+    const sigW = (boxWidth - 10) / 3;
+    const sigH = 20;
+    for (let i = 0; i < 3; i++) {
+        const sx = margin + (i * (sigW + 5));
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        doc.rect(sx, y, sigW, sigH);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        if (i < 2) doc.text("FIRMA JEFE\nACLARACIÓN: _________________", sx + 5, y + 6);
+        else doc.text("FIRMA DEL DIVULGADOR\nACLARACIÓN: _________________", sx + 5, y + 6);
+    }
 
-      doc.circle(pageWidth - margin - 45, lacreY + 14, 3);
-      doc.text("VIOLENTADO", pageWidth - margin - 40, lacreY + 15);
-      if (maq.lacre_estado === 'violentado') doc.text("X", pageWidth - margin - 46, lacreY + 15.5);
+    // Equipos Blocks (up to 3)
+    y += sigH + 10;
+    doc.setFontSize(10);
+    
+    movimientoData.maquinas.forEach((maq, mIdx) => {
+        if (y > 240) { doc.addPage(); y = 20; }
+        
+        doc.setDrawColor(150);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(margin, y, boxWidth, 35, 5, 5);
+        
+        // Equipo Badge
+        doc.setFillColor(0);
+        doc.roundedRect(margin + 10, y - 3, 25, 6, 3, 3, 'F');
+        doc.setTextColor(255);
+        doc.setFontSize(6);
+        doc.text(`EQUIPO #${mIdx + 1}`, margin + 22.5, y + 1, { align: 'center' });
+        doc.setTextColor(0);
 
-      // Signatures B
-      y += 35;
-      doc.setFontSize(7);
-      doc.line(margin + 10, y, margin + 10 + sigW, y);
-      doc.text("FIRMA JEFE\nACLARACIÓN: _________________", margin + 10, y + 3);
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'normal');
+        doc.text("SERIE DE MÁQUINA", margin + 10, y + 8);
+        doc.roundedRect(margin + 10, y + 10, 80, 8, 4, 4);
+        doc.text(maq.codigo || '', margin + 15, y + 15);
 
-      doc.line(margin + 70, y, margin + 70 + sigW, y);
-      doc.text("FIRMA JEFE\nACLARACIÓN: _________________", margin + 70, y + 3);
+        doc.text("SERIE PENDRIVE", margin + 100, y + 8);
+        doc.roundedRect(margin + 100, y + 10, 80, 8, 4, 4);
+        doc.text(maq.pendrive_serie || '', margin + 105, y + 15);
 
-      doc.line(margin + 130, y, margin + 130 + sigW, y);
-      doc.text("FIRMA DEL DIVULGADOR\nACLARACIÓN: _________________", margin + 130, y + 3);
+        // Checkboxes Kits
+        const kitY = y + 25;
+        const kitX = [margin + 10, margin + 55, margin + 100, margin + 145];
+        const kits = [
+            { label: "CREDENCIAL", val: maq.credencial },
+            { label: "AURICULAR", val: maq.auricular },
+            { label: "ACRILICO", val: maq.acrilico },
+            { label: "BOLETAS", val: maq.boletas }
+        ];
 
-      // Kits B
-      y += 15;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text("KITS DE LA MÁQUINA DE VOTACIÓN", margin + 10, y);
-      const kitBStartY = y + 6;
-      const kitItemsB = [
-        { label: "CREDENCIAL GENÉRICA", active: maq.retorno_credencial },
-        { label: "AURICULAR GENÉRICO", active: maq.retorno_auricular },
-        { label: "ACRÍLICO GENÉRICO", active: maq.retorno_acrilico },
-        { label: "5 BOLETAS DE CAPACITACIÓN", active: maq.retorno_boletas },
-      ];
+        kits.forEach((k, kIdx) => {
+            doc.roundedRect(kitX[kIdx], kitY, 4, 4, 1, 1);
+            if (k.val) doc.text("X", kitX[kIdx] + 1, kitY + 3);
+            doc.text(k.label, kitX[kIdx] + 6, kitY + 3);
+        });
 
-      doc.setFont('helvetica', 'normal');
-      kitItemsB.forEach((item, kIdx) => {
-        const itemY = kitBStartY + kIdx * 5;
-        doc.text(`•  ${item.label}`, kitItemX, itemY);
-        doc.circle(kitCircleX, itemY - 1, 2.5);
-        if (item.active) doc.text("X", kitCircleX - 1, itemY);
-      });
+        y += 45;
     });
+
+    // OBS
+    if (y > 270) { doc.addPage(); y = 20; }
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN", pageWidth / 2, y, { align: 'center' });
+    doc.text("ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y + 5, { align: 'center' });
 
     doc.save(`F01-F02-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
@@ -723,9 +674,9 @@ export default function ControlMovimientoMaquinasPage() {
               <CardContent className="p-10 space-y-10">
                 <div className="space-y-4">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Funcionarios Asignados</Label>
-                    <div className="flex flex-wrap gap-3 p-6 bg-muted/20 rounded-3xl border-2 border-dashed">
-                        {(selectedSolicitud?.divulgadores || selectedSolicitud?.asignados || []).map(a => (
-                            <div key={a.id} className="bg-white border-2 rounded-2xl p-4 flex flex-col gap-1 shadow-sm min-w-[200px]">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-muted/20 rounded-3xl border-2 border-dashed">
+                        {(selectedSolicitud?.divulgadores || selectedSolicitud?.asignados || []).slice(0, 3).map(a => (
+                            <div key={a.id} className="bg-white border-2 rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
                                 <div className="flex items-center gap-2 border-b pb-2 mb-1">
                                     <User className="h-3 w-3 text-primary" />
                                     <span className="text-[11px] font-black uppercase truncate">{a.nombre}</span>
@@ -736,6 +687,9 @@ export default function ControlMovimientoMaquinasPage() {
                                 </div>
                             </div>
                         ))}
+                        {(selectedSolicitud?.divulgadores || selectedSolicitud?.asignados || []).length === 0 && (
+                            <div className="col-span-full py-4 text-center text-[9px] font-black uppercase text-destructive italic">Sin personal asignado en agenda</div>
+                        )}
                     </div>
                 </div>
 
@@ -976,7 +930,7 @@ export default function ControlMovimientoMaquinasPage() {
                                 {denunciaRespaldo ? (
                                     <div className="relative aspect-video rounded-2xl overflow-hidden border-4 border-white shadow-xl group">
                                         <Image src={denunciaRespaldo} alt="Respaldo Denuncia" fill className="object-cover" />
-                                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDenunciaRespaldo(null)}><Trash2 className="h-4 w-4" /></Button>
+                                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setDenunciaRespaldo(null)}><Trash2 className="h-4 w-4" /></Button>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-2 gap-4">
