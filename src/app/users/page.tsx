@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -440,6 +441,20 @@ export default function UsersPage() {
       });
   };
 
+  const handleDeleteUser = (userId: string) => {
+    if (!firestore) return;
+    
+    const docRef = doc(firestore, 'users', userId);
+    deleteDoc(docRef)
+      .then(() => {
+        toast({ title: 'Usuario Eliminado', description: 'El acceso ha sido revocado permanentemente.' });
+      })
+      .catch((error) => {
+        toast({ variant: 'destructive', title: 'Error al eliminar' });
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+      });
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -725,6 +740,27 @@ export default function UsersPage() {
                                                                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => toggleUserStatus(u)}>
                                                                                         <ShieldAlert className="h-3.5 w-3.5" />
                                                                                     </Button>
+                                                                                    <AlertDialog>
+                                                                                        <AlertDialogTrigger asChild>
+                                                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                                                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                                            </Button>
+                                                                                        </AlertDialogTrigger>
+                                                                                        <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
+                                                                                            <AlertDialogHeader>
+                                                                                                <AlertDialogTitle className="font-black uppercase">¿ELIMINAR DEFINITIVAMENTE?</AlertDialogTitle>
+                                                                                                <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground pt-2">
+                                                                                                    Esta acción es irreversible. Se borrará el perfil de {u.username} del sistema central.
+                                                                                                </AlertDialogDescription>
+                                                                                            </AlertDialogHeader>
+                                                                                            <AlertDialogFooter className="pt-6">
+                                                                                                <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
+                                                                                                <AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
+                                                                                                    SÍ, ELIMINAR USUARIO
+                                                                                                </AlertDialogAction>
+                                                                                            </AlertDialogFooter>
+                                                                                        </AlertDialogContent>
+                                                                                    </AlertDialog>
                                                                                 </div>
                                                                             </TableCell>
                                                                         </TableRow>
