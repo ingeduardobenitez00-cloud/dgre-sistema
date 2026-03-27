@@ -75,8 +75,8 @@ export default function AnexoIPage() {
       direccion: '',
       fecha_desde: '',
       fecha_hasta: '',
-      hora_desde: '08:00',
-      hora_hasta: '13:00'
+      hora_desde: '',
+      hora_hasta: ''
     }))
   );
 
@@ -186,6 +186,7 @@ export default function AnexoIPage() {
   const handleSave = () => {
     if (!firestore || !user) return;
     
+    // Filtrar solo las filas que tienen datos
     const filledFilas = filas.filter(f => f.lugar.trim() !== '' && f.fecha_desde && f.fecha_hasta && f.hora_desde && f.hora_hasta);
     
     if (filledFilas.length === 0) {
@@ -229,7 +230,7 @@ export default function AnexoIPage() {
         const dayStr = format(current, "yyyy-MM-dd");
         
         batch.set(agendaRef, {
-          anexo_id: anexoRef.id, // Vínculo por lote
+          anexo_id: anexoRef.id,
           solicitante_entidad: tipoOficina === 'REGISTRO' ? 'OFICINA REGISTRO ELECTORAL' : 'CENTRO CÍVICO',
           tipo_solicitud: 'Lugar Fijo',
           fecha: dayStr,
@@ -257,17 +258,25 @@ export default function AnexoIPage() {
 
     batch.commit()
       .then(() => {
-        toast({ title: "Planificación Guardada", description: "Los lugares fijos han sido agendados con éxito." });
+        toast({ title: "Planificación Guardada", description: `Se han agendado ${filledFilas.length} lugares fijos por el periodo seleccionado.` });
         setFotoRespaldo(null);
+        // Resetear filas
+        setFilas(Array.from({ length: 10 }, () => ({
+          lugar: '',
+          direccion: '',
+          fecha_desde: '',
+          fecha_hasta: '',
+          hora_desde: '',
+          hora_hasta: ''
+        })));
         setIsSubmitting(false);
       })
       .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'anexo-i (batch)',
           operation: 'write',
           requestResourceData: anexoData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
         setIsSubmitting(false);
       });
   };
@@ -573,7 +582,7 @@ export default function AnexoIPage() {
 
             <div className="p-6 bg-muted/20 rounded-3xl text-center">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed max-w-3xl mx-auto italic">
-                    * Al guardar este formulario, el sistema generará automáticamente las entradas en la Agenda para cada día comprendido en los rangos de fecha seleccionados, facilitando el control por lote.
+                    * Al guardar este formulario, el sistema procesará únicamente las filas que tengan datos completos. Se generarán entradas automáticas en la Agenda para cada día comprendido en los rangos de fecha seleccionados.
                 </p>
             </div>
 

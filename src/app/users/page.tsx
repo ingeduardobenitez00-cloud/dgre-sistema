@@ -28,7 +28,8 @@ import {
   Landmark,
   Building2,
   AlertCircle,
-  Zap
+  Zap,
+  Activity
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -58,6 +59,7 @@ import { firebaseConfig } from '@/firebase/config';
 import { cn } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Progress } from '@/components/ui/progress';
 
 type UserProfile = {
   id: string;
@@ -168,7 +170,7 @@ const PermissionMatrix = ({
   selectedModules: Set<string>,
   onTogglePerm: (id: string, editing: boolean) => void,
   onToggleModuleAction: (modId: string, actId: string, editing: boolean) => void,
-  onToggleColumn: (actId: string, items: {id: string}[], editing: boolean) => void
+  onToggleColumn: (actionId: string, items: {id: string}[], editing: boolean) => void
 }) => {
   const currentPerms = new Set(isEditing ? (userObj?.permissions || []) : Array.from(selectedPerms));
 
@@ -293,6 +295,28 @@ export default function UsersPage() {
     if (!datosData || !regDepartamento) return [];
     return [...new Set(datosData.filter(d => d.departamento === regDepartamento).map(d => d.distrito))].sort();
   }, [datosData, regDepartamento]);
+
+  // CÁLCULO DE COBERTURA DISTRITAL
+  const districtCoverage = useMemo(() => {
+    if (!datosData || !users) return { percent: 0, total: 0, covered: 0 };
+    
+    // Total de distritos oficiales únicos
+    const allDistricts = new Set(datosData.map(d => `${d.departamento}-${d.distrito}`));
+    const totalCount = allDistricts.size;
+    
+    // Distritos que tienen al menos un usuario asignado
+    const coveredDistricts = new Set();
+    users.forEach(u => {
+      if (u.departamento && u.distrito && u.departamento !== 'N/A' && u.distrito !== 'N/A' && u.departamento !== 'ALCANCE NACIONAL') {
+        coveredDistricts.add(`${u.departamento}-${u.distrito}`);
+      }
+    });
+    
+    const coveredCount = coveredDistricts.size;
+    const percent = totalCount > 0 ? Math.round((coveredCount / totalCount) * 100) : 0;
+    
+    return { percent, total: totalCount, covered: coveredCount };
+  }, [datosData, users]);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -491,10 +515,8 @@ export default function UsersPage() {
     const userDocRef = doc(firestore, 'users', userId);
     const presenceDocRef = doc(firestore, 'presencia', userId);
 
-    // Eliminamos el perfil
     deleteDoc(userDocRef)
       .then(() => {
-        // Al eliminar el perfil, también limpiamos el rastro de conexión si existe
         deleteDoc(presenceDocRef).catch(() => {}); 
         toast({ title: 'Usuario Eliminado', description: 'El acceso ha sido revocado permanentemente.' });
       })
@@ -587,7 +609,7 @@ export default function UsersPage() {
           <Card className="max-w-md w-full text-center p-8 border-dashed">
             <ShieldAlert className="h-16 w-16 mx-auto text-muted-foreground opacity-20 mb-4" />
             <h2 className="text-xl font-black uppercase text-primary mb-2">Acceso Restringido</h2>
-            <p className="text-xs text-muted-foreground font-bold uppercase">Solo los administradores nacionales pueden gestionar la matriz de personal.</p>
+            <p className="text-xs text-muted-foreground font-bold uppercase">Solo los administradores nacionales tienen acceso a este módulo.</p>
           </Card>
         </main>
       </div>
@@ -606,6 +628,20 @@ export default function UsersPage() {
                     <ShieldCheck className="h-3 w-3" /> Configuración de perfiles y accesos de seguridad
                 </p>
             </div>
+            
+            <Card className="bg-white border-2 shadow-sm p-4 rounded-2xl flex items-center gap-4 min-w-[240px]">
+                <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center">
+                    <Activity className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">COBERTURA DISTRITAL</p>
+                    <div className="flex items-baseline gap-2">
+                        <p className="text-2xl font-black leading-none">{districtCoverage.percent}%</p>
+                        <p className="text-[10px] font-bold text-muted-foreground">({districtCoverage.covered}/{districtCoverage.total})</p>
+                    </div>
+                    <Progress value={districtCoverage.percent} className="h-1 w-24 mt-2" />
+                </div>
+            </Card>
         </div>
 
         <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
