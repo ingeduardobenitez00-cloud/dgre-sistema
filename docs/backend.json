@@ -49,6 +49,7 @@
           "enum": [
             "admin",
             "director",
+            "coordinador",
             "jefe",
             "funcionario",
             "viewer"

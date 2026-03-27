@@ -62,7 +62,7 @@ type UserProfile = {
   id: string;
   username: string;
   email: string;
-  role: 'admin' | 'director' | 'jefe' | 'funcionario' | 'viewer';
+  role: 'admin' | 'director' | 'coordinador' | 'jefe' | 'funcionario' | 'viewer';
   modules: string[];
   permissions: string[];
   departamento?: string;
@@ -570,6 +570,7 @@ export default function UsersPage() {
                         <SelectContent>
                             <SelectItem value="admin" className="font-black text-[10px]">ADMINISTRADOR</SelectItem>
                             <SelectItem value="director" className="font-black text-[10px]">DIRECTOR</SelectItem>
+                            <SelectItem value="coordinador" className="font-black text-[10px]">COORDINADOR CIDEE</SelectItem>
                             <SelectItem value="jefe" className="font-black text-[10px]">JEFE DE OFICINA</SelectItem>
                             <SelectItem value="funcionario" className="font-black text-[10px]">FUNCIONARIO</SelectItem>
                             <SelectItem value="viewer" className="font-black text-[10px]">SOLO LECTURA</SelectItem>
@@ -818,6 +819,7 @@ export default function UsersPage() {
                                 <SelectContent>
                                     <SelectItem value="admin" className="font-black text-[10px]">ADMINISTRADOR</SelectItem>
                                     <SelectItem value="director" className="font-black text-[10px]">DIRECTOR</SelectItem>
+                                    <SelectItem value="coordinador" className="font-black text-[10px]">COORDINADOR CIDEE</SelectItem>
                                     <SelectItem value="jefe" className="font-black text-[10px]">JEFE DE OFICINA</SelectItem>
                                     <SelectItem value="funcionario" className="font-black text-[10px]">FUNCIONARIO</SelectItem>
                                     <SelectItem value="viewer" className="font-black text-[10px]">SOLO LECTURA</SelectItem>

@@ -7,7 +7,7 @@ import { type User } from 'firebase/auth';
 
 export interface UserProfile {
   username?: string;
-  role?: 'admin' | 'director' | 'jefe' | 'funcionario' | 'viewer';
+  role?: 'admin' | 'director' | 'coordinador' | 'jefe' | 'funcionario' | 'viewer';
   departamento?: string;
   distrito?: string;
   modules?: string[];
