@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -253,9 +254,20 @@ const PermissionMatrix = ({
 export default function UsersPage() {
   const { toast } = useToast();
   const { firestore } = useFirebase();
-  const { user: currentUser, isUserLoading: isMeLoading } = useUser();
+  const { user: currentUser, isUserLoading: isAuthLoading, isProfileLoading } = useUser();
 
-  const usersQuery = useMemoFirebase(() => (firestore && currentUser?.profile?.role === 'admin' ? collection(firestore, 'users') : null), [firestore, currentUser]);
+  const isAdminView = useMemo(() => {
+    if (!currentUser?.profile) return false;
+    const role = currentUser.profile.role;
+    const perms = currentUser.profile.permissions || [];
+    return role === 'admin' || role === 'director' || perms.includes('admin_filter');
+  }, [currentUser]);
+
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore || !isAdminView) return null;
+    return collection(firestore, 'users');
+  }, [firestore, isAdminView]);
+
   const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
   const datosQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'datos') : null), [firestore]);
   const { data: datosData } = useCollection<Dato>(datosQuery);
@@ -432,7 +444,6 @@ export default function UsersPage() {
         actions.forEach(a => newPerms.add(`${m}:${a}`));
     });
     
-    // Filtro nacional y asignar personal por defecto para coordinadores
     newPerms.add('admin_filter');
     newPerms.add('assign_staff');
 
@@ -507,7 +518,7 @@ export default function UsersPage() {
       permissions: Array.from(selectedPerms), 
       departamento: regDepartamento || '', 
       distrito: regDistrito || '',
-      active: true // Todos los usuarios creados por administrador aparecen activos por defecto
+      active: true 
     };
 
     const tempAppName = 'temp-creation-' + Math.random().toString(36).substring(7);
@@ -559,7 +570,24 @@ export default function UsersPage() {
       });
   };
 
-  if (isMeLoading || isLoadingUsers) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
+  if (isAuthLoading || isProfileLoading) {
+    return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
+  }
+
+  if (!isAdminView) {
+    return (
+      <div className="flex min-h-screen flex-col bg-muted/10">
+        <Header title="Gestión de Usuarios" />
+        <main className="flex-1 p-8 flex items-center justify-center">
+          <Card className="max-w-md w-full text-center p-8 border-dashed">
+            <ShieldAlert className="h-16 w-16 mx-auto text-muted-foreground opacity-20 mb-4" />
+            <h2 className="text-xl font-black uppercase text-primary mb-2">Acceso Restringido</h2>
+            <p className="text-xs text-muted-foreground font-bold uppercase">Solo los administradores nacionales pueden gestionar la matriz de personal.</p>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/5">
@@ -685,145 +713,151 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            <Accordion type="multiple" className="space-y-4">
-                {userHierarchy.map((dept) => {
-                    const totalUsers = dept.districts.reduce((acc, d) => acc + d.users.length, 0);
-                    const pendingDistricts = dept.districts.filter(d => d.users.length === 0).length;
+            {isLoadingUsers ? (
+                <div className="flex justify-center items-center py-20 bg-white rounded-xl shadow-md">
+                    <Loader2 className="animate-spin h-10 w-10 text-primary" />
+                </div>
+            ) : (
+                <Accordion type="multiple" className="space-y-4">
+                    {userHierarchy.map((dept) => {
+                        const totalUsers = dept.districts.reduce((acc, d) => acc + d.users.length, 0);
+                        const pendingDistricts = dept.districts.filter(d => d.users.length === 0).length;
 
-                    return (
-                        <AccordionItem key={dept.name} value={dept.name} className="border-none bg-white rounded-xl shadow-md overflow-hidden">
-                            <AccordionTrigger className="hover:no-underline px-8 py-5 bg-white group">
-                                <div className="flex items-center justify-between w-full pr-6 text-left">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-lg bg-primary/5 text-primary flex items-center justify-center font-black border border-primary/10">
-                                            <Landmark className="h-5 w-5" />
+                        return (
+                            <AccordionItem key={dept.name} value={dept.name} className="border-none bg-white rounded-xl shadow-md overflow-hidden">
+                                <AccordionTrigger className="hover:no-underline px-8 py-5 bg-white group">
+                                    <div className="flex items-center justify-between w-full pr-6 text-left">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-lg bg-primary/5 text-primary flex items-center justify-center font-black border border-primary/10">
+                                                <Landmark className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-black uppercase tracking-tight text-[#1A1A1A]">{dept.name}</h2>
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                                                    {dept.districts.length} OFICINAS | {totalUsers} FUNCIONARIOS
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h2 className="text-lg font-black uppercase tracking-tight text-[#1A1A1A]">{dept.name}</h2>
-                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                                                {dept.districts.length} OFICINAS | {totalUsers} FUNCIONARIOS
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        {pendingDistricts > 0 && (
-                                            <Badge variant="destructive" className="bg-amber-100 text-amber-700 border-amber-200 text-[8px] font-black uppercase animate-pulse">
-                                                {pendingDistricts} PENDIENTES
+                                        <div className="flex items-center gap-3">
+                                            {pendingDistricts > 0 && (
+                                                <Badge variant="destructive" className="bg-amber-100 text-amber-700 border-amber-200 text-[8px] font-black uppercase animate-pulse">
+                                                    {pendingDistricts} PENDIENTES
+                                                </Badge>
+                                            )}
+                                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[8px] font-black uppercase">
+                                                {totalUsers} ACTIVOS
                                             </Badge>
-                                        )}
-                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[8px] font-black uppercase">
-                                            {totalUsers} ACTIVOS
-                                        </Badge>
+                                        </div>
                                     </div>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="px-8 pb-8 pt-2">
-                                <Accordion type="multiple" className="space-y-3 pt-4">
-                                    {dept.districts.map((dist) => {
-                                        const hasUsers = dist.users.length > 0;
-                                        return (
-                                            <AccordionItem key={dist.name} value={dist.name} className="border-2 rounded-xl overflow-hidden transition-all hover:border-primary/10">
-                                                <AccordionTrigger className="hover:no-underline px-6 py-3 bg-muted/5 group">
-                                                    <div className="flex items-center justify-between w-full pr-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <Building2 className={cn("h-4 w-4", hasUsers ? "text-primary" : "text-muted-foreground/40")} />
-                                                            <span className="font-black uppercase text-xs tracking-tight">{dist.name}</span>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-8 pb-8 pt-2">
+                                    <Accordion type="multiple" className="space-y-3 pt-4">
+                                        {dept.districts.map((dist) => {
+                                            const hasUsers = dist.users.length > 0;
+                                            return (
+                                                <AccordionItem key={dist.name} value={dist.name} className="border-2 rounded-xl overflow-hidden transition-all hover:border-primary/10">
+                                                    <AccordionTrigger className="hover:no-underline px-6 py-3 bg-muted/5 group">
+                                                        <div className="flex items-center justify-between w-full pr-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <Building2 className={cn("h-4 w-4", hasUsers ? "text-primary" : "text-muted-foreground/40")} />
+                                                                <span className="font-black uppercase text-xs tracking-tight">{dist.name}</span>
+                                                            </div>
+                                                            {!hasUsers && (
+                                                                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                                                                    <AlertCircle className="h-3.5 w-3.5" />
+                                                                    <span className="text-[8px] font-black uppercase">USUARIO PENDIENTE</span>
+                                                                </div>
+                                                            )}
+                                                            {hasUsers && (
+                                                                <Badge className="bg-black text-white text-[8px] font-black">{dist.users.length} {dist.users.length === 1 ? 'FUNCIONARIO' : 'FUNCIONARIOS'}</Badge>
+                                                            )}
                                                         </div>
-                                                        {!hasUsers && (
-                                                            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-                                                                <AlertCircle className="h-3.5 w-3.5" />
-                                                                <span className="text-[8px] font-black uppercase">USUARIO PENDIENTE</span>
+                                                    </AccordionTrigger>
+                                                    <AccordionContent className="p-0 bg-white">
+                                                        {!hasUsers ? (
+                                                            <div className="py-10 text-center space-y-2 opacity-30">
+                                                                <UserCircle className="h-10 w-10 mx-auto text-muted-foreground" />
+                                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Sin personal asignado a esta oficina</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="overflow-x-auto">
+                                                                <Table>
+                                                                    <TableHeader className="bg-muted/30">
+                                                                        <TableRow>
+                                                                            <TableHead className="text-[8px] font-black uppercase px-6">Funcionario</TableHead>
+                                                                            <TableHead className="text-[8px] font-black uppercase">Rol</TableHead>
+                                                                            <TableHead className="text-[8px] font-black uppercase">Estado</TableHead>
+                                                                            <TableHead className="text-right text-[8px] font-black uppercase px-6">Acción</TableHead>
+                                                                        </TableRow>
+                                                                    </TableHeader>
+                                                                    <TableBody>
+                                                                        {dist.users.map(u => (
+                                                                            <TableRow key={u.id} className={cn("hover:bg-primary/5 transition-colors", u.active === false && "bg-amber-50/50")}>
+                                                                                <TableCell className="px-6 py-3">
+                                                                                    <div className="flex flex-col">
+                                                                                        <span className="font-black text-[11px] uppercase text-primary leading-tight">{u.username}</span>
+                                                                                        <span className="text-[9px] font-bold text-muted-foreground uppercase">{u.email}</span>
+                                                                                    </div>
+                                                                                </TableCell>
+                                                                                <TableCell>
+                                                                                    <Badge variant="outline" className="text-[7px] font-black uppercase border-primary/10 bg-primary/5">
+                                                                                        {u.role}
+                                                                                    </Badge>
+                                                                                </TableCell>
+                                                                                <TableCell>
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <div className={cn("h-1.5 w-1.5 rounded-full", u.active !== false ? "bg-green-500" : "bg-destructive")} />
+                                                                                        <span className="text-[8px] font-black uppercase">{u.active !== false ? 'Activo' : 'Inactivo'}</span>
+                                                                                    </div>
+                                                                                </TableCell>
+                                                                                <TableCell className="text-right px-6">
+                                                                                    <div className="flex justify-end gap-2">
+                                                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingUser({...u}); setEditModalOpen(true); }}>
+                                                                                            <Edit className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => toggleUserStatus(u)}>
+                                                                                            <ShieldAlert className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                        <AlertDialog>
+                                                                                            <AlertDialogTrigger asChild>
+                                                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                                                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                                                </Button>
+                                                                                            </AlertDialogTrigger>
+                                                                                            <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
+                                                                                                <AlertDialogHeader>
+                                                                                                    <AlertDialogTitle className="font-black uppercase">¿ELIMINAR DEFINITIVAMENTE?</AlertDialogTitle>
+                                                                                                    <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground pt-2">
+                                                                                                        Esta acción es irreversible. Se borrará el perfil de {u.username} del sistema central.
+                                                                                                    </AlertDialogDescription>
+                                                                                                </AlertDialogHeader>
+                                                                                                <AlertDialogFooter className="pt-6">
+                                                                                                    <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
+                                                                                                    <AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
+                                                                                                        SÍ, ELIMINAR USUARIO
+                                                                                                    </AlertDialogAction>
+                                                                                                </AlertDialogFooter>
+                                                                                            </AlertDialogContent>
+                                                                                        </AlertDialog>
+                                                                                    </div>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        ))}
+                                                                    </TableBody>
+                                                                </Table>
                                                             </div>
                                                         )}
-                                                        {hasUsers && (
-                                                            <Badge className="bg-black text-white text-[8px] font-black">{dist.users.length} {dist.users.length === 1 ? 'FUNCIONARIO' : 'FUNCIONARIOS'}</Badge>
-                                                        )}
-                                                    </div>
-                                                </AccordionTrigger>
-                                                <AccordionContent className="p-0 bg-white">
-                                                    {!hasUsers ? (
-                                                        <div className="py-10 text-center space-y-2 opacity-30">
-                                                            <UserCircle className="h-10 w-10 mx-auto text-muted-foreground" />
-                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Sin personal asignado a esta oficina</p>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="overflow-x-auto">
-                                                            <Table>
-                                                                <TableHeader className="bg-muted/30">
-                                                                    <TableRow>
-                                                                        <TableHead className="text-[8px] font-black uppercase px-6">Funcionario</TableHead>
-                                                                        <TableHead className="text-[8px] font-black uppercase">Rol</TableHead>
-                                                                        <TableHead className="text-[8px] font-black uppercase">Estado</TableHead>
-                                                                        <TableHead className="text-right text-[8px] font-black uppercase px-6">Acción</TableHead>
-                                                                    </TableRow>
-                                                                </TableHeader>
-                                                                <TableBody>
-                                                                    {dist.users.map(u => (
-                                                                        <TableRow key={u.id} className={cn("hover:bg-primary/5 transition-colors", u.active === false && "bg-amber-50/50")}>
-                                                                            <TableCell className="px-6 py-3">
-                                                                                <div className="flex flex-col">
-                                                                                    <span className="font-black text-[11px] uppercase text-primary leading-tight">{u.username}</span>
-                                                                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">{u.email}</span>
-                                                                                </div>
-                                                                            </TableCell>
-                                                                            <TableCell>
-                                                                                <Badge variant="outline" className="text-[7px] font-black uppercase border-primary/10 bg-primary/5">
-                                                                                    {u.role}
-                                                                                </Badge>
-                                                                            </TableCell>
-                                                                            <TableCell>
-                                                                                <div className="flex items-center gap-1.5">
-                                                                                    <div className={cn("h-1.5 w-1.5 rounded-full", u.active !== false ? "bg-green-500" : "bg-destructive")} />
-                                                                                    <span className="text-[8px] font-black uppercase">{u.active !== false ? 'Activo' : 'Inactivo'}</span>
-                                                                                </div>
-                                                                            </TableCell>
-                                                                            <TableCell className="text-right px-6">
-                                                                                <div className="flex justify-end gap-2">
-                                                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingUser({...u}); setEditModalOpen(true); }}>
-                                                                                        <Edit className="h-3.5 w-3.5" />
-                                                                                    </Button>
-                                                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => toggleUserStatus(u)}>
-                                                                                        <ShieldAlert className="h-3.5 w-3.5" />
-                                                                                    </Button>
-                                                                                    <AlertDialog>
-                                                                                        <AlertDialogTrigger asChild>
-                                                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
-                                                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                                                            </Button>
-                                                                                        </AlertDialogTrigger>
-                                                                                        <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
-                                                                                            <AlertDialogHeader>
-                                                                                                <AlertDialogTitle className="font-black uppercase">¿ELIMINAR DEFINITIVAMENTE?</AlertDialogTitle>
-                                                                                                <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground pt-2">
-                                                                                                    Esta acción es irreversible. Se borrará el perfil de {u.username} del sistema central.
-                                                                                                </AlertDialogDescription>
-                                                                                            </AlertDialogHeader>
-                                                                                            <AlertDialogFooter className="pt-6">
-                                                                                                <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
-                                                                                                <AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
-                                                                                                    SÍ, ELIMINAR USUARIO
-                                                                                                </AlertDialogAction>
-                                                                                            </AlertDialogFooter>
-                                                                                        </AlertDialogContent>
-                                                                                    </AlertDialog>
-                                                                                </div>
-                                                                            </TableCell>
-                                                                        </TableRow>
-                                                                    ))}
-                                                                </TableBody>
-                                                            </Table>
-                                                        </div>
-                                                    )}
-                                                </AccordionContent>
-                                            </AccordionItem>
-                                        );
-                                    })}
-                                </Accordion>
-                            </AccordionContent>
-                        </AccordionItem>
-                    );
-                })}
-            </Accordion>
+                                                    </AccordionContent>
+                                                </AccordionItem>
+                                            );
+                                        })}
+                                    </Accordion>
+                                </AccordionContent>
+                            </AccordionItem>
+                        );
+                    })}
+                </Accordion>
+            )}
         </div>
       </main>
 
