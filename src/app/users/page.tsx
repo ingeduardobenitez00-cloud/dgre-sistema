@@ -677,7 +677,7 @@ export default function UsersPage() {
                 <div className="relative w-full md:w-80">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                     <Input 
-                        placeholder="Filtrar por nombre o zona..." 
+                        placeholder="Filtrar por nombre, correo o zona..." 
                         className="h-10 pl-10 text-[10px] font-bold bg-white/10 border-white/20 text-white placeholder:text-white/30 rounded-full"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
