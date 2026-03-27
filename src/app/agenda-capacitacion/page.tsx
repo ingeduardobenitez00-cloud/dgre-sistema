@@ -43,6 +43,7 @@ export default function AgendaCapacitacionPage() {
   const [qrSolicitud, setQrSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [cancellingSolicitud, setCancellingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingSolicitud, setDeletingSolicitud] = useState<SolicitudCapacitacion | null>(null);
+  const [deletingDistrict, setDeletingDistrict] = useState<{ dept: string, dist: string, items: SolicitudCapacitacion[] } | null>(null);
   const [showDeleteAllAlert, setShowDeleteAllAlert] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [showCompletedAlert, setShowCompletedAlert] = useState(false);
@@ -267,13 +268,34 @@ export default function AgendaCapacitacionPage() {
         });
   };
 
+  const handleConfirmDeleteDistrict = () => {
+    if (!deletingDistrict || !firestore) return;
+    setIsUpdating(true);
+    const batch = writeBatch(firestore);
+    
+    deletingDistrict.items.forEach(item => {
+        const docRef = doc(firestore, 'solicitudes-capacitacion', item.id);
+        batch.delete(docRef);
+    });
+
+    batch.commit()
+        .then(() => {
+            toast({ title: "Distrito Limpiado", description: `Se eliminaron ${deletingDistrict.items.length} actividades de ${deletingDistrict.dist}.` });
+            setDeletingDistrict(null);
+            setIsUpdating(false);
+        })
+        .catch(async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'solicitudes-capacitacion (batch-district)', operation: 'delete' }));
+            setIsUpdating(false);
+        });
+  };
+
   const handleConfirmDeleteAll = () => {
     if (!rawSolicitudes || !firestore) return;
     setIsUpdating(true);
     
-    // Usamos un lote para mayor eficiencia
     const batch = writeBatch(firestore);
-    const chunk = rawSolicitudes.slice(0, 500); // Firestore tiene un limite de 500
+    const chunk = rawSolicitudes.slice(0, 500); 
     
     chunk.forEach(sol => {
         const docRef = doc(firestore, 'solicitudes-capacitacion', sol.id);
@@ -428,6 +450,18 @@ export default function AgendaCapacitacionPage() {
                             </div>
                         </AccordionTrigger>
                         <AccordionContent className="pt-6 space-y-4 px-2">
+                            {dist.items.length > 0 && hasAdminFilter && (
+                                <div className="flex justify-end mb-2 px-2">
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 h-8 gap-2"
+                                        onClick={() => setDeletingDistrict({ dept: dept.label, dist: dist.label, items: dist.items })}
+                                    >
+                                        <Trash2 className="h-3 w-3" /> VACIAR ESTE DISTRITO
+                                    </Button>
+                                </div>
+                            )}
                             {dist.items.sort((a,b) => a.fecha.localeCompare(b.fecha)).map((item) => {
                                 const today = new Date().toISOString().split('T')[0];
                                 const isPast = item.fecha < today;
@@ -670,6 +704,25 @@ export default function AgendaCapacitacionPage() {
             <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8" disabled={isUpdating}>
                 {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "SÍ, ELIMINAR REGISTRO"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deletingDistrict} onOpenChange={(o) => !o && setDeletingDistrict(null)}>
+        <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black uppercase tracking-tight text-xl flex items-center gap-2 text-destructive">
+                <Trash2 className="h-6 w-6" /> ¿VACIAR DISTRITO COMPLETO?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground pt-2">
+                Usted va a eliminar <span className="text-primary font-black">{deletingDistrict?.items.length} actividades</span> del distrito de <span className="text-primary font-black">{deletingDistrict?.dist}</span>. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6">
+            <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteDistrict} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8" disabled={isUpdating}>
+                {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "SÍ, VACIAR DISTRITO"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
