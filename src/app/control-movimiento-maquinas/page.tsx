@@ -517,13 +517,13 @@ export default function ControlMovimientoMaquinasPage() {
 
     y += 8;
     doc.setFont('helvetica', 'bold');
-    doc.text("IDENTIFICACIÓN DEL EQUIPO", margin, y);
+    doc.text("IDENTIFICACIÓN DEL EQUIPO (DESPACHO)", margin, y);
     
-    // Stack machines on the same sheet
+    // Stack machines - Section A
     movimientoData.maquinas.forEach((maq, idx) => {
         y += 2;
         doc.setDrawColor(200);
-        doc.roundedRect(margin, y, boxWidth, 18, 4, 4);
+        doc.roundedRect(margin, y, boxWidth, 16, 4, 4);
         
         doc.setFontSize(7); doc.setFont('helvetica', 'bold');
         doc.text(`SERIE:`, margin + 5, y + 6);
@@ -569,46 +569,60 @@ export default function ControlMovimientoMaquinasPage() {
         doc.text(`${movimientoData.hora_devolucion || '__:__'} HS`, margin + 35, y - 0.5, { align: 'center' });
         doc.text(`FECHA REGRESO: ${movimientoData.fecha_devolucion ? formatDateToDDMMYYYY(movimientoData.fecha_devolucion) : '__/__/____'}`, pageWidth - margin, y, { align: 'right' });
 
-        // LACRE STATUS BOX
-        y += 6;
-        doc.setDrawColor(0); doc.setLineWidth(0.2);
-        doc.roundedRect(margin, y, 90, 15, 4, 4);
-        doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-        doc.text("ESTADO DE LOS LACRES A LA DEVOLUCIÓN", margin + 10, y + 5);
-        
-        const isCorrecto = movimientoData.maquinas[0]?.lacre_estado === 'correcto';
-        const isViolentado = movimientoData.maquinas[0]?.lacre_estado === 'violentado';
+        y += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.text("AUDITORÍA DE RETORNO POR EQUIPO", margin, y);
 
-        doc.circle(margin + 15, y + 10, 2);
-        if (isCorrecto) { doc.setFillColor(0); doc.circle(margin + 15, y + 10, 1.2, 'F'); }
-        doc.setFontSize(7); doc.text("CORRECTO", margin + 20, y + 11);
+        // Stack machines - Section B
+        movimientoData.maquinas.forEach((maq, idx) => {
+            y += 2;
+            const isViolentado = maq.lacre_estado === 'violentado';
+            
+            doc.setDrawColor(isViolentado ? [200, 0, 0] : [200, 200, 200]);
+            doc.setLineWidth(isViolentado ? 0.5 : 0.1);
+            doc.roundedRect(margin, y, boxWidth, 22, 4, 4);
+            
+            doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+            if(isViolentado) doc.setTextColor(200, 0, 0);
+            doc.text(`SERIE: ${maq.codigo}`, margin + 5, y + 6);
+            doc.setTextColor(0, 0, 0);
 
-        doc.circle(margin + 50, y + 10, 2);
-        if (isViolentado) { doc.setFillColor(0); doc.circle(margin + 50, y + 10, 1.2, 'F'); }
-        doc.text("VIOLENTADO", margin + 55, y + 11);
+            // LACRE STATUS
+            doc.text("ESTADO LACRE:", margin + 60, y + 6);
+            doc.setDrawColor(0); doc.setLineWidth(0.2);
+            
+            doc.circle(margin + 85, y + 5.5, 2);
+            if (maq.lacre_estado === 'correcto') { doc.setFillColor(0); doc.circle(margin + 85, y + 5.5, 1.2, 'F'); }
+            doc.text("CORRECTO", margin + 89, y + 6);
 
-        // KITS RETORNO
-        y += 20;
-        doc.setDrawColor(200); doc.roundedRect(margin, y, boxWidth, 10, 3, 3);
-        const kitRetLabels = ["RET. CREDENCIAL", "RET. AURICULAR", "RET. ACRILICO", "RET. 5 BOLETAS"];
-        const kitRetVals = [
-            movimientoData.maquinas[0]?.retorno_credencial, 
-            movimientoData.maquinas[0]?.retorno_auricular, 
-            movimientoData.maquinas[0]?.retorno_acrilico, 
-            movimientoData.maquinas[0]?.retorno_boletas
-        ];
-        kitRetLabels.forEach((lbl, i) => {
-            const kx = margin + 10 + (i * 45);
-            doc.setDrawColor(0); doc.rect(kx, y + 3, 4, 4);
-            if (kitRetVals[i]) doc.text("X", kx + 1, y + 6.5);
-            doc.setFontSize(7); doc.text(lbl, kx + 6, y + 6);
+            doc.circle(margin + 115, y + 5.5, 2);
+            if (isViolentado) { 
+                doc.setFillColor(200, 0, 0); 
+                doc.circle(margin + 115, y + 5.5, 1.2, 'F'); 
+                doc.setFont('helvetica', 'bold');
+                doc.text("VIOLENTADO !!!", margin + 119, y + 6);
+            } else {
+                doc.text("VIOLENTADO", margin + 119, y + 6);
+            }
+            doc.setFont('helvetica', 'normal');
+
+            // KITS RETORNO
+            y += 12;
+            const kitRetLabels = ["RET. CREDENCIAL", "RET. AURICULAR", "RET. ACRILICO", "RET. 5 BOLETAS"];
+            const kitRetVals = [maq.retorno_credencial, maq.retorno_auricular, maq.retorno_acrilico, maq.retorno_boletas];
+            kitRetLabels.forEach((lbl, i) => {
+                const kx = margin + 10 + (i * 45);
+                doc.setDrawColor(0); doc.rect(kx, y, 4, 4);
+                if (kitRetVals[i]) doc.text("X", kx + 1, y + 3.5);
+                doc.setFontSize(7); doc.text(lbl, kx + 6, y + 3);
+            });
+            y += 12;
         });
-        y += 15;
     }
 
     // Fixed Signature Area at the bottom
     const signatureStartY = pageHeight - 65;
-    y = signatureStartY;
+    y = Math.max(y + 10, signatureStartY);
 
     const sigSectionTitle = isOnlySalida ? "FIRMAS DE DESPACHO (SECCIÓN A - SALIDA)" : "MATRIZ DE FIRMAS INSTITUCIONALES (SECCIÓN A + B)";
     doc.setFontSize(8); doc.setFont('helvetica', 'bold');
