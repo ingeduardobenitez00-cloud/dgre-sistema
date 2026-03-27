@@ -488,14 +488,19 @@ export default function UsersPage() {
   const handleDeleteUser = (userId: string) => {
     if (!firestore) return;
     
-    const docRef = doc(firestore, 'users', userId);
-    deleteDoc(docRef)
+    const userDocRef = doc(firestore, 'users', userId);
+    const presenceDocRef = doc(firestore, 'presencia', userId);
+
+    // Eliminamos el perfil
+    deleteDoc(userDocRef)
       .then(() => {
+        // Al eliminar el perfil, también limpiamos el rastro de conexión si existe
+        deleteDoc(presenceDocRef).catch(() => {}); 
         toast({ title: 'Usuario Eliminado', description: 'El acceso ha sido revocado permanentemente.' });
       })
       .catch((error) => {
         toast({ variant: 'destructive', title: 'Error al eliminar' });
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'delete' }));
       });
   };
 

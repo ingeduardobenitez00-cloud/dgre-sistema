@@ -5,13 +5,26 @@ import { useMemo, useState, useEffect } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
-import { Loader2, Activity, Globe, Clock, UserCheck, ShieldCheck, MapPin } from 'lucide-react';
+import { collection, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { Loader2, Activity, Globe, Clock, UserCheck, ShieldCheck, MapPin, Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 type PresenceRecord = {
   id: string;
@@ -34,6 +47,7 @@ const ONLINE_THRESHOLD_MS = 4500000;
 export default function ConexionesPage() {
   const { user: currentUser, isUserLoading } = useUser();
   const { firestore } = useFirebase();
+  const { toast } = useToast();
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -64,6 +78,18 @@ export default function ConexionesPage() {
       return Math.abs(now - last) < ONLINE_THRESHOLD_MS;
     }).length;
   }, [presenceData, now]);
+
+  const handleDeletePresence = (id: string) => {
+    if (!firestore) return;
+    const docRef = doc(firestore, 'presencia', id);
+    deleteDoc(docRef)
+        .then(() => {
+            toast({ title: "Registro removido", description: "La entrada de conexión ha sido borrada manualmente." });
+        })
+        .catch(() => {
+            toast({ variant: 'destructive', title: "Error", description: "No se pudo eliminar el registro." });
+        });
+  };
 
   if (isUserLoading || isLoading) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
@@ -131,7 +157,8 @@ export default function ConexionesPage() {
                                 <TableHead className="text-[9px] font-black uppercase tracking-widest">Funcionario</TableHead>
                                 <TableHead className="text-[9px] font-black uppercase tracking-widest">Jurisdicción</TableHead>
                                 <TableHead className="text-[9px] font-black uppercase tracking-widest">Última Actividad</TableHead>
-                                <TableHead className="text-right text-[9px] font-black uppercase tracking-widest px-8">Sección Actual</TableHead>
+                                <TableHead className="text-[9px] font-black uppercase tracking-widest">Sección Actual</TableHead>
+                                <TableHead className="text-right text-[9px] font-black uppercase tracking-widest px-8">Acción</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -185,10 +212,33 @@ export default function ConexionesPage() {
                                                 </span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-right px-8">
+                                        <TableCell>
                                             <Badge variant="secondary" className="bg-primary/5 text-primary border-none text-[8px] font-black uppercase px-3 py-1">
                                                 {record.ruta_actual === '/' ? 'INICIO' : record.ruta_actual.replace('/', '').toUpperCase()}
                                             </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right px-8">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive hover:bg-destructive/5 rounded-full">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle className="font-black uppercase tracking-tight">¿REMOVER REGISTRO?</AlertDialogTitle>
+                                                        <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground">
+                                                            Esta acción borrará la entrada de conexión de <span className="text-primary">{record.username}</span> del monitor. El registro se volverá a crear automáticamente si el usuario vuelve a navegar en el sistema.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter className="mt-6">
+                                                        <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px]">CANCELAR</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeletePresence(record.id)} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
+                                                            ELIMINAR ENTRADA
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </TableCell>
                                     </TableRow>
                                 );
