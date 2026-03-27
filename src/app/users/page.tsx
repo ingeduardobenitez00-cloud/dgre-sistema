@@ -496,7 +496,7 @@ export default function UsersPage() {
 
     setIsSubmitting(true);
     const formData = new FormData(form);
-    const email = formData.get('email') as string;
+    const email = (formData.get('email') as string || '').trim();
     const password = formData.get('password') as string;
     const username = formData.get('username') as string;
 
@@ -602,7 +602,7 @@ export default function UsersPage() {
                 </div>
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Correo Institucional</Label>
-                    <Input name="email" type="text" placeholder="usuario@tsje.gov.py" required autoCapitalize="none" className="font-bold h-11 border-2" />
+                    <Input name="email" type="email" placeholder="usuario@tsje.gov.py" required autoCapitalize="none" className="font-bold h-11 border-2" />
                 </div>
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Contraseña</Label>

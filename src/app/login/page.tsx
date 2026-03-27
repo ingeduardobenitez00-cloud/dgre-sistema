@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -69,12 +70,13 @@ export default function LoginPage() {
     if (!auth || !firestore) return;
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      const email = loginEmail.trim();
+      const userCredential = await signInWithEmailAndPassword(auth, email, loginPassword);
       
       // Registrar inicio de sesión en auditoría
       recordAuditLog(firestore, {
         usuario_id: userCredential.user.uid,
-        usuario_nombre: loginEmail,
+        usuario_nombre: email,
         usuario_rol: 'desconocido', // Se actualizará tras cargar el perfil
         accion: 'LOGIN',
         modulo: 'seguridad',
@@ -105,7 +107,8 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, regData.email, regData.password);
+      const email = regData.email.trim();
+      const userCredential = await createUserWithEmailAndPassword(auth, email, regData.password);
       const user = userCredential.user;
 
       const jefeModules = [
@@ -134,7 +137,7 @@ export default function LoginPage() {
 
       await setDoc(doc(firestore, 'users', user.uid), {
         username: regData.username, 
-        email: regData.email,
+        email: email,
         role: 'jefe',
         departamento: regData.departamento,
         distrito: regData.distrito,
@@ -156,7 +159,7 @@ export default function LoginPage() {
 
       await signOut(auth);
       
-      setLoginEmail(regData.email);
+      setLoginEmail(email);
       setMode('login');
       
       toast({ 
@@ -176,7 +179,8 @@ export default function LoginPage() {
   
   const handlePasswordReset = async () => {
     if (!auth) return;
-    const email = mode === 'login' ? loginEmail : regData.email;
+    const emailRaw = mode === 'login' ? loginEmail : regData.email;
+    const email = emailRaw.trim();
     if (!email) {
       toast({
         variant: 'destructive',
@@ -263,7 +267,7 @@ export default function LoginPage() {
                   <Label htmlFor="login-email" className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Correo Electrónico</Label>
                   <Input
                     id="login-email"
-                    type="text"
+                    type="email"
                     required
                     autoCapitalize="none"
                     value={loginEmail}
@@ -336,7 +340,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Correo Electrónico</Label>
                   <Input 
-                    type="text" 
+                    type="email" 
                     required 
                     autoCapitalize="none"
                     value={regData.email}
