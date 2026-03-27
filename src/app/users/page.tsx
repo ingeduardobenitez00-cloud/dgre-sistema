@@ -27,7 +27,8 @@ import {
   X,
   Landmark,
   Building2,
-  AlertCircle
+  AlertCircle,
+  Zap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -83,13 +84,16 @@ const MODULE_STRUCTURE = [
     category: "CIDEE - CAPACITACIONES",
     items: [
       { id: 'anexo-i', label: 'ANEXO I - LUGARES FIJOS' },
+      { id: 'lista-anexo-i', label: 'LISTADO DE ANEXO I' },
       { id: 'solicitud-capacitacion', label: 'ANEXO V - SOLICITUDES' },
       { id: 'agenda-capacitacion', label: 'AGENDA DE ACTIVIDADES' },
       { id: 'control-movimiento-maquinas', label: 'MOVIMIENTO DE MÁQUINAS' },
       { id: 'denuncia-lacres', label: 'DENUNCIA DE LACRES' },
       { id: 'informe-movimientos-denuncias', label: 'TRAZABILIDAD LOGÍSTICA' },
       { id: 'informe-divulgador', label: 'ANEXO III - INFORME DEL DIVULGADOR' },
+      { id: 'galeria-capacitaciones', label: 'GALERÍA DE EVIDENCIAS' },
       { id: 'informe-semanal-puntos-fijos', label: 'ANEXO IV - INFORME SEMANAL' },
+      { id: 'lista-anexo-iv', label: 'LISTADO DE ANEXO IV' },
       { id: 'divulgadores', label: 'DIRECTORIO DIVULGADORES' },
       { id: 'estadisticas-capacitacion', label: 'ESTADÍSTICAS CIDEE' },
       { id: 'encuesta-satisfaccion', label: 'ANEXO II - ENCUESTA DE SATISFACCIÓN' },
@@ -417,6 +421,36 @@ export default function UsersPage() {
         });
     }
   };
+
+  const handleApplyCIDEEProfile = (isEditing = false) => {
+    const cideeModules = MODULE_STRUCTURE.find(c => c.category === "CIDEE - CAPACITACIONES")?.items.map(i => i.id) || [];
+    const actions = ['view', 'add', 'edit', 'pdf'];
+    const newPerms = new Set<string>();
+    const newModules = new Set<string>();
+
+    cideeModules.forEach(m => {
+        newModules.add(m);
+        actions.forEach(a => newPerms.add(`${m}:${a}`));
+    });
+    
+    // Filtro nacional y asignar personal por defecto para coordinadores
+    newPerms.add('admin_filter');
+    newPerms.add('assign_staff');
+
+    if (isEditing && editingUser) {
+        setEditingUser({
+            ...editingUser,
+            role: 'coordinador',
+            modules: Array.from(new Set([...(editingUser.modules || []), ...Array.from(newModules)])),
+            permissions: Array.from(new Set([...(editingUser.permissions || []), ...Array.from(newPerms)]))
+        });
+    } else {
+        setRegRole('coordinador');
+        setSelectedModules(newModules);
+        setSelectedPerms(newPerms);
+    }
+    toast({ title: "Perfil CIDEE Aplicado", description: "Se han preseleccionado los módulos y el filtro nacional." });
+  };
   
   const toggleUserStatus = (user: UserProfile) => {
     if (!firestore) return;
@@ -545,9 +579,20 @@ export default function UsersPage() {
         <Card className="shadow-2xl border-none overflow-hidden rounded-xl bg-white">
           <form onSubmit={handleSubmit}>
             <CardHeader className="border-b py-6 bg-muted/10">
-              <CardTitle className="uppercase font-black text-xs flex items-center gap-2 tracking-widest text-primary">
-                <UserPlus className="h-4 w-4" /> Registrar Funcionario
-              </CardTitle>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <CardTitle className="uppercase font-black text-xs flex items-center gap-2 tracking-widest text-primary">
+                    <UserPlus className="h-4 w-4" /> Registrar Funcionario
+                </CardTitle>
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="font-black uppercase text-[10px] gap-2 border-primary/20 text-primary hover:bg-primary/5 h-9"
+                    onClick={() => handleApplyCIDEEProfile(false)}
+                >
+                    <Zap className="h-3.5 w-3.5 fill-primary" /> APLICAR PERFIL CIDEE
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-10 pt-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -788,16 +833,27 @@ export default function UsersPage() {
           {editingUser && (
             <form onSubmit={handleUpdateUser} className="flex flex-col h-full bg-white overflow-hidden">
               <DialogHeader className="p-8 bg-black text-white shrink-0">
-                <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-                        <Settings className="h-6 w-6" />
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+                            <Settings className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <DialogTitle className="text-2xl font-black uppercase leading-none">Editar Perfil</DialogTitle>
+                            <DialogDescription className="text-white/60 font-bold uppercase text-[9px] tracking-widest mt-2">
+                                FUNCIONARIO: {editingUser.username}
+                            </DialogDescription>
+                        </div>
                     </div>
-                    <div>
-                        <DialogTitle className="text-2xl font-black uppercase leading-none">Editar Perfil</DialogTitle>
-                        <DialogDescription className="text-white/60 font-bold uppercase text-[9px] tracking-widest mt-2">
-                            FUNCIONARIO: {editingUser.username}
-                        </DialogDescription>
-                    </div>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        className="font-black uppercase text-[10px] gap-2 border-white/20 text-white hover:bg-white/10 h-9"
+                        onClick={() => handleApplyCIDEEProfile(true)}
+                    >
+                        <Zap className="h-3.5 w-3.5 fill-white" /> APLICAR PERFIL CIDEE
+                    </Button>
                 </div>
               </DialogHeader>
               
