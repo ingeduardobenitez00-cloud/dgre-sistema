@@ -6,9 +6,9 @@ import Header from '@/components/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador, type EncuestaSatisfaccion } from '@/lib/data';
-import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check, AlertTriangle, FileWarning, PackageSearch, CalendarX, Trash2, FileDown, Printer, Users, Power, PowerOff, MessageSquarePlus, MessageSquareHeart } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Clock, UserPlus, QrCode, Building2, LayoutList, Globe, UserCheck, Search, ChevronRight, Copy, Check, AlertTriangle, FileWarning, PackageSearch, CalendarX, Trash2, FileDown, Printer, Users, Power, PowerOff, MessageSquarePlus, MessageSquareHeart, ShieldAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,7 @@ export default function AgendaCapacitacionPage() {
   const [qrSolicitud, setQrSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [cancellingSolicitud, setCancellingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingSolicitud, setDeletingSolicitud] = useState<SolicitudCapacitacion | null>(null);
+  const [showDeleteAllAlert, setShowDeleteAllAlert] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [showCompletedAlert, setShowCompletedAlert] = useState(false);
   
@@ -70,7 +71,7 @@ export default function AgendaCapacitacionPage() {
   }, []);
 
   const hasAdminFilter = useMemo(() => 
-    ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
+    ['admin', 'director', 'coordinador'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
     [profile]
   );
   
@@ -266,6 +267,22 @@ export default function AgendaCapacitacionPage() {
         });
   };
 
+  const handleConfirmDeleteAll = () => {
+    if (!rawSolicitudes || !firestore) return;
+    setIsUpdating(true);
+    
+    rawSolicitudes.forEach(sol => {
+        const docRef = doc(firestore, 'solicitudes-capacitacion', sol.id);
+        deleteDoc(docRef).catch(async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+        });
+    });
+    
+    toast({ title: "Limpiando agenda completa", description: "Se han enviado las órdenes de eliminación." });
+    setIsUpdating(false);
+    setShowDeleteAllAlert(false);
+  };
+
   const surveyUrl = useMemo(() => {
     if (typeof window === 'undefined' || !qrSolicitud) return '';
     return `${window.location.origin}/encuesta-satisfaccion?solicitudId=${qrSolicitud.id}`;
@@ -345,13 +362,18 @@ export default function AgendaCapacitacionPage() {
           </div>
         )}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="rounded-full bg-white font-black uppercase text-[9px] border-none shadow-sm gap-2">
+            <div className="flex gap-2 flex-wrap">
+                <Button variant="outline" size="sm" className="rounded-full bg-white font-black uppercase text-[9px] border-none shadow-sm gap-2 h-9 px-4">
                     <LayoutList className="h-3 w-3" /> GESTIÓN DE ACTIVIDADES
                 </Button>
-                <Button size="sm" className="rounded-full bg-[#2563EB] hover:bg-blue-700 font-black uppercase text-[9px] shadow-sm gap-2">
+                <Button size="sm" className="rounded-full bg-[#2563EB] hover:bg-blue-700 font-black uppercase text-[9px] shadow-sm gap-2 h-9 px-4">
                     <Globe className="h-3 w-3" /> VISTA GLOBAL
                 </Button>
+                {hasAdminFilter && (
+                    <Button variant="destructive" size="sm" className="rounded-full font-black uppercase text-[9px] shadow-sm gap-2 h-9 px-4" onClick={() => setShowDeleteAllAlert(true)}>
+                        <Trash2 className="h-3 w-3" /> ELIMINAR TODA LA AGENDA
+                    </Button>
+                )}
             </div>
             <div className="bg-white px-4 py-2 rounded-full border border-dashed flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
@@ -503,6 +525,11 @@ export default function AgendaCapacitacionPage() {
                                                         <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive" onClick={() => setCancellingSolicitud(item)}>
                                                             <CalendarX className="h-4 w-4" />
                                                         </Button>
+                                                        {hasAdminFilter && (
+                                                            <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-white transition-all" onClick={() => setDeletingSolicitud(item)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                     
                                                     <div className="flex gap-2 w-full max-w-[220px]">
@@ -535,12 +562,8 @@ export default function AgendaCapacitacionPage() {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
-      </main>
+                )}
+              </main>
 
       {/* Dialogo para Asignar Personal */}
       <Dialog open={!!assigningSolicitud} onOpenChange={(o) => !o && setAssigningSolicitud(null)}>
@@ -629,7 +652,7 @@ export default function AgendaCapacitacionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogo para Eliminar Actividad (Admin) */}
+      {/* Dialogo para Eliminar Actividad Individual (Admin) */}
       <AlertDialog open={!!deletingSolicitud} onOpenChange={(o) => !o && setDeletingSolicitud(null)}>
         <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
           <AlertDialogHeader>
@@ -644,6 +667,27 @@ export default function AgendaCapacitacionPage() {
             <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8" disabled={isUpdating}>
                 {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "SÍ, ELIMINAR REGISTRO"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialogo para Eliminar Toda la Agenda (Admin) */}
+      <AlertDialog open={showDeleteAllAlert} onOpenChange={setShowDeleteAllAlert}>
+        <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8">
+          <AlertDialogHeader className="space-y-4">
+            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto border-4 border-destructive/20">
+                <ShieldAlert className="h-8 w-8 text-destructive" />
+            </div>
+            <AlertDialogTitle className="text-2xl font-black uppercase text-center tracking-tighter">¿BORRAR TODA LA AGENDA?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-xs font-bold uppercase text-muted-foreground leading-relaxed">
+                Usted está a punto de eliminar <span className="text-destructive font-black">{rawSolicitudes?.length} registros</span> de capacitación. Esta acción es definitiva y vaciará el calendario actual de todo el país.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-8 sm:justify-center gap-4">
+            <AlertDialogCancel className="h-14 rounded-xl font-black uppercase text-[10px] px-8 border-2">CANCELAR</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteAll} className="h-14 flex-1 bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
+                SÍ, VACIAR AGENDA NACIONAL
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
