@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -44,7 +43,6 @@ export default function AgendaCapacitacionPage() {
   const [cancellingSolicitud, setCancellingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingSolicitud, setDeletingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingDistrict, setDeletingDistrict] = useState<{ dept: string, dist: string, items: SolicitudCapacitacion[] } | null>(null);
-  const [showDeleteAllAlert, setShowDeleteAllAlert] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [showCompletedAlert, setShowCompletedAlert] = useState(false);
   
@@ -290,30 +288,6 @@ export default function AgendaCapacitacionPage() {
         });
   };
 
-  const handleConfirmDeleteAll = () => {
-    if (!rawSolicitudes || !firestore) return;
-    setIsUpdating(true);
-    
-    const batch = writeBatch(firestore);
-    const chunk = rawSolicitudes.slice(0, 500); 
-    
-    chunk.forEach(sol => {
-        const docRef = doc(firestore, 'solicitudes-capacitacion', sol.id);
-        batch.delete(docRef);
-    });
-    
-    batch.commit()
-        .then(() => {
-            toast({ title: "Agenda Limpiada", description: "Se han eliminado los registros visibles." });
-            setIsUpdating(false);
-            setShowDeleteAllAlert(false);
-        })
-        .catch(async (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'solicitudes-capacitacion (batch)', operation: 'delete' }));
-            setIsUpdating(false);
-        });
-  };
-
   const surveyUrl = useMemo(() => {
     if (typeof window === 'undefined' || !qrSolicitud) return '';
     return `${window.location.origin}/encuesta-satisfaccion?solicitudId=${qrSolicitud.id}`;
@@ -400,11 +374,6 @@ export default function AgendaCapacitacionPage() {
                 <Button size="sm" className="rounded-full bg-[#2563EB] hover:bg-blue-700 font-black uppercase text-[9px] shadow-sm gap-2 h-9 px-4">
                     <Globe className="h-3 w-3" /> VISTA GLOBAL
                 </Button>
-                {hasAdminFilter && (
-                    <Button variant="destructive" size="sm" className="rounded-full font-black uppercase text-[9px] shadow-sm gap-2 h-9 px-4" onClick={() => setShowDeleteAllAlert(true)}>
-                        <Trash2 className="h-3 w-3" /> ELIMINAR TODA LA AGENDA
-                    </Button>
-                )}
             </div>
             <div className="bg-white px-4 py-2 rounded-full border border-dashed flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
@@ -723,26 +692,6 @@ export default function AgendaCapacitacionPage() {
             <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDeleteDistrict} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8" disabled={isUpdating}>
                 {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "SÍ, VACIAR DISTRITO"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={showDeleteAllAlert} onOpenChange={setShowDeleteAllAlert}>
-        <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8">
-          <AlertDialogHeader className="space-y-4">
-            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto border-4 border-destructive/20">
-                <ShieldAlert className="h-8 w-8 text-destructive" />
-            </div>
-            <AlertDialogTitle className="text-2xl font-black uppercase text-center tracking-tighter">¿BORRAR TODA LA AGENDA?</AlertDialogTitle>
-            <AlertDialogDescription className="text-center text-xs font-bold uppercase text-muted-foreground leading-relaxed">
-                Usted está a punto de eliminar los registros de capacitación visibles. Esta acción es definitiva y vaciará el calendario actual de todo el país.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-8 sm:justify-center gap-4">
-            <AlertDialogCancel className="h-14 rounded-xl font-black uppercase text-[10px] px-8 border-2">CANCELAR</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteAll} className="h-14 flex-1 bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
-                SÍ, VACIAR AGENDA NACIONAL
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
