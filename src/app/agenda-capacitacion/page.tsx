@@ -108,7 +108,7 @@ export default function AgendaCapacitacionPage() {
   const { data: encuestasData } = useCollection<EncuestaSatisfaccion>(encuestasQuery);
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
-  const { data: datosData } = useCollection<Dato>(datosQuery);
+  const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
   const divulgadoresQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !profile) return null;
@@ -271,16 +271,25 @@ export default function AgendaCapacitacionPage() {
     if (!rawSolicitudes || !firestore) return;
     setIsUpdating(true);
     
-    rawSolicitudes.forEach(sol => {
+    // Usamos un lote para mayor eficiencia
+    const batch = writeBatch(firestore);
+    const chunk = rawSolicitudes.slice(0, 500); // Firestore tiene un limite de 500
+    
+    chunk.forEach(sol => {
         const docRef = doc(firestore, 'solicitudes-capacitacion', sol.id);
-        deleteDoc(docRef).catch(async (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
-        });
+        batch.delete(docRef);
     });
     
-    toast({ title: "Limpiando agenda completa", description: "Se han enviado las órdenes de eliminación." });
-    setIsUpdating(false);
-    setShowDeleteAllAlert(false);
+    batch.commit()
+        .then(() => {
+            toast({ title: "Agenda Limpiada", description: "Se han eliminado los registros visibles." });
+            setIsUpdating(false);
+            setShowDeleteAllAlert(false);
+        })
+        .catch(async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'solicitudes-capacitacion (batch)', operation: 'delete' }));
+            setIsUpdating(false);
+        });
   };
 
   const surveyUrl = useMemo(() => {
@@ -431,7 +440,6 @@ export default function AgendaCapacitacionPage() {
                                 if (!inf) missing.push("INFORME ANEXO III");
                                 const alertLabel = `ALERTA: ACTIVIDAD VENCIDA - FALTA COMPLETAR: ${missing.join(" Y ")}`;
 
-                                // Lógica de encuestas
                                 const itemEncuestas = encuestasData?.filter(e => e.solicitud_id === item.id) || [];
                                 const qrSurveys = itemEncuestas.filter(e => e.usuario_id === 'CIUDADANO_EXTERNO').length;
                                 const physicalSurveys = itemEncuestas.length - qrSurveys;
@@ -485,7 +493,6 @@ export default function AgendaCapacitacionPage() {
                                                         )}
                                                     </div>
                                                     
-                                                    {/* SECCIÓN DE ENCUESTAS */}
                                                     <div className="pt-2 border-t border-dashed">
                                                         {hasSurveys ? (
                                                             <div className="space-y-1.5">
@@ -502,13 +509,8 @@ export default function AgendaCapacitacionPage() {
                                                             <div className="flex flex-col gap-1">
                                                                 <div className="flex items-center gap-2 text-muted-foreground/40">
                                                                     <AlertTriangle className="h-3.5 w-3.5" />
-                                                                    <span className="text-[8px] font-black uppercase leading-tight">SIN ENCUESTAS REGISTRADAS</span>
+                                                                    <span className="text-[8px] font-black uppercase leading-tight">SIN ENCUESTAS</span>
                                                                 </div>
-                                                                <Link href={`/encuesta-satisfaccion?solicitudId=${item.id}`}>
-                                                                    <Button variant="link" className="h-auto p-0 text-[8px] font-black text-primary uppercase underline tracking-tighter">
-                                                                        ¿Desea registrar encuestas físicas?
-                                                                    </Button>
-                                                                </Link>
                                                             </div>
                                                         )}
                                                     </div>
@@ -562,10 +564,13 @@ export default function AgendaCapacitacionPage() {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                )}
-              </main>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
+      </main>
 
-      {/* Dialogo para Asignar Personal */}
       <Dialog open={!!assigningSolicitud} onOpenChange={(o) => !o && setAssigningSolicitud(null)}>
         <DialogContent className="max-w-2xl rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden [&>button]:text-white [&>button]:opacity-100">
           <DialogHeader className="bg-black text-white p-6">
@@ -631,7 +636,6 @@ export default function AgendaCapacitacionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogo para Cancelar Actividad */}
       <Dialog open={!!cancellingSolicitud} onOpenChange={(o) => !o && setCancellingSolicitud(null)}>
         <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden [&>button]:text-white [&>button]:opacity-100">
           <DialogHeader className="bg-destructive text-white p-8">
@@ -652,7 +656,6 @@ export default function AgendaCapacitacionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogo para Eliminar Actividad Individual (Admin) */}
       <AlertDialog open={!!deletingSolicitud} onOpenChange={(o) => !o && setDeletingSolicitud(null)}>
         <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
           <AlertDialogHeader>
@@ -672,7 +675,6 @@ export default function AgendaCapacitacionPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialogo para Eliminar Toda la Agenda (Admin) */}
       <AlertDialog open={showDeleteAllAlert} onOpenChange={setShowDeleteAllAlert}>
         <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8">
           <AlertDialogHeader className="space-y-4">
@@ -681,7 +683,7 @@ export default function AgendaCapacitacionPage() {
             </div>
             <AlertDialogTitle className="text-2xl font-black uppercase text-center tracking-tighter">¿BORRAR TODA LA AGENDA?</AlertDialogTitle>
             <AlertDialogDescription className="text-center text-xs font-bold uppercase text-muted-foreground leading-relaxed">
-                Usted está a punto de eliminar <span className="text-destructive font-black">{rawSolicitudes?.length} registros</span> de capacitación. Esta acción es definitiva y vaciará el calendario actual de todo el país.
+                Usted está a punto de eliminar los registros de capacitación visibles. Esta acción es definitiva y vaciará el calendario actual de todo el país.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-8 sm:justify-center gap-4">
@@ -693,7 +695,6 @@ export default function AgendaCapacitacionPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialogo para Código QR de Encuesta */}
       <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
         <DialogContent className="max-w-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden [&>button]:text-white [&>button]:opacity-100">
           <DialogHeader className="bg-primary p-8 text-white">
