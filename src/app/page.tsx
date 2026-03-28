@@ -19,7 +19,7 @@ const MODULE_GROUPS = [
   {
     label: "CIDEE - CAPACITACIONES",
     description: "Gestión de solicitudes, agendas separadas, movimientos de equipos, denuncias de lacres e informes de capacitación nacional.",
-    modules: ['anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 'agenda-anexo-v', 'divulgadores', 'control-movimiento-maquinas', 'denuncia-lacres', 'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion', 'archivo-capacitaciones']
+    modules: ['anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 'agenda-anexo-v', 'divulgadores', 'control-movimiento-maquinas', 'denuncia-lacres', 'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'lista-anexo-iv', 'archivo-capacitaciones', 'estadisticas-capacitacion']
   },
   {
     label: "Registros Electorales",
@@ -29,7 +29,7 @@ const MODULE_GROUPS = [
   {
     label: "Análisis y Reportes",
     description: "Consolidados nacionales y resúmenes técnicos por ubicación geográfica.",
-    modules: ['resumen', 'informe-general']
+    modules: ['resumen', 'informe-general', 'conexiones']
   },
   {
     label: "Locales de Votación",
@@ -44,7 +44,7 @@ const MODULE_GROUPS = [
   {
     label: "Sistema",
     description: "Administración de usuarios, monitoreo de conexiones en tiempo real, auditoría técnica y configuración.",
-    modules: ['users', 'settings', 'documentacion', 'auditoria', 'conexiones']
+    modules: ['users', 'settings', 'documentacion', 'auditoria']
   },
 ];
 
@@ -59,10 +59,18 @@ export default function Home() {
   const groupedModules = useMemo(() => {
     if (!user || !mounted) return [];
 
+    const isAdmin = user.profile?.role === 'admin';
+
     return MODULE_GROUPS.map(group => {
       const accessibleInGroup = dashboardMenuItems.filter(item => {
         const moduleName = item.href.substring(1);
-        if (user.profile?.role === 'admin') return group.modules.includes(moduleName);
+        
+        // El administrador visualiza TODO lo que está categorizado en los grupos
+        if (isAdmin) {
+          return group.modules.includes(moduleName);
+        }
+        
+        // Otros usuarios visualizan solo si tienen el módulo asignado en su perfil
         const hasAccess = user.profile?.modules?.includes(moduleName);
         return group.modules.includes(moduleName) && hasAccess;
       });
@@ -85,6 +93,8 @@ export default function Home() {
     );
   }
 
+  const isAdmin = user?.profile?.role === 'admin';
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/5">
       <Header title="" />
@@ -95,12 +105,16 @@ export default function Home() {
             </h1>
             <p className="mt-1 text-xs text-muted-foreground font-medium flex items-center gap-2">
                 <LayoutGrid className="h-3.5 w-3.5" />
-                Seleccione una categoría para desplegar los módulos autorizados
+                {isAdmin ? 'Acceso Administrativo Total Habilitado' : 'Seleccione una categoría para desplegar los módulos autorizados'}
             </p>
         </div>
 
         <div className="space-y-4">
-          <Accordion type="multiple" className="space-y-3">
+          <Accordion 
+            type="multiple" 
+            defaultValue={isAdmin ? groupedModules.map(g => g.label) : undefined}
+            className="space-y-3"
+          >
             {groupedModules.map((group) => (
               <AccordionItem 
                 key={group.label} 

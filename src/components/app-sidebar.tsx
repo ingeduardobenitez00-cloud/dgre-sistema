@@ -1,7 +1,7 @@
+
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   SidebarHeader,
@@ -30,7 +30,6 @@ import {
   TableProperties,
   ArrowLeftRight,
   Flag,
-  FileUp,
   UserCircle,
   BookOpen,
   ShieldAlert,
@@ -109,8 +108,8 @@ export default function AppSidebar() {
     {
       label: "GESTIÓN DE DATOS",
       items: [
-        { href: "/importar-reportes", label: "Importar Reportes", icon: FileUp },
-        { href: "/importar-locales", label: "Importar Locales", icon: FileUp },
+        { href: "/importar-reportes", label: "Importar Reportes", icon: MapPin },
+        { href: "/importar-locales", label: "Importar Locales", icon: MapPin },
         { href: "/importar-partidos", label: "Importar Partidos", icon: Flag },
       ]
     },
