@@ -638,9 +638,13 @@ export default function UsersPage() {
                                                                             </TableCell>
                                                                             <TableCell><Badge variant="secondary" className="text-[7px] font-black uppercase bg-primary/5 text-primary border-none">{u.role}</Badge></TableCell>
                                                                             <TableCell>
-                                                                                <Badge variant={u.active === false ? "destructive" : "default"} className="text-[7px] font-black uppercase">
-                                                                                    {u.active === false ? "INACTIVO" : "ACTIVO"}
-                                                                                </Badge>
+                                                                                {u.active === true ? (
+                                                                                    <Badge className="bg-green-600 text-white text-[7px] font-black uppercase">ACTIVO</Badge>
+                                                                                ) : u.registration_method === 'auto_registro_jefe' ? (
+                                                                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[7px] font-black uppercase">PENDIENTE</Badge>
+                                                                                ) : (
+                                                                                    <Badge variant="destructive" className="text-[7px] font-black uppercase">INACTIVO</Badge>
+                                                                                )}
                                                                             </TableCell>
                                                                             <TableCell className="text-right px-6">
                                                                                 <div className="flex justify-end gap-2">
