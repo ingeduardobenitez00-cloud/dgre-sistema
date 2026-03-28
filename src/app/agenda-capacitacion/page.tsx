@@ -12,42 +12,26 @@ import {
   Loader2, 
   MapPin, 
   Calendar, 
-  Clock, 
   UserPlus, 
   QrCode, 
   Building2, 
-  LayoutList, 
-  Globe, 
-  UserCheck, 
   Search, 
-  ChevronRight, 
-  Copy, 
   Check, 
-  AlertTriangle, 
-  FileWarning, 
-  PackageSearch, 
   CalendarX, 
   Trash2, 
-  FileDown, 
-  Printer, 
   Users, 
-  Power, 
-  PowerOff, 
-  MessageSquarePlus, 
   MessageSquareHeart, 
-  ShieldAlert,
   Eye,
   FileText,
-  User,
   Activity,
   ClipboardCheck,
   X,
-  CheckCircle2
+  CheckCircle2,
+  Copy
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateToDDMMYYYY, cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -55,9 +39,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Image from 'next/image';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import jsPDF from 'jspdf';
+import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,7 +50,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Separator } from '@/components/ui/separator';
 
 export default function AgendaCapacitacionPage() {
   const { user, isUserLoading } = useUser();
@@ -78,34 +59,14 @@ export default function AgendaCapacitacionPage() {
   const [assigningSolicitud, setAssigningSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [viewingActivity, setViewingActivity] = useState<SolicitudCapacitacion | null>(null);
   const [qrSolicitud, setQrSolicitud] = useState<SolicitudCapacitacion | null>(null);
-  const [cancellingSolicitud, setCancellingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingSolicitud, setDeletingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingDistrict, setDeletingDistrict] = useState<{ dept: string, dist: string, items: SolicitudCapacitacion[] } | null>(null);
-  const [cancelReason, setCancelReason] = useState('');
-  const [showCompletedAlert, setShowCompletedAlert] = useState(false);
   
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [divulSearch, setDivulSearch] = useState('');
   const [copied, setCopied] = useState(false);
-  const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   const profile = user?.profile;
-
-  useEffect(() => {
-    const fetchLogo = async () => {
-      try {
-        const response = await fetch('/logo.png');
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => setLogoBase64(reader.result as string);
-        reader.readAsDataURL(blob);
-      } catch (error) {
-        console.error("Error fetching logo:", error);
-      }
-    };
-    fetchLogo();
-  }, []);
 
   const hasAdminFilter = useMemo(() => 
     ['admin', 'director', 'coordinador'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
@@ -145,7 +106,7 @@ export default function AgendaCapacitacionPage() {
   const { data: encuestasData } = useCollection<EncuestaSatisfaccion>(encuestasQuery);
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
-  const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
+  const { data: datosData } = useCollection<Dato>(datosQuery);
 
   const divulgadoresQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !profile) return null;
@@ -158,7 +119,7 @@ export default function AgendaCapacitacionPage() {
     return null;
   }, [firestore, isUserLoading, profile, hasAdminFilter, hasDeptFilter, hasDistFilter]);
 
-  const { data: rawDivulgadores, isLoading: isLoadingDivul } = useCollection<Divulgador>(divulgadoresQuery);
+  const { data: rawDivulgadores } = useCollection<Divulgador>(divulgadoresQuery);
 
   const groupedData = useMemo(() => {
     if (!rawSolicitudes || !datosData) return [];
@@ -195,18 +156,6 @@ export default function AgendaCapacitacionPage() {
 
     return Object.values(depts).sort((a, b) => a.code.localeCompare(b.code));
   }, [rawSolicitudes, datosData, movimientosData, informesData]);
-
-  const filteredDivul = useMemo(() => {
-    if (!rawDivulgadores || !assigningSolicitud) return [];
-    const term = divulSearch.toLowerCase().trim();
-    const assignedIds = new Set((assigningSolicitud.divulgadores || []).map(d => d.id));
-
-    return rawDivulgadores.filter(d => 
-      d.distrito === assigningSolicitud.distrito &&
-      !assignedIds.has(d.id) &&
-      (d.nombre.toLowerCase().includes(term) || d.cedula.includes(term))
-    );
-  }, [rawDivulgadores, divulSearch, assigningSolicitud]);
 
   const handleAssignDivulgador = (divulgador: Divulgador) => {
     if (!assigningSolicitud || !firestore) return;
@@ -248,45 +197,6 @@ export default function AgendaCapacitacionPage() {
           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' }));
       });
   };
-  
-  const handleToggleQrStatus = (solicitud: SolicitudCapacitacion) => {
-    if (!firestore) return;
-    const docRef = doc(firestore, 'solicitudes-capacitacion', solicitud.id);
-    const newStatus = !solicitud.qr_enabled;
-    updateDoc(docRef, { qr_enabled: newStatus })
-        .then(() => toast({ title: `QR ${newStatus ? 'Activado' : 'Desactivado'}`}))
-        .catch(error => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })));
-  };
-
-  const handleCompleteActivity = () => {
-    setShowCompletedAlert(true);
-    setTimeout(() => {
-      setShowCompletedAlert(false);
-    }, 5000);
-  };
-
-  const handleConfirmCancel = () => {
-    if (!cancellingSolicitud || !firestore || !cancelReason.trim()) return;
-    setIsUpdating(true);
-    const updateData = {
-        cancelada: true,
-        motivo_cancelacion: cancelReason.toUpperCase(),
-        fecha_cancelacion: new Date().toISOString(),
-        usuario_cancelacion: user?.profile?.username || ''
-    };
-    const docRef = doc(firestore, 'solicitudes-capacitacion', cancellingSolicitud.id);
-    updateDoc(docRef, updateData)
-        .then(() => {
-            toast({ title: "Actividad Cancelada" });
-            setCancellingSolicitud(null);
-            setCancelReason('');
-            setIsUpdating(false);
-        })
-        .catch(async (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
-            setIsUpdating(false);
-        });
-  };
 
   const handleConfirmDelete = () => {
     if (!deletingSolicitud || !firestore) return;
@@ -316,7 +226,7 @@ export default function AgendaCapacitacionPage() {
 
     batch.commit()
         .then(() => {
-            toast({ title: "Distrito Limpiado", description: `Se eliminaron ${deletingDistrict.items.length} actividades de ${deletingDistrict.dist}.` });
+            toast({ title: "Distrito Limpiado" });
             setDeletingDistrict(null);
             setIsUpdating(false);
         })
@@ -343,54 +253,7 @@ export default function AgendaCapacitacionPage() {
     toast({ title: "Enlace copiado" });
   };
 
-  const generateQrPDF = async () => {
-    if (!qrSolicitud || !logoBase64) return;
-    setIsGeneratingPdf(true);
-    try {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        doc.addImage(logoBase64, 'PNG', 20, 10, 25, 25);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text("JUSTICIA ELECTORAL", pageWidth / 2, 20, { align: 'center' });
-        doc.setFontSize(10);
-        doc.text("SISTEMA DE DIVULGACION", pageWidth / 2, 28, { align: 'center' });
-        doc.setLineWidth(0.5);
-        doc.line(20, 40, pageWidth - 20, 40);
-        doc.setFontSize(18);
-        doc.text("CÓDIGO QR - ENCUESTA DE SATISFACCIÓN", pageWidth / 2, 55, { align: 'center' });
-        doc.setFontSize(12);
-        doc.text(`LOCAL: ${qrSolicitud.lugar_local.toUpperCase()}`, pageWidth / 2, 75, { align: 'center' });
-        doc.text(`DISTRITO: ${qrSolicitud.distrito.toUpperCase()} | DEPTO: ${qrSolicitud.departamento.toUpperCase()}`, pageWidth / 2, 83, { align: 'center' });
-        doc.text(`FECHA: ${formatDateToDDMMYYYY(qrSolicitud.fecha)} | HORARIO: ${qrSolicitud.hora_desde} A ${qrSolicitud.hora_hasta} HS`, pageWidth / 2, 91, { align: 'center' });
-        const response = await fetch(qrImageUrl);
-        const blob = await response.blob();
-        const qrBase64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-        });
-        const qrSize = 100;
-        doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize) / 2, 105, qrSize, qrSize);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text("Instrucciones: Escanee este código con la cámara de su teléfono", pageWidth / 2, 220, { align: 'center' });
-        doc.text("para acceder al formulario oficial de satisfacción ciudadana.", pageWidth / 2, 226, { align: 'center' });
-        doc.setLineWidth(0.2);
-        doc.setDrawColor(200);
-        doc.line(40, 240, pageWidth - 40, 240);
-        doc.setFontSize(8);
-        doc.text("CUSTODIO DE LA VOLUNTAD POPULAR - REPÚBLICA DEL PARAGUAY", pageWidth / 2, 250, { align: 'center' });
-        doc.save(`QR-Encuesta-${qrSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
-        toast({ title: "PDF Generado con éxito" });
-    } catch (error) {
-        toast({ variant: 'destructive', title: "Error al generar PDF" });
-    } finally {
-        setIsGeneratingPdf(false);
-    }
-  };
-
-  if (isUserLoading || isLoadingSolicitudes || isLoadingDivul) {
+  if (isUserLoading || isLoadingSolicitudes) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
 
@@ -399,23 +262,16 @@ export default function AgendaCapacitacionPage() {
       <Header title="Agenda de Capacitaciones" />
       
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
-        {showCompletedAlert && (
-          <div className="fixed top-10 right-10 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 animate-in slide-in-from-right duration-300">
-            <p className="font-black uppercase text-xs">Ciclo cerrado. Se agendará en Historia/Archivo.</p>
-          </div>
-        )}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" size="sm" className="rounded-full bg-white font-black uppercase text-[9px] border-none shadow-sm gap-2 h-9 px-4">
-                    <LayoutList className="h-3 w-3" /> GESTIÓN DE ACTIVIDADES
-                </Button>
-                <Button size="sm" className="rounded-full bg-[#2563EB] hover:bg-blue-700 font-black uppercase text-[9px] shadow-sm gap-2 h-9 px-4">
-                    <Globe className="h-3 w-3" /> VISTA GLOBAL
-                </Button>
+            <div>
+                <h1 className="text-3xl font-black uppercase text-primary">Agenda de Capacitaciones</h1>
+                <p className="text-muted-foreground text-xs font-bold uppercase mt-1 flex items-center gap-2">
+                    <ClipboardCheck className="h-4 w-4" /> Seguimiento nacional de actividades registradas.
+                </p>
             </div>
             <div className="bg-white px-4 py-2 rounded-full border border-dashed flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-                <span className="text-[9px] font-black uppercase text-muted-foreground">ALERTAS ACTIVAS</span>
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-[9px] font-black uppercase text-muted-foreground">VISTA OPERATIVA</span>
             </div>
         </div>
 
@@ -433,7 +289,7 @@ export default function AgendaCapacitacionPage() {
                         {dept.code}
                     </div>
                     <div>
-                        <h2 className="text-2xl font-black uppercase tracking-tight text-[#1A1A1A]">{dept.code} - {dept.label}</h2>
+                        <h2 className="text-2xl font-black uppercase tracking-tight text-[#1A1A1A]">{dept.label}</h2>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
                             {Object.values(dept.dists).length} DISTRITOS CON ACTIVIDADES
                         </p>
@@ -449,7 +305,7 @@ export default function AgendaCapacitacionPage() {
                             <div className="flex items-center gap-3">
                                 <Building2 className="h-5 w-5 text-[#1A1A1A]" />
                                 <h3 className="font-black uppercase text-sm tracking-tight text-primary/80">
-                                    {dist.code} {dist.label}
+                                    {dist.label}
                                 </h3>
                                 <Badge variant="secondary" className="bg-black text-white text-[8px] font-black px-2">
                                     {dist.items.length}
@@ -465,7 +321,7 @@ export default function AgendaCapacitacionPage() {
                                         className="text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 h-8 gap-2"
                                         onClick={() => setDeletingDistrict({ dept: dept.label, dist: dist.label, items: dist.items })}
                                     >
-                                        <Trash2 className="h-3 w-3" /> VACIAR ESTE DISTRITO
+                                        <Trash2 className="h-3 w-3" /> VACIAR DISTRITO
                                     </Button>
                                 </div>
                             )}
@@ -475,37 +331,16 @@ export default function AgendaCapacitacionPage() {
                                 const mov = movimientosData?.find(m => m.solicitud_id === item.id);
                                 const inf = informesData?.find(i => i.solicitud_id === item.id);
                                 const hasAlert = isPast && (!mov?.fecha_devolucion || !inf);
-
-                                const missing = [];
-                                if (!mov?.fecha_devolucion) missing.push("DEVOLUCIÓN DE MÁQUINA");
-                                if (!inf) missing.push("INFORME ANEXO III");
-                                const alertLabel = `ALERTA: ACTIVIDAD VENCIDA - FALTA COMPLETAR: ${missing.join(" Y ")}`;
-
                                 const itemEncuestas = encuestasData?.filter(e => e.solicitud_id === item.id) || [];
-                                const qrSurveys = itemEncuestas.filter(e => e.usuario_id === 'CIUDADANO_EXTERNO').length;
-                                const physicalSurveys = itemEncuestas.length - qrSurveys;
-                                const hasSurveys = itemEncuestas.length > 0;
 
                                 return (
                                     <Card key={item.id} className={cn("border-2 shadow-sm rounded-2xl relative overflow-hidden", hasAlert ? "border-destructive/40 bg-destructive/[0.02]" : "border-muted/20 bg-white")}>
                                         <CardContent className="p-8">
-                                            {hasAlert && (
-                                                <div className="mb-6 bg-destructive text-white px-4 py-2 rounded-xl flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <FileWarning className="h-5 w-5" />
-                                                        <span className="font-black uppercase text-[10px] tracking-widest">{alertLabel}</span>
-                                                    </div>
-                                                </div>
-                                            )}
-
                                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                                                 <div className="lg:col-span-4 space-y-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE</p>
-                                                        {item.anexo_id && <Badge variant="secondary" className="bg-primary/5 text-primary text-[7px] font-black uppercase">Lote: {item.anexo_id.substring(0, 6)}</Badge>}
-                                                    </div>
+                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">SOLICITANTE</p>
                                                     <p className="font-black text-base uppercase leading-tight text-[#1A1A1A]">{item.solicitante_entidad || item.otra_entidad}</p>
-                                                    <Badge variant="secondary" className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[9px] tracking-widest px-3 py-1 rounded-md">{item.tipo_solicitud}</Badge>
+                                                    <Badge className="bg-primary/5 text-primary border-primary/10 font-black uppercase text-[8px] px-3">{item.tipo_solicitud}</Badge>
                                                 </div>
 
                                                 <div className="lg:col-span-3 space-y-4">
@@ -533,66 +368,34 @@ export default function AgendaCapacitacionPage() {
                                                             <p className="text-[10px] font-black text-destructive italic uppercase">SIN ASIGNAR</p>
                                                         )}
                                                     </div>
-                                                    
-                                                    <div className="pt-2 border-t border-dashed">
-                                                        {hasSurveys ? (
-                                                            <div className="space-y-1.5">
-                                                                <div className="flex items-center gap-2 text-primary">
-                                                                    <MessageSquareHeart className="h-3.5 w-3.5" />
-                                                                    <span className="text-[9px] font-black uppercase">ENCUESTAS: {itemEncuestas.length}</span>
-                                                                </div>
-                                                                <div className="flex gap-2">
-                                                                    <Badge variant="outline" className="text-[7px] font-black px-1.5 h-4 border-primary/20">QR: {qrSurveys}</Badge>
-                                                                    <Badge variant="outline" className="text-[7px] font-black px-1.5 h-4 border-primary/20">FÍS: {physicalSurveys}</Badge>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex flex-col gap-1">
-                                                                <div className="flex items-center gap-2 text-muted-foreground/40">
-                                                                    <AlertTriangle className="h-3.5 w-3.5" />
-                                                                    <span className="text-[8px] font-black uppercase leading-tight">SIN ENCUESTAS</span>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                    <div className="flex items-center gap-2 text-primary pt-2 border-t border-dashed">
+                                                        <MessageSquareHeart className="h-3.5 w-3.5" />
+                                                        <span className="text-[9px] font-black uppercase">ENCUESTAS: {itemEncuestas.length}</span>
                                                     </div>
                                                 </div>
 
                                                 <div className="lg:col-span-3 flex flex-col items-end gap-3">
                                                     <div className="flex gap-2 w-full max-w-[220px]">
                                                         <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[11px] border-2" onClick={() => setAssigningSolicitud(item)}>
-                                                          <UserPlus className="h-4 w-4 mr-2" /> GESTIONAR
+                                                          <UserPlus className="h-4 w-4 mr-2" /> ASIGNAR
                                                         </Button>
                                                         <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2" onClick={() => setViewingActivity(item)}>
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="outline" size="icon" className={cn("h-11 w-11 rounded-xl border-2", item.qr_enabled ? "border-green-500/50 text-green-600" : "border-muted/30")} onClick={() => handleToggleQrStatus(item)}>
-                                                            {item.qr_enabled ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+                                                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-white transition-all" onClick={() => setDeletingSolicitud(item)}>
+                                                            <Trash2 className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive" onClick={() => setCancellingSolicitud(item)}>
-                                                            <CalendarX className="h-4 w-4" />
-                                                        </Button>
-                                                        {hasAdminFilter && (
-                                                            <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-white transition-all" onClick={() => setDeletingSolicitud(item)}>
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
                                                     </div>
                                                     
                                                     <div className="flex gap-2 w-full max-w-[220px]">
-                                                        <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2" onClick={() => setQrSolicitud(item)}  disabled={!item.qr_enabled}>
+                                                        <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2" onClick={() => setQrSolicitud(item)} disabled={!item.qr_enabled}>
                                                             <QrCode className="h-4 w-4" />
                                                         </Button>
                                                         <Button 
                                                             className={cn("h-11 w-full rounded-xl font-black uppercase text-[11px] shadow-lg flex-1", inf ? "bg-[#16A34A] hover:bg-[#15803D]" : "bg-black hover:bg-black/90")}
                                                             onClick={() => {
-                                                              if (inf) {
-                                                                  handleCompleteActivity();
-                                                              } else {
-                                                                  const link = document.createElement('a');
-                                                                  link.href = `/informe-divulgador?solicitudId=${item.id}`;
-                                                                  document.body.appendChild(link);
-                                                                  link.click();
-                                                                  document.body.removeChild(link);
+                                                              if (!inf) {
+                                                                  window.location.href = `/informe-divulgador?solicitudId=${item.id}`;
                                                               }
                                                           }}>
                                                           {inf ? 'CUMPLIDO' : 'INFORME'}
@@ -608,14 +411,9 @@ export default function AgendaCapacitacionPage() {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
+                )}
       </main>
 
-      {/* MODAL DE FICHA TÉCNICA DE ACTIVIDAD */}
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
           {viewingActivity && (
@@ -641,39 +439,23 @@ export default function AgendaCapacitacionPage() {
 
                 <ScrollArea className="flex-1 p-8">
                     <div className="space-y-10">
-                        {/* SECCIÓN 1: PLANIFICACIÓN ORIGEN */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3">
-                                <ClipboardCheck className="h-5 w-5 text-primary" />
-                                <h3 className="font-black uppercase text-xs tracking-widest">Datos de Planificación (Anexo V)</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase">Local</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.lugar_local}</p>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Solicitante</p>
-                                    <p className="text-xs font-black uppercase">{viewingActivity.solicitante_entidad || viewingActivity.otra_entidad}</p>
-                                </div>
-                                <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Fecha Programada</p>
-                                    <p className="text-xs font-black uppercase">{formatDateToDDMMYYYY(viewingActivity.fecha)}</p>
-                                </div>
-                                <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Horario Pactado</p>
-                                    <p className="text-xs font-black uppercase">{viewingActivity.hora_desde} A {viewingActivity.hora_hasta} HS</p>
-                                </div>
-                                <div className="md:col-span-2 space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Lugar / Local</p>
-                                    <p className="text-xs font-black uppercase">{viewingActivity.lugar_local}</p>
-                                </div>
-                                <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                    <p className="text-[8px] font-black text-muted-foreground uppercase">Tipo Solicitud</p>
-                                    <Badge variant="secondary" className="bg-black text-white text-[8px] font-black uppercase">{viewingActivity.tipo_solicitud}</Badge>
-                                </div>
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase">Fecha Programada</p>
+                                <p className="text-xs font-black uppercase">{formatDateToDDMMYYYY(viewingActivity.fecha)}</p>
+                            </div>
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase">Horario Pactado</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.hora_desde} A {viewingActivity.hora_hasta} HS</p>
                             </div>
                         </div>
 
                         <Separator className="border-dashed" />
 
-                        {/* SECCIÓN 2: ESTADO LOGÍSTICO */}
                         <div className="space-y-6">
                             <div className="flex items-center gap-3">
                                 <Activity className="h-5 w-5 text-primary" />
@@ -690,175 +472,87 @@ export default function AgendaCapacitacionPage() {
                                                 <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", mov ? "bg-green-600 text-white" : "bg-muted text-muted-foreground")}>
                                                     <Check className="h-4 w-4" />
                                                 </div>
-                                                <p className="text-[9px] font-black uppercase">SALIDA MV (F01)</p>
-                                                <span className="text-[8px] font-bold">{mov ? "COMPLETADO" : "PENDIENTE"}</span>
+                                                <p className="text-[9px] font-black uppercase">SALIDA MV</p>
                                             </div>
                                             <div className={cn("p-5 rounded-2xl border-2 flex flex-col items-center text-center gap-2", mov?.fecha_devolucion ? "bg-green-50 border-green-200" : "bg-muted/10 border-transparent opacity-40")}>
                                                 <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", mov?.fecha_devolucion ? "bg-green-600 text-white" : "bg-muted text-muted-foreground")}>
                                                     <Check className="h-4 w-4" />
                                                 </div>
-                                                <p className="text-[9px] font-black uppercase">RETORNO MV (F02)</p>
-                                                <span className="text-[8px] font-bold">{mov?.fecha_devolucion ? "COMPLETADO" : "PENDIENTE"}</span>
+                                                <p className="text-[9px] font-black uppercase">RETORNO MV</p>
                                             </div>
                                             <div className={cn("p-5 rounded-2xl border-2 flex flex-col items-center text-center gap-2", inf ? "bg-green-50 border-green-200" : "bg-muted/10 border-transparent opacity-40")}>
                                                 <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", inf ? "bg-green-600 text-white" : "bg-muted text-muted-foreground")}>
                                                     <Check className="h-4 w-4" />
                                                 </div>
-                                                <p className="text-[9px] font-black uppercase">INFORME (ANEXO III)</p>
-                                                <span className="text-[8px] font-bold">{inf ? "CUMPLIDO" : "PENDIENTE"}</span>
+                                                <p className="text-[9px] font-black uppercase">INFORME</p>
                                             </div>
                                         </>
                                     );
                                 })()}
                             </div>
                         </div>
-
-                        <Separator className="border-dashed" />
-
-                        {/* SECCIÓN 3: PERSONAL */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3">
-                                <Users className="h-5 w-5 text-primary" />
-                                <h3 className="font-black uppercase text-xs tracking-widest">Personal Operativo Responsable</h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {(viewingActivity.divulgadores || viewingActivity.asignados || []).length === 0 ? (
-                                    <div className="col-span-full py-8 text-center border-2 border-dashed rounded-2xl opacity-30">
-                                        <p className="text-[10px] font-black uppercase">No hay personal asignado a esta actividad</p>
-                                    </div>
-                                ) : (
-                                    (viewingActivity.divulgadores || viewingActivity.asignados).map(d => (
-                                        <div key={d.id} className="p-4 bg-white border-2 rounded-2xl flex items-center gap-4 shadow-sm">
-                                            <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center">
-                                                <User className="h-5 w-5 text-primary opacity-40" />
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-black uppercase leading-none mb-1">{d.nombre}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] font-bold text-muted-foreground">C.I. {d.cedula}</span>
-                                                    <Badge variant="outline" className="text-[7px] font-black uppercase border-primary/10 h-4">{d.vinculo}</Badge>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* SECCIÓN 4: RESULTADOS SI EXISTE INFORME */}
-                        {(() => {
-                            const inf = informesData?.find(i => i.solicitud_id === viewingActivity.id);
-                            if (!inf) return null;
-                            return (
-                                <div className="space-y-6 pt-4">
-                                    <Separator className="border-dashed" />
-                                    <div className="flex items-center gap-3">
-                                        <UserCheck className="h-5 w-5 text-[#16A34A]" />
-                                        <h3 className="font-black uppercase text-xs tracking-widest">Resultados de Capacitación</h3>
-                                    </div>
-                                    <Card className="bg-black text-white p-8 rounded-3xl flex items-center justify-between shadow-2xl">
-                                        <div>
-                                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-1">TOTAL CIUDADANOS CAPACITADOS</p>
-                                            <p className="text-4xl font-black">{inf.total_personas}</p>
-                                        </div>
-                                        <div className="h-16 w-16 rounded-full border-4 border-white/20 flex items-center justify-center">
-                                            <CheckCircle2 className="h-8 w-8 text-white" />
-                                        </div>
-                                    </Card>
-                                </div>
-                            );
-                        })()}
                     </div>
                 </ScrollArea>
-
-                <div className="p-8 bg-white border-t flex justify-end">
-                    <Button onClick={() => setViewingActivity(null)} className="font-black uppercase text-xs h-12 px-10 shadow-xl bg-black hover:bg-black/90 rounded-xl">Cerrar Ficha</Button>
-                </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!assigningSolicitud} onOpenChange={(o) => !o && setAssigningSolicitud(null)}>
-        <DialogContent className="max-w-2xl rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden [&>button]:text-white [&>button]:opacity-100">
+        <DialogContent className="max-w-2xl rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="bg-black text-white p-6">
-            <DialogTitle className="font-black uppercase tracking-widest text-sm flex items-center gap-2">
-                <Users className="h-4 w-4" /> GESTIONAR DIVULGADORES - {assigningSolicitud?.distrito?.toUpperCase() || 'SIN DISTRITO'}
+            <DialogTitle className="font-black uppercase text-sm flex items-center gap-2">
+                <Users className="h-4 w-4" /> GESTIONAR DIVULGADORES
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-x-6">
             <div className="p-6 space-y-4 bg-white">
                 <h3 className="font-bold uppercase text-xs text-muted-foreground">Personal Asignado</h3>
                 <ScrollArea className="h-[350px] pr-2">
-                    {(assigningSolicitud?.divulgadores || []).length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 opacity-40 text-center">
-                            <UserCheck className="h-12 w-12 mb-2 mx-auto" />
-                            <p className="text-[10px] font-black uppercase">Aún no hay personal asignado</p>
+                    {(assigningSolicitud?.divulgadores || []).map(d => (
+                        <div key={d.id} className="p-4 border-2 rounded-2xl flex justify-between items-center mb-2">
+                            <div>
+                                <p className="font-black text-xs uppercase">{d.nombre}</p>
+                                <span className="text-[8px] font-bold text-muted-foreground uppercase">{d.vinculo}</span>
+                            </div>
+                            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleRemoveDivulgador(d.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {(assigningSolicitud?.divulgadores || []).map(d => (
-                                <div key={d.id} className="p-4 border-2 rounded-2xl flex justify-between items-center">
-                                    <div>
-                                        <p className="font-black text-xs uppercase">{d.nombre}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Badge variant="outline" className="text-[8px] font-black">C.I. {d.cedula}</Badge>
-                                            <span className="text-[9px] font-bold text-muted-foreground uppercase">{d.vinculo}</span>
-                                        </div>
-                                    </div>
-                                    <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleRemoveDivulgador(d.id)}><Trash2 className="h-4 w-4" /></Button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    ))}
                 </ScrollArea>
             </div>
             <div className="p-6 space-y-4 bg-white border-l">
-                <h3 className="font-bold uppercase text-xs text-muted-foreground">Añadir Personal Disponible</h3>
+                <h3 className="font-bold uppercase text-xs text-muted-foreground">Añadir Disponible</h3>
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Buscar por nombre o cédula..." value={divulSearch} onChange={e => setDivulSearch(e.target.value)} className="h-12 pl-10 font-bold border-2 rounded-xl" />
+                    <Input placeholder="Buscar..." value={divulSearch} onChange={e => setDivulSearch(e.target.value)} className="h-10 pl-10 font-bold border-2 rounded-xl" />
                 </div>
                 <ScrollArea className="h-[280px] pr-2">
-                {filteredDivul.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 opacity-40 text-center">
-                        <UserPlus className="h-12 w-12 mb-2 mx-auto" />
-                        <p className="text-[10px] font-black uppercase">No hay más personal disponible</p>
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        {filteredDivul.map(d => (
-                        <div key={d.id} className="p-4 border-2 rounded-2xl cursor-pointer hover:bg-black hover:text-white transition-all group" onClick={() => handleAssignDivulgador(d)}>
+                    {filteredDivul.map(d => (
+                        <div key={d.id} className="p-4 border-2 rounded-2xl cursor-pointer hover:bg-black hover:text-white transition-all group mb-2" onClick={() => handleAssignDivulgador(d)}>
                             <p className="font-black text-xs uppercase">{d.nombre}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary" className="text-[8px] font-black bg-muted group-hover:bg-white/20">C.I. {d.cedula}</Badge>
-                                <span className="text-[9px] font-bold text-muted-foreground uppercase group-hover:text-white/60">{d.vinculo}</span>
-                            </div>
+                            <span className="text-[8px] font-bold opacity-60 uppercase">{d.vinculo}</span>
                         </div>
-                        ))}
-                    </div>
-                )}
+                    ))}
                 </ScrollArea>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!cancellingSolicitud} onOpenChange={(o) => !o && setCancellingSolicitud(null)}>
-        <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden [&>button]:text-white [&>button]:opacity-100">
-          <DialogHeader className="bg-destructive text-white p-8">
-            <DialogTitle className="font-black uppercase tracking-widest text-center text-sm">ANULAR ACTIVIDAD</DialogTitle>
+      <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
+        <DialogContent className="max-w-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="bg-primary p-8 text-white">
+            <DialogTitle className="font-black uppercase text-center text-lg tracking-widest">QR ENCUESTA</DialogTitle>
           </DialogHeader>
-          <div className="p-8 space-y-6 bg-white">
-            <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">MOTIVO (OBLIGATORIO)</Label>
-                <Textarea placeholder="Ej: Suspensión por inclemencia del tiempo..." className="min-h-[120px] font-bold border-2 rounded-xl uppercase" value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
+          <div className="p-10 flex flex-col items-center bg-white space-y-8">
+            <div className="p-4 bg-white border-4 border-muted/20 rounded-[2rem] shadow-inner">
+                {qrSolicitud && <Image src={qrImageUrl} alt="QR" width={220} height={220} className="rounded-xl" />}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px]" onClick={() => setCancellingSolicitud(null)}>CANCELAR</Button>
-                <Button className="h-12 rounded-xl font-black uppercase text-[10px] bg-destructive hover:bg-destructive/90 shadow-lg" disabled={!cancelReason.trim() || isUpdating} onClick={handleConfirmCancel}>
-                    {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "CONFIRMAR"}
+            <div className="w-full space-y-3">
+                <Button variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2" onClick={copyToClipboard}>
+                    {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />} {copied ? "COPIADO" : "COPIAR ENLACE"}
                 </Button>
+                <Button className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white" onClick={() => setQrSolicitud(null)}>CERRAR</Button>
             </div>
           </div>
         </DialogContent>
@@ -867,17 +561,15 @@ export default function AgendaCapacitacionPage() {
       <AlertDialog open={!!deletingSolicitud} onOpenChange={(o) => !o && setDeletingSolicitud(null)}>
         <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-black uppercase tracking-tight text-xl flex items-center gap-2">
-                <Trash2 className="h-6 w-6 text-destructive" /> ¿ELIMINAR DEFINITIVAMENTE?
-            </AlertDialogTitle>
+            <AlertDialogTitle className="font-black uppercase">¿ELIMINAR DEFINITIVAMENTE?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground pt-2">
-                Esta acción es irreversible. Se borrarán todos los datos vinculados a la actividad de {deletingSolicitud?.lugar_local}.
+                Esta acción es irreversible. Se borrarán todos los datos vinculados a la actividad.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6">
             <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8" disabled={isUpdating}>
-                {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "SÍ, ELIMINAR REGISTRO"}
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
+                SÍ, ELIMINAR REGISTRO
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -886,51 +578,19 @@ export default function AgendaCapacitacionPage() {
       <AlertDialog open={!!deletingDistrict} onOpenChange={(o) => !o && setDeletingDistrict(null)}>
         <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-black uppercase tracking-tight text-xl flex items-center gap-2 text-destructive">
-                <Trash2 className="h-6 w-6" /> ¿VACIAR DISTRITO COMPLETO?
-            </AlertDialogTitle>
+            <AlertDialogTitle className="font-black uppercase text-destructive">¿VACIAR DISTRITO COMPLETO?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground pt-2">
-                Usted va a eliminar <span className="text-primary font-black">{deletingDistrict?.items.length} actividades</span> del distrito de <span className="text-primary font-black">{deletingDistrict?.dist}</span>. Esta acción no se puede deshacer.
+                Usted va a eliminar todas las actividades del distrito de <span className="text-primary font-black">{deletingDistrict?.dist}</span>. Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6">
             <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteDistrict} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8" disabled={isUpdating}>
-                {isUpdating ? <Loader2 className="animate-spin h-4 w-4" /> : "SÍ, VACIAR DISTRITO"}
+            <AlertDialogAction onClick={handleConfirmDeleteDistrict} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
+                SÍ, VACIAR DISTRITO
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
-        <DialogContent className="max-w-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden [&>button]:text-white [&>button]:opacity-100">
-          <DialogHeader className="bg-primary p-8 text-white">
-            <DialogTitle className="font-black uppercase text-center tracking-widest text-lg">ENCUESTA DE SATISFACCIÓN</DialogTitle>
-          </DialogHeader>
-          <div className="p-10 flex flex-col items-center bg-white space-y-8">
-            <div className="p-4 bg-white border-4 border-muted/20 rounded-[2rem] shadow-inner">
-                {qrSolicitud && (
-                    <Image src={qrImageUrl} alt="QR Encuesta" width={220} height={220} className="rounded-xl" />
-                )}
-            </div>
-            <div className="text-center space-y-2">
-                <p className="font-black uppercase text-sm text-primary">{qrSolicitud?.lugar_local}</p>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{qrSolicitud ? formatDateToDDMMYYYY(qrSolicitud.fecha) : ''} HS.</p>
-            </div>
-            <div className="w-full space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                    <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2" onClick={copyToClipboard}>
-                        {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />} {copied ? "COPIADO" : "COPIAR ENLACE"}
-                    </Button>
-                    <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2 text-primary border-primary/20" onClick={generateQrPDF} disabled={isGeneratingPdf}>
-                        {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />} IMPRIMIR QR
-                    </Button>
-                </div>
-                <Button className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white hover:bg-black/90" onClick={() => setQrSolicitud(null)}>CERRAR VENTANA</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

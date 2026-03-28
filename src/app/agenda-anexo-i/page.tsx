@@ -15,23 +15,13 @@ import {
   UserPlus, 
   QrCode, 
   Building2, 
-  LayoutList, 
-  Globe, 
-  UserCheck, 
   Search, 
   Check, 
-  AlertTriangle, 
-  FileWarning, 
-  CalendarX, 
   Trash2, 
-  Printer, 
   Users, 
-  Power, 
-  PowerOff, 
   MessageSquareHeart, 
   Eye,
   FileText,
-  User,
   Activity,
   ClipboardCheck,
   X,
@@ -48,9 +38,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Image from 'next/image';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import jsPDF from 'jspdf';
+import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +49,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Separator } from '@/components/ui/separator';
 
 export default function AgendaAnexoIPage() {
   const { user, isUserLoading } = useUser();
@@ -71,34 +58,14 @@ export default function AgendaAnexoIPage() {
   const [assigningSolicitud, setAssigningSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [viewingActivity, setViewingActivity] = useState<SolicitudCapacitacion | null>(null);
   const [qrSolicitud, setQrSolicitud] = useState<SolicitudCapacitacion | null>(null);
-  const [cancellingSolicitud, setCancellingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingSolicitud, setDeletingSolicitud] = useState<SolicitudCapacitacion | null>(null);
   const [deletingDistrict, setDeletingDistrict] = useState<{ dept: string, dist: string, items: SolicitudCapacitacion[] } | null>(null);
-  const [cancelReason, setCancelReason] = useState('');
-  const [showCompletedAlert, setShowCompletedAlert] = useState(false);
   
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [divulSearch, setDivulSearch] = useState('');
   const [copied, setCopied] = useState(false);
-  const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   const profile = user?.profile;
-
-  useEffect(() => {
-    const fetchLogo = async () => {
-      try {
-        const response = await fetch('/logo.png');
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => setLogoBase64(reader.result as string);
-        reader.readAsDataURL(blob);
-      } catch (error) {
-        console.error("Error fetching logo:", error);
-      }
-    };
-    fetchLogo();
-  }, []);
 
   const hasAdminFilter = useMemo(() => 
     ['admin', 'director', 'coordinador'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
@@ -191,18 +158,6 @@ export default function AgendaAnexoIPage() {
     return Object.values(depts).sort((a, b) => a.code.localeCompare(b.code));
   }, [rawSolicitudes, datosData, movimientosData, informesData]);
 
-  const filteredDivul = useMemo(() => {
-    if (!rawDivulgadores || !assigningSolicitud) return [];
-    const term = divulSearch.toLowerCase().trim();
-    const assignedIds = new Set((assigningSolicitud.divulgadores || []).map(d => d.id));
-
-    return rawDivulgadores.filter(d => 
-      d.distrito === assigningSolicitud.distrito &&
-      !assignedIds.has(d.id) &&
-      (d.nombre.toLowerCase().includes(term) || d.cedula.includes(term))
-    );
-  }, [rawDivulgadores, divulSearch, assigningSolicitud]);
-
   const handleAssignDivulgador = (divulgador: Divulgador) => {
     if (!assigningSolicitud || !firestore) return;
     setIsUpdating(true);
@@ -243,38 +198,6 @@ export default function AgendaAnexoIPage() {
           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' }));
       });
   };
-  
-  const handleToggleQrStatus = (solicitud: SolicitudCapacitacion) => {
-    if (!firestore) return;
-    const docRef = doc(firestore, 'solicitudes-capacitacion', solicitud.id);
-    const newStatus = !solicitud.qr_enabled;
-    updateDoc(docRef, { qr_enabled: newStatus })
-        .then(() => toast({ title: `QR ${newStatus ? 'Activado' : 'Desactivado'}`}))
-        .catch(error => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })));
-  };
-
-  const handleConfirmCancel = () => {
-    if (!cancellingSolicitud || !firestore || !cancelReason.trim()) return;
-    setIsUpdating(true);
-    const updateData = {
-        cancelada: true,
-        motivo_cancelacion: cancelReason.toUpperCase(),
-        fecha_cancelacion: new Date().toISOString(),
-        usuario_cancelacion: user?.profile?.username || ''
-    };
-    const docRef = doc(firestore, 'solicitudes-capacitacion', cancellingSolicitud.id);
-    updateDoc(docRef, updateData)
-        .then(() => {
-            toast({ title: "Actividad Cancelada" });
-            setCancellingSolicitud(null);
-            setCancelReason('');
-            setIsUpdating(false);
-        })
-        .catch(async (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
-            setIsUpdating(false);
-        });
-  };
 
   const handleConfirmDelete = () => {
     if (!deletingSolicitud || !firestore) return;
@@ -304,7 +227,7 @@ export default function AgendaAnexoIPage() {
 
     batch.commit()
         .then(() => {
-            toast({ title: "Distrito Limpiado", description: `Se eliminaron ${deletingDistrict.items.length} actividades de ${deletingDistrict.dist}.` });
+            toast({ title: "Distrito Limpiado" });
             setDeletingDistrict(null);
             setIsUpdating(false);
         })
@@ -329,53 +252,6 @@ export default function AgendaAnexoIPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast({ title: "Enlace copiado" });
-  };
-
-  const generateQrPDF = async () => {
-    if (!qrSolicitud || !logoBase64) return;
-    setIsGeneratingPdf(true);
-    try {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        doc.addImage(logoBase64, 'PNG', 20, 10, 25, 25);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text("JUSTICIA ELECTORAL", pageWidth / 2, 20, { align: 'center' });
-        doc.setFontSize(10);
-        doc.text("SISTEMA DE DIVULGACION", pageWidth / 2, 28, { align: 'center' });
-        doc.setLineWidth(0.5);
-        doc.line(20, 40, pageWidth - 20, 40);
-        doc.setFontSize(18);
-        doc.text("CÓDIGO QR - ENCUESTA DE SATISFACCIÓN", pageWidth / 2, 55, { align: 'center' });
-        doc.setFontSize(12);
-        doc.text(`LOCAL: ${qrSolicitud.lugar_local.toUpperCase()}`, pageWidth / 2, 75, { align: 'center' });
-        doc.text(`DISTRITO: ${qrSolicitud.distrito.toUpperCase()} | DEPTO: ${qrSolicitud.departamento.toUpperCase()}`, pageWidth / 2, 83, { align: 'center' });
-        doc.text(`FECHA: ${formatDateToDDMMYYYY(qrSolicitud.fecha)} | HORARIO: ${qrSolicitud.hora_desde} A ${qrSolicitud.hora_hasta} HS`, pageWidth / 2, 91, { align: 'center' });
-        const response = await fetch(qrImageUrl);
-        const blob = await response.blob();
-        const qrBase64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-        });
-        const qrSize = 100;
-        doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize) / 2, 105, qrSize, qrSize);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text("Instrucciones: Escanee este código con la cámara de su teléfono", pageWidth / 2, 220, { align: 'center' });
-        doc.text("para acceder al formulario oficial de satisfacción ciudadana.", pageWidth / 2, 226, { align: 'center' });
-        doc.setLineWidth(0.2);
-        doc.setDrawColor(200);
-        doc.line(40, 240, pageWidth - 40, 240);
-        doc.setFontSize(8);
-        doc.text("CUSTODIO DE LA VOLUNTAD POPULAR - REPÚBLICA DEL PARAGUAY", pageWidth / 2, 250, { align: 'center' });
-        doc.save(`QR-Encuesta-${qrSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
-        toast({ title: "PDF Generado con éxito" });
-    } catch (error) {
-        toast({ variant: 'destructive', title: "Error al generar PDF" });
-    } finally {
-        setIsGeneratingPdf(false);
-    }
   };
 
   if (isUserLoading || isLoadingSolicitudes) {
@@ -456,7 +332,6 @@ export default function AgendaAnexoIPage() {
                                 const mov = movimientosData?.find(m => m.solicitud_id === item.id);
                                 const inf = informesData?.find(i => i.solicitud_id === item.id);
                                 const hasAlert = isPast && (!mov?.fecha_devolucion || !inf);
-
                                 const itemEncuestas = encuestasData?.filter(e => e.solicitud_id === item.id) || [];
 
                                 return (
@@ -508,14 +383,9 @@ export default function AgendaAnexoIPage() {
                                                         <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2" onClick={() => setViewingActivity(item)}>
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/20 text-destructive" onClick={() => setCancellingSolicitud(item)}>
-                                                            <CalendarX className="h-4 w-4" />
+                                                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-white transition-all" onClick={() => setDeletingSolicitud(item)}>
+                                                            <Trash2 className="h-4 w-4" />
                                                         </Button>
-                                                        {hasAdminFilter && (
-                                                            <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-white transition-all" onClick={() => setDeletingSolicitud(item)}>
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
                                                     </div>
                                                     
                                                     <div className="flex gap-2 w-full max-w-[220px]">
@@ -545,7 +415,6 @@ export default function AgendaAnexoIPage() {
                 )}
       </main>
 
-      {/* MODALES COMPARTIDOS (FICHA, ASIGNACIÓN, QR, ETC) */}
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
           {viewingActivity && (
@@ -712,7 +581,7 @@ export default function AgendaAnexoIPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="font-black uppercase text-destructive">¿VACIAR DISTRITO COMPLETO?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground pt-2">
-                Usted va a eliminar <span className="text-primary font-black">{deletingDistrict?.items.length} actividades</span> del distrito de <span className="text-primary font-black">{deletingDistrict?.dist}</span>. Esta acción no se puede deshacer.
+                Usted va a eliminar todas las actividades del distrito de <span className="text-primary font-black">{deletingDistrict?.dist}</span>. Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6">
