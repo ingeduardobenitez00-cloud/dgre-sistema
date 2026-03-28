@@ -30,7 +30,8 @@ import {
   AlertCircle,
   Power,
   PowerOff,
-  ShieldAlert
+  ShieldAlert,
+  Printer
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -53,6 +54,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import jsPDF from 'jspdf';
 
 export default function AgendaAnexoVPage() {
   const { user, isUserLoading } = useUser();
@@ -68,8 +70,24 @@ export default function AgendaAnexoVPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [divulSearch, setDivulSearch] = useState('');
   const [copied, setCopied] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   const profile = user?.profile;
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const response = await fetch('/logo.png');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setLogoBase64(reader.result as string);
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error("Error fetching logo:", error);
+      }
+    };
+    fetchLogo();
+  }, []);
 
   const hasAdminFilter = useMemo(() => 
     ['admin', 'director', 'coordinador'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
@@ -287,6 +305,57 @@ export default function AgendaAnexoVPage() {
     toast({ title: "Enlace copiado" });
   };
 
+  const handlePrintQr = async () => {
+    if (!qrSolicitud || !logoBase64) return;
+    
+    try {
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Header Logos
+        doc.addImage(logoBase64, 'PNG', pageWidth/2 - 15, 15, 30, 30);
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text("JUSTICIA ELECTORAL", pageWidth/2, 55, { align: 'center' });
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text("ENCUESTA DE SATISFACCIÓN CIUDADANA", pageWidth/2, 62, { align: 'center' });
+
+        // QR Image
+        const response = await fetch(qrImageUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        const qrBase64: string = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+
+        const qrSize = 100;
+        doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize)/2, 75, qrSize, qrSize);
+
+        // Details
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        const entity = qrSolicitud.solicitante_entidad || qrSolicitud.otra_entidad || '';
+        doc.text(entity.toUpperCase(), pageWidth/2, 190, { align: 'center' });
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${formatDateToDDMMYYYY(qrSolicitud.fecha)} HS.`, pageWidth/2, 200, { align: 'center' });
+
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text("Escanée el código para participar de la encuesta oficial.", pageWidth/2, 215, { align: 'center' });
+
+        doc.save(`QR-${entity.replace(/\s+/g, '-')}.pdf`);
+        toast({ title: "PDF Generado", description: "El QR está listo para imprimir." });
+    } catch (e) {
+        toast({ variant: 'destructive', title: "Error al generar PDF" });
+    }
+  };
+
   if (isUserLoading || isLoadingSolicitudes) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
@@ -482,11 +551,7 @@ export default function AgendaAnexoVPage() {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
+                )}
       </main>
 
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
@@ -616,19 +681,30 @@ export default function AgendaAnexoVPage() {
 
       <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
         <DialogContent className="max-w-sm rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
-          <DialogHeader className="bg-primary p-8 text-white">
-            <DialogTitle className="font-black uppercase text-center text-lg tracking-widest">QR ENCUESTA</DialogTitle>
-          </DialogHeader>
-          <div className="p-10 flex flex-col items-center bg-white space-y-8">
+          <div className="p-10 flex flex-col items-center bg-white space-y-6">
             <div className="p-4 bg-white border-4 border-muted/20 rounded-[2rem] shadow-inner">
                 {qrSolicitud && <Image src={qrImageUrl} alt="QR" width={220} height={220} className="rounded-xl" />}
             </div>
-            <div className="w-full space-y-3">
-                <Button variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] border-2 gap-2" onClick={copyToClipboard}>
-                    {copied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />} {copied ? "COPIADO" : "COPIAR ENLACE"}
-                </Button>
-                <Button className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white" onClick={() => setQrSolicitud(null)}>CERRAR</Button>
+            
+            <div className="text-center space-y-1">
+                <h3 className="font-black uppercase text-sm leading-tight">
+                    {qrSolicitud?.solicitante_entidad || qrSolicitud?.otra_entidad}
+                </h3>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">{formatDateToDDMMYYYY(qrSolicitud?.fecha)} HS.</p>
             </div>
+
+            <div className="w-full grid grid-cols-2 gap-3">
+                <Button variant="outline" className="h-14 rounded-2xl font-black uppercase text-[9px] border-2 flex flex-col gap-1 items-center justify-center p-2" onClick={copyToClipboard}>
+                    <Copy className={cn("h-4 w-4", copied ? "text-green-600" : "text-muted-foreground")} />
+                    <span>{copied ? "COPIADO" : "COPIAR ENLACE"}</span>
+                </Button>
+                <Button variant="outline" className="h-14 rounded-2xl font-black uppercase text-[9px] border-2 flex flex-col gap-1 items-center justify-center p-2" onClick={handlePrintQr}>
+                    <Printer className="h-4 w-4 text-muted-foreground" />
+                    <span>IMPRIMIR QR</span>
+                </Button>
+            </div>
+            
+            <Button className="w-full h-14 rounded-2xl font-black uppercase text-xs bg-black text-white shadow-xl" onClick={() => setQrSolicitud(null)}>CERRAR VENTANA</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -659,7 +735,7 @@ export default function AgendaAnexoVPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
+            <AccordionTrigger className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AccordionTrigger>
             <AlertDialogAction onClick={handleConfirmDeleteDistrict} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
                 SÍ, VACIAR DISTRITO
             </AlertDialogAction>
