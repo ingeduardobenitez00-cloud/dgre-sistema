@@ -26,7 +26,11 @@ import {
   ClipboardCheck,
   X,
   Copy,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle,
+  Power,
+  PowerOff,
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -341,15 +345,25 @@ export default function AgendaCapacitacionPage() {
                                 const isPast = item.fecha < today;
                                 const mov = movimientosData?.find(m => m.solicitud_id === item.id);
                                 const inf = informesData?.find(i => i.solicitud_id === item.id);
-                                const hasAlert = isPast && (!mov?.fecha_devolucion || !inf);
+                                
+                                const missingF02 = isPast && !mov?.fecha_devolucion;
+                                const missingAnexoIII = isPast && !inf;
+                                const hasAlert = missingF02 || missingAnexoIII;
+                                const isFulfilled = mov?.fecha_devolucion && inf;
+
                                 const itemEncuestas = encuestasData?.filter(e => e.solicitud_id === item.id) || [];
 
                                 return (
-                                    <Card key={item.id} className={cn("border-2 shadow-sm rounded-2xl relative overflow-hidden", hasAlert ? "border-destructive/40 bg-destructive/[0.02]" : "border-muted/20 bg-white")}>
+                                    <Card key={item.id} className={cn("border-2 shadow-sm rounded-2xl relative overflow-hidden", hasAlert ? "border-destructive/40 bg-destructive/[0.02]" : isFulfilled ? "border-green-200 bg-green-50/10" : "border-muted/20 bg-white")}>
                                         <CardContent className="p-8">
                                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                                                 <div className="lg:col-span-4 space-y-3">
-                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">SOLICITANTE</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">SOLICITANTE</p>
+                                                        {isFulfilled && (
+                                                            <Badge className="bg-green-600 text-white font-black uppercase text-[7px] px-2 py-0 h-4">CICLO COMPLETADO</Badge>
+                                                        )}
+                                                    </div>
                                                     <p className="font-black text-base uppercase leading-tight text-[#1A1A1A]">{item.solicitante_entidad || item.otra_entidad}</p>
                                                     <Badge className="bg-primary/5 text-primary border-primary/10 font-black uppercase text-[8px] px-3">{item.tipo_solicitud}</Badge>
                                                 </div>
@@ -361,7 +375,7 @@ export default function AgendaCapacitacionPage() {
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <Calendar className={cn("h-4 w-4", hasAlert ? "text-destructive" : "text-muted-foreground")} />
-                                                        <p className={cn("font-black text-[12px] uppercase", hasAlert ? "text-destructive" : "text-[#1A1A1A]")}>
+                                                        <p className={cn("font-black text-[12px] uppercase", hasAlert ? "text-destructive font-black" : "text-[#1A1A1A]")}>
                                                             {formatDateToDDMMYYYY(item.fecha)} | {item.hora_desde} A {item.hora_hasta} HS
                                                         </p>
                                                     </div>
@@ -386,6 +400,23 @@ export default function AgendaCapacitacionPage() {
                                                 </div>
 
                                                 <div className="lg:col-span-3 flex flex-col items-end gap-3">
+                                                    {hasAlert && (
+                                                        <div className="w-full max-w-[220px] mb-2 flex flex-col gap-1">
+                                                            {missingF02 && (
+                                                                <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1 rounded-lg border border-destructive/20">
+                                                                    <ShieldAlert className="h-3 w-3" />
+                                                                    <span className="text-[8px] font-black uppercase">FALTA RETORNO (F02)</span>
+                                                                </div>
+                                                            )}
+                                                            {missingAnexoIII && (
+                                                                <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1 rounded-lg border border-destructive/20">
+                                                                    <AlertCircle className="h-3 w-3" />
+                                                                    <span className="text-[8px] font-black uppercase">FALTA INFORME (ANEXO III)</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
                                                     <div className="flex gap-2 w-full max-w-[220px]">
                                                         <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[11px] border-2" onClick={() => setAssigningSolicitud(item)}>
                                                           <UserPlus className="h-4 w-4 mr-2" /> ASIGNAR
@@ -399,6 +430,19 @@ export default function AgendaCapacitacionPage() {
                                                     </div>
                                                     
                                                     <div className="flex gap-2 w-full max-w-[220px]">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="icon" 
+                                                            className={cn("h-11 w-11 rounded-xl border-2 transition-all", item.qr_enabled ? "bg-green-600 border-green-600 text-white" : "border-muted-foreground/30 text-muted-foreground")} 
+                                                            onClick={() => {
+                                                                if (!firestore) return;
+                                                                const docRef = doc(firestore, 'solicitudes-capacitacion', item.id);
+                                                                updateDoc(docRef, { qr_enabled: !item.qr_enabled });
+                                                            }}
+                                                            title={item.qr_enabled ? "Encuesta Habilitada" : "Habilitar Encuesta QR"}
+                                                        >
+                                                            {item.qr_enabled ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+                                                        </Button>
                                                         <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2" onClick={() => setQrSolicitud(item)} disabled={!item.qr_enabled}>
                                                             <QrCode className="h-4 w-4" />
                                                         </Button>

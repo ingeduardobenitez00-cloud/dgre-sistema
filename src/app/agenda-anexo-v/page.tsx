@@ -16,14 +16,12 @@ import {
   QrCode, 
   Building2, 
   Search, 
-  Check, 
   Trash2, 
   Users, 
   MessageSquareHeart, 
   Eye,
   FileText,
   Activity,
-  ClipboardCheck,
   X,
   Copy,
   CheckCircle2,
@@ -236,9 +234,9 @@ export default function AgendaAnexoVPage() {
   const handleToggleQr = (solicitud: SolicitudCapacitacion) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'solicitudes-capacitacion', solicitud.id);
-    const newState = !solicitud.qr_habilitado;
+    const newState = !solicitud.qr_enabled;
     
-    updateDoc(docRef, { qr_habilitado: newState })
+    updateDoc(docRef, { qr_enabled: newState })
       .then(() => {
         toast({ 
           title: newState ? "Encuesta Habilitada" : "Encuesta Deshabilitada",
@@ -256,7 +254,7 @@ export default function AgendaAnexoVPage() {
     const docRef = doc(firestore, 'solicitudes-capacitacion', deletingSolicitud.id);
     deleteDoc(docRef)
         .then(() => {
-            toast({ title: "Registro Eliminado" });
+            toast({ title: "Solicitud Eliminada" });
             setDeletingSolicitud(null);
             setIsUpdating(false);
         })
@@ -312,7 +310,6 @@ export default function AgendaAnexoVPage() {
         const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
         const pageWidth = doc.internal.pageSize.getWidth();
         
-        // Header Logos
         doc.addImage(logoBase64, 'PNG', pageWidth/2 - 15, 15, 30, 30);
         
         doc.setFontSize(18);
@@ -323,7 +320,6 @@ export default function AgendaAnexoVPage() {
         doc.setFont('helvetica', 'normal');
         doc.text("ENCUESTA DE SATISFACCIÓN CIUDADANA", pageWidth/2, 62, { align: 'center' });
 
-        // QR Image
         const response = await fetch(qrImageUrl);
         const blob = await response.blob();
         const reader = new FileReader();
@@ -335,7 +331,6 @@ export default function AgendaAnexoVPage() {
         const qrSize = 100;
         doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize)/2, 75, qrSize, qrSize);
 
-        // Details
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
         const entity = qrSolicitud.solicitante_entidad || qrSolicitud.otra_entidad || '';
@@ -369,7 +364,7 @@ export default function AgendaAnexoVPage() {
             <div>
                 <h1 className="text-3xl font-black uppercase text-primary">Agenda Solicitudes</h1>
                 <p className="text-muted-foreground text-xs font-bold uppercase mt-1 flex items-center gap-2">
-                    <ClipboardCheck className="h-4 w-4" /> Seguimiento de pedidos de partidos y organizaciones.
+                    <Activity className="h-4 w-4" /> Seguimiento de pedidos de partidos y organizaciones.
                 </p>
             </div>
             <div className="bg-white px-4 py-2 rounded-full border border-dashed flex items-center gap-2">
@@ -488,7 +483,6 @@ export default function AgendaAnexoVPage() {
                                                 </div>
 
                                                 <div className="lg:col-span-3 flex flex-col items-end gap-3">
-                                                    {/* ALERTAS DE MÓDULOS FALTANTES */}
                                                     {hasAlert && (
                                                         <div className="w-full max-w-[220px] mb-2 flex flex-col gap-1">
                                                             {missingF02 && (
@@ -522,13 +516,13 @@ export default function AgendaAnexoVPage() {
                                                         <Button 
                                                             variant="outline" 
                                                             size="icon" 
-                                                            className={cn("h-11 w-11 rounded-xl border-2 transition-all", item.qr_habilitado ? "bg-green-600 border-green-600 text-white" : "border-muted-foreground/30 text-muted-foreground")} 
+                                                            className={cn("h-11 w-11 rounded-xl border-2 transition-all", item.qr_enabled ? "bg-green-600 border-green-600 text-white" : "border-muted-foreground/30 text-muted-foreground")} 
                                                             onClick={() => handleToggleQr(item)}
-                                                            title={item.qr_habilitado ? "Encuesta Habilitada" : "Habilitar Encuesta QR"}
+                                                            title={item.qr_enabled ? "Encuesta Habilitada" : "Habilitar Encuesta QR"}
                                                         >
-                                                            {item.qr_habilitado ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+                                                            {item.qr_enabled ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
                                                         </Button>
-                                                        <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2" onClick={() => setQrSolicitud(item)} disabled={!item.qr_habilitado}>
+                                                        <Button variant="outline" size="sm" className="h-11 flex-1 rounded-xl font-black uppercase text-[10px] border-2" onClick={() => setQrSolicitud(item)} disabled={!item.qr_enabled}>
                                                             <QrCode className="h-4 w-4 mr-2" /> QR
                                                         </Button>
                                                         <Button 
@@ -551,7 +545,11 @@ export default function AgendaAnexoVPage() {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                )}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
       </main>
 
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
@@ -735,7 +733,7 @@ export default function AgendaAnexoVPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6">
-            <AccordionTrigger className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AccordionTrigger>
+            <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDeleteDistrict} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
                 SÍ, VACIAR DISTRITO
             </AlertDialogAction>
