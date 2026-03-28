@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -431,7 +432,7 @@ export default function UsersPage() {
     const newPerms = new Set<string>();
     const newModules = new Set<string>();
     cideeModules.forEach(m => { newModules.add(m); actions.forEach(a => newPerms.add(`${m}:${a}`)); });
-    newPerms.add('admin_filter');
+    newPerms.add('district_filter');
     newPerms.add('assign_staff');
     if (isEditing && editingUser) {
         setEditingUser({ ...editingUser, role: 'coordinador', modules: Array.from(new Set([...(editingUser.modules || []), ...Array.from(newModules)])), permissions: Array.from(new Set([...(editingUser.permissions || []), ...Array.from(newPerms)])) });
@@ -462,22 +463,35 @@ export default function UsersPage() {
     event.preventDefault();
     const form = event.currentTarget;
     if (!firestore || !currentUser) return;
+
+    // VALIDACIÓN ESTRICTA DE JURISDICCIÓN PARA ROLES OPERATIVOS
+    if (['coordinador', 'jefe', 'funcionario'].includes(regRole) && (!regDepartamento || !regDistrito || regDepartamento === 'N/A')) {
+        toast({ 
+            variant: 'destructive', 
+            title: 'Jurisdicción Requerida', 
+            description: 'Para este rol es obligatorio asignar un Departamento y Distrito específicos.' 
+        });
+        return;
+    }
+
     setIsSubmitting(true);
     const formData = new FormData(form);
     const email = (formData.get('email') as string || '').trim();
     const password = formData.get('password') as string;
-    const username = formData.get('username') as string;
+    const username = (formData.get('username') as string || '').toUpperCase();
+    
     const newUserProfile = { 
       username, 
       email, 
       role: regRole, 
       modules: Array.from(selectedModules), 
       permissions: Array.from(selectedPerms), 
-      departamento: regDepartamento || '', 
-      distrito: regDistrito || '', 
+      departamento: regDepartamento || 'ALCANCE NACIONAL', 
+      distrito: regDistrito || 'TODOS LOS DISTRITOS', 
       active: true,
-      registration_method: 'creado_por_admin' // IDENTIFICADOR DE ORIGEN
+      registration_method: 'creado_por_admin'
     };
+
     const tempAppName = 'temp-creation-' + Math.random().toString(36).substring(7);
     let tempApp: FirebaseApp | undefined = undefined;
     try {
@@ -486,8 +500,9 @@ export default function UsersPage() {
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       await setDoc(doc(firestore, 'users', userCredential.user.uid), newUserProfile);
       await signOut(tempAuth);
-      toast({ title: 'Usuario Creado' });
+      toast({ title: 'Usuario Creado con Éxito' });
       form.reset(); setSelectedModules(new Set()); setSelectedPerms(new Set());
+      setRegDepartamento(''); setRegDistrito('');
     } catch (error: any) { toast({ variant: 'destructive', title: 'Error', description: error.message }); }
     finally { if (tempApp) await deleteApp(tempApp); setIsSubmitting(false); }
   };
@@ -496,7 +511,14 @@ export default function UsersPage() {
     event.preventDefault();
     if (!firestore || !editingUser) return;
     setIsSubmitting(true);
-    const updateData = { username: editingUser.username, role: editingUser.role, modules: editingUser.modules || [], permissions: editingUser.permissions || [], departamento: editingUser.departamento || '', distrito: editingUser.distrito || '' };
+    const updateData = { 
+        username: editingUser.username.toUpperCase(), 
+        role: editingUser.role, 
+        modules: editingUser.modules || [], 
+        permissions: editingUser.permissions || [], 
+        departamento: editingUser.departamento || 'ALCANCE NACIONAL', 
+        distrito: editingUser.distrito || 'TODOS LOS DISTRITOS' 
+    };
     const docRef = doc(firestore, 'users', editingUser.id);
     updateDoc(docRef, updateData).then(() => { toast({ title: 'Perfil Actualizado' }); setEditModalOpen(false); setIsSubmitting(false); })
       .catch(async (error) => { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })); setIsSubmitting(false); });
@@ -555,7 +577,7 @@ export default function UsersPage() {
             </CardHeader>
             <CardContent className="space-y-10 pt-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Nombre y Apellido</Label><Input name="username" placeholder="Nombre y Apellido" required className="font-bold h-11 border-2" /></div>
+                <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Nombre y Apellido</Label><Input name="username" placeholder="Nombre y Apellido" required className="font-bold h-11 border-2 uppercase" /></div>
                 <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Correo Institucional</Label><Input name="email" type="email" placeholder="usuario@tsje.gov.py" required className="font-bold h-11 border-2" /></div>
                 <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Contraseña</Label><Input name="password" type="password" required className="font-bold h-11 border-2" /></div>
                 <div className="space-y-2">
@@ -570,14 +592,14 @@ export default function UsersPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase">Departamento</Label>
+                    <Label className="text-[9px] font-black uppercase">Departamento <span className="text-destructive font-black">*</span></Label>
                     <Select onValueChange={setRegDepartamento} value={regDepartamento}>
                         <SelectTrigger className="font-black h-11 border-2 uppercase text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger>
                         <SelectContent><SelectItem value="N/A">ALCANCE NACIONAL</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase">Distrito</Label>
+                    <Label className="text-[9px] font-black uppercase">Distrito <span className="text-destructive font-black">*</span></Label>
                     <Select onValueChange={setRegDistrito} value={regDistrito} disabled={!regDepartamento || regDepartamento === 'N/A'}>
                         <SelectTrigger className="font-black h-11 border-2 uppercase text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger>
                         <SelectContent><SelectItem value="N/A">TODOS LOS DISTRITOS</SelectItem>{districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
@@ -648,7 +670,7 @@ export default function UsersPage() {
           {editingUser && (
             <form onSubmit={handleUpdateUser} className="flex flex-col h-full bg-white">
               <DialogHeader className="p-8 bg-black text-white shrink-0"><div className="flex justify-between items-center"><div className="flex items-center gap-4"><div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center"><Settings className="h-6 w-6" /></div><div><DialogTitle className="text-2xl font-black uppercase">Editar Perfil</DialogTitle><DialogDescription className="text-white/60 font-bold uppercase text-[9px]">ID: {editingUser.id}</DialogDescription></div></div><Button type="button" variant="outline" size="sm" className="font-black uppercase text-[10px] h-9" onClick={() => handleApplyCIDEEProfile(true)}><Zap className="h-3.5 w-3.5 fill-white" /> PERFIL CIDEE</Button></div></DialogHeader>
-              <ScrollArea className="flex-1"><div className="p-8 space-y-10"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Nombre</Label><Input value={editingUser.username} onChange={(e) => setEditingUser({...editingUser, username: e.target.value})} className="font-bold h-12 border-2" /></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Rol</Label><Select onValueChange={(v: any) => setEditingUser({...editingUser, role: v})} value={editingUser.role}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">ADMIN</SelectItem><SelectItem value="director">DIRECTOR</SelectItem><SelectItem value="coordinador">COORDINADOR</SelectItem><SelectItem value="jefe">JEFE</SelectItem><SelectItem value="funcionario">FUNCIONARIO</SelectItem><SelectItem value="viewer">VIEWER</SelectItem></SelectContent></Select></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Dpto</Label><Select onValueChange={(v) => setEditingUser({...editingUser, departamento: v, distrito: ''})} value={editingUser.departamento || 'N/A'}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="N/A">NACIONAL</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Distrito</Label><Select onValueChange={(v) => setEditingUser({...editingUser, distrito: v})} value={editingUser.distrito || 'N/A'} disabled={!editingUser.departamento || editingUser.departamento === 'N/A'}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="N/A">TODOS</SelectItem>{datosData?.filter(d => d.departamento === editingUser.departamento).map(d => <SelectItem key={d.distrito} value={d.distrito}>{d.distrito}</SelectItem>)}</SelectContent></Select></div></div><Separator /><PermissionMatrix userObj={editingUser} isEditing={true} selectedPerms={selectedPerms} selectedModules={selectedModules} onTogglePerm={handleTogglePerm} onToggleModuleAction={handleToggleModuleAction} onToggleColumn={handleToggleColumn} /></div></ScrollArea>
+              <ScrollArea className="flex-1"><div className="p-8 space-y-10"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Nombre</Label><Input value={editingUser.username} onChange={(e) => setEditingUser({...editingUser, username: e.target.value})} className="font-bold h-12 border-2 uppercase" /></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Rol</Label><Select onValueChange={(v: any) => setEditingUser({...editingUser, role: v})} value={editingUser.role}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">ADMIN</SelectItem><SelectItem value="director">DIRECTOR</SelectItem><SelectItem value="coordinador">COORDINADOR</SelectItem><SelectItem value="jefe">JEFE</SelectItem><SelectItem value="funcionario">FUNCIONARIO</SelectItem><SelectItem value="viewer">VIEWER</SelectItem></SelectContent></Select></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Dpto</Label><Select onValueChange={(v) => setEditingUser({...editingUser, departamento: v, distrito: ''})} value={editingUser.departamento || 'N/A'}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="N/A">NACIONAL</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Distrito</Label><Select onValueChange={(v) => setEditingUser({...editingUser, distrito: v})} value={editingUser.distrito || 'N/A'} disabled={!editingUser.departamento || editingUser.departamento === 'N/A'}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="N/A">TODOS</SelectItem>{datosData?.filter(d => d.departamento === editingUser.departamento).map(d => <SelectItem key={d.distrito} value={d.distrito}>{d.distrito}</SelectItem>)}</SelectContent></Select></div></div><Separator /><PermissionMatrix userObj={editingUser} isEditing={true} selectedPerms={selectedPerms} selectedModules={selectedModules} onTogglePerm={handleTogglePerm} onToggleModuleAction={handleToggleModuleAction} onToggleColumn={handleToggleColumn} /></div></ScrollArea>
               <DialogFooter className="p-8 bg-muted/30 border-t"><DialogClose asChild><Button variant="outline" type="button" className="font-black uppercase text-[10px] px-8 h-14">CANCELAR</Button></DialogClose><Button type="submit" disabled={isSubmitting} className="font-black uppercase text-xs h-14 flex-1 shadow-xl">{isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "ACTUALIZAR MATRIZ"}</Button></DialogFooter>
             </form>
           )}

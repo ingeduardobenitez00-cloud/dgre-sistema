@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -99,9 +100,19 @@ export default function LoginPage() {
     e.preventDefault();
     if (!auth || !firestore) return;
     
-    if (!regData.departamento || !regData.distrito) {
-      toast({ variant: 'destructive', title: 'Faltan datos', description: 'Por favor seleccione Departamento y Distrito.' });
+    // VALIDACIÓN ESTRICTA: Los campos geográficos son obligatorios
+    if (!regData.departamento || !regData.distrito || regData.departamento === 'N/A') {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Jurisdicción Obligatoria', 
+        description: 'Debe seleccionar su Departamento y Distrito para registrarse como Jefe de Oficina.' 
+      });
       return;
+    }
+
+    if (!regData.username || !regData.email || !regData.password) {
+        toast({ variant: 'destructive', title: 'Faltan datos', description: 'Complete todos los campos del formulario.' });
+        return;
     }
 
     setIsLoading(true);
@@ -112,8 +123,10 @@ export default function LoginPage() {
 
       const jefeModules = [
         'anexo-i',
+        'lista-anexo-i',
         'solicitud-capacitacion',
-        'agenda-capacitacion',
+        'agenda-anexo-i',
+        'agenda-anexo-v',
         'control-movimiento-maquinas',
         'denuncia-lacres',
         'informe-divulgador',
@@ -135,7 +148,7 @@ export default function LoginPage() {
       });
 
       await setDoc(doc(firestore, 'users', user.uid), {
-        username: regData.username, 
+        username: regData.username.toUpperCase(), 
         email: email,
         role: 'jefe',
         departamento: regData.departamento,
@@ -144,7 +157,7 @@ export default function LoginPage() {
         permissions: jefePermissions,
         fecha_registro: new Date().toISOString(),
         active: true,
-        registration_method: 'auto_registro_jefe' // IDENTIFICADOR DE ORIGEN
+        registration_method: 'auto_registro_jefe'
       });
 
       // Auditoría de nuevo registro
@@ -154,7 +167,7 @@ export default function LoginPage() {
         usuario_rol: 'jefe',
         accion: 'CREAR',
         modulo: 'seguridad',
-        detalles: `Auto-registro de Jefe para ${regData.distrito} (Activo)`
+        detalles: `Auto-registro de Jefe para ${regData.distrito} (Jurisdicción Obligatoria)`
       });
 
       setLoginEmail(email);
@@ -359,7 +372,9 @@ export default function LoginPage() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-muted-foreground"><MapPin className="h-3 w-3"/> Dpto.</Label>
+                    <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-muted-foreground">
+                        <MapPin className="h-3 w-3"/> Dpto. <span className="text-destructive">*</span>
+                    </Label>
                     <Select onValueChange={(v) => setRegData(p => ({...p, departamento: v, distrito: ''}))}>
                       <SelectTrigger className="font-bold border-2 text-[10px] h-10">
                         <SelectValue placeholder="Elegir..." />
@@ -370,7 +385,9 @@ export default function LoginPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-muted-foreground"><MapPin className="h-3 w-3"/> Distrito</Label>
+                    <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-muted-foreground">
+                        <MapPin className="h-3 w-3"/> Distrito <span className="text-destructive">*</span>
+                    </Label>
                     <Select onValueChange={(v) => setRegData(p => ({...p, distrito: v}))} disabled={!regData.departamento}>
                       <SelectTrigger className="font-bold border-2 text-[10px] h-10">
                         <SelectValue placeholder="Elegir..." />
