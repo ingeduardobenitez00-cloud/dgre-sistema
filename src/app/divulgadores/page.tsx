@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { UserPlus, Users, Loader2, Edit, Trash2, Search, AlertCircle, UserCircle, MapPin, Landmark, Navigation, FileUp, CheckCircle2, TableIcon, X, AlertTriangle, FileWarning } from 'lucide-react';
+import { UserPlus, Users, Loader2, Edit, Trash2, Search, AlertCircle, UserCircle, MapPin, Landmark, Navigation, FileUp, CheckCircle2, TableIcon, X, AlertTriangle, FileWarning, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
@@ -48,6 +48,10 @@ export default function DivulgadoresPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // States para filtros del listado
+  const [filterDept, setFilterDept] = useState<string>('all');
+  const [filterDist, setFilterDist] = useState<string>('all');
+
   const [selectedDept, setSelectedDept] = useState<string>('');
   const [selectedDist, setSelectedDist] = useState<string>('');
   const [editingDivulgador, setEditingDivulgador] = useState<Divulgador | null>(null);
@@ -116,6 +120,12 @@ export default function DivulgadoresPage() {
     return [...new Set(datosData.filter(d => d.departamento === selectedDept).map(d => d.distrito))].sort();
   }, [datosData, selectedDept]);
 
+  // Distritos para el filtro de la tabla
+  const filterDistrictsList = useMemo(() => {
+    if (!datosData || filterDept === 'all') return [];
+    return [...new Set(datosData.filter(d => d.departamento === filterDept).map(d => d.distrito))].sort();
+  }, [datosData, filterDept]);
+
   const divulQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !currentUser?.uid || !profile) return null;
     const colRef = collection(firestore, 'divulgadores');
@@ -138,8 +148,13 @@ export default function DivulgadoresPage() {
   const filteredDivul = useMemo(() => {
     if (!divulgadores) return [];
     const term = searchTerm.toLowerCase().trim();
-    return divulgadores.filter(d => d.nombre.toLowerCase().includes(term) || d.cedula.toLowerCase().includes(term));
-  }, [divulgadores, searchTerm]);
+    return divulgadores.filter(d => {
+      const matchesSearch = d.nombre.toLowerCase().includes(term) || d.cedula.toLowerCase().includes(term);
+      const matchesDept = filterDept === 'all' || d.departamento === filterDept;
+      const matchesDist = filterDist === 'all' || d.distrito === filterDist;
+      return matchesSearch && matchesDept && matchesDist;
+    });
+  }, [divulgadores, searchTerm, filterDept, filterDist]);
 
   const searchCedulaInPadron = useCallback(async (cedulaInput: string) => {
     const cleanTerm = (cedulaInput || '').trim().toUpperCase();
@@ -370,78 +385,6 @@ export default function DivulgadoresPage() {
     }
   };
 
-  // MEMOIZED SECTIONS TO IMPROVE PERFORMANCE
-  const userTableSection = useMemo(() => (
-    <Card className="lg:col-span-2 shadow-lg overflow-hidden border-none">
-      <CardHeader className="bg-primary px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex flex-col">
-          <CardTitle className="uppercase font-black text-xs text-white">LISTA DE PERSONAL ({filteredDivul.length})</CardTitle>
-          <CardDescription className="text-white/60 text-[9px] uppercase font-bold">Personal operativo habilitado para capacitaciones</CardDescription>
-        </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-black uppercase text-[10px] gap-2 h-9"
-            onClick={() => { resetImport(); setIsImportModalOpen(true); }}
-          >
-            <FileUp className="h-3.5 w-3.5" /> Importar Excel
-          </Button>
-          <div className="relative flex-1 md:w-48">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
-            <Input 
-              placeholder="Buscar..." 
-              className="h-9 pl-9 text-[10px] bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-full focus-visible:ring-white/30" 
-              value={searchTerm} 
-              onChange={e => setSearchTerm(e.target.value)} 
-            />
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0 bg-white">
-          <Table>
-            <TableHeader className="bg-muted/50"><TableRow><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Divulgador</TableHead><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Jurisdicción</TableHead><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Vínculo</TableHead><TableHead className="text-right text-[9px] font-black uppercase tracking-widest px-6">Acción</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {isLoadingDivul ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
-              ) : filteredDivul.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-20"><Users className="h-12 w-12 mx-auto mb-2"/><p className="text-[10px] font-black uppercase">No hay personal registrado</p></TableCell></TableRow>
-              ) : (
-                filteredDivul.map(d => (
-                  <TableRow key={d.id} className="border-b hover:bg-muted/30 transition-colors">
-                    <TableCell className="py-4 px-6"><p className="font-black text-xs uppercase text-primary">{d.nombre}</p><p className="text-[9px] text-muted-foreground font-bold">C.I. {d.cedula}</p></TableCell>
-                    <TableCell className="py-4 px-6"><p className="text-[10px] font-black uppercase">{d.departamento}</p><p className="text-[9px] font-bold text-muted-foreground">{d.distrito}</p></TableCell>
-                    <TableCell className="py-4 px-6"><Badge variant="secondary" className="text-[8px] font-black uppercase bg-primary/5 text-primary border-none">{d.vinculo}</Badge></TableCell>
-                    <TableCell className="text-right px-6">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-primary/40 hover:text-primary"
-                          onClick={() => handleEditClick(d)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription className="text-xs">Esta acción es permanente y revocará al personal de las agendas futuras.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel className="font-bold text-[10px] uppercase">Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(d.id)} className="bg-destructive text-white font-black text-[10px] uppercase">Confirmar Eliminación</AlertDialogAction></AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-      </CardContent>
-    </Card>
-  ), [isLoadingDivul, filteredDivul, searchTerm, resetImport, handleDelete, handleEditClick]);
-
-  if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
-
   return (
     <div className="flex min-h-screen flex-col bg-muted/5">
       <Header title="Directorio de Divulgadores" />
@@ -548,7 +491,102 @@ export default function DivulgadoresPage() {
             </form>
           </Card>
 
-          {userTableSection}
+          <Card className="lg:col-span-2 shadow-lg overflow-hidden border-none">
+            <CardHeader className="bg-primary px-6 py-4 flex flex-col space-y-4">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex flex-col">
+                  <CardTitle className="uppercase font-black text-xs text-white">LISTA DE PERSONAL ({filteredDivul.length})</CardTitle>
+                  <CardDescription className="text-white/60 text-[9px] uppercase font-bold">Personal operativo habilitado para capacitaciones</CardDescription>
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-black uppercase text-[10px] gap-2 h-9"
+                    onClick={() => { resetImport(); setIsImportModalOpen(true); }}
+                  >
+                    <FileUp className="h-3.5 w-3.5" /> Importar Excel
+                  </Button>
+                  <div className="relative flex-1 md:w-48">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
+                    <Input 
+                      placeholder="Buscar por nombre o CI..." 
+                      className="h-9 pl-9 text-[10px] bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-full focus-visible:ring-white/30" 
+                      value={searchTerm} 
+                      onChange={e => setSearchTerm(e.target.value)} 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Filtros de Ubicación para el Listado */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-white/10">
+                <div className="flex items-center gap-2">
+                  <Landmark className="h-3.5 w-3.5 text-white/40" />
+                  <Select value={filterDept} onValueChange={(v) => { setFilterDept(v); setFilterDist('all'); }}>
+                    <SelectTrigger className="h-8 bg-white/10 border-white/20 text-white text-[10px] font-black uppercase">
+                      <SelectValue placeholder="DPTO: TODOS" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-[10px] font-bold">DPTO: TODOS</SelectItem>
+                      {departments.map(d => <SelectItem key={d} value={d} className="text-[10px] font-bold">{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-3.5 w-3.5 text-white/40" />
+                  <Select value={filterDist} onValueChange={setFilterDist} disabled={filterDept === 'all'}>
+                    <SelectTrigger className="h-8 bg-white/10 border-white/20 text-white text-[10px] font-black uppercase">
+                      <SelectValue placeholder="DIST: TODOS" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-[10px] font-bold">DIST: TODOS</SelectItem>
+                      {filterDistrictsList.map(d => <SelectItem key={d} value={d} className="text-[10px] font-bold">{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0 bg-white">
+                <Table>
+                  <TableHeader className="bg-muted/50"><TableRow><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Divulgador</TableHead><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Jurisdicción</TableHead><TableHead className="text-[9px] font-black uppercase tracking-widest px-6">Vínculo</TableHead><TableHead className="text-right text-[9px] font-black uppercase tracking-widest px-6">Acción</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {isLoadingDivul ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    ) : filteredDivul.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-20 opacity-20"><Users className="h-12 w-12 mx-auto mb-2"/><p className="text-[10px] font-black uppercase">No hay personal registrado</p></TableCell></TableRow>
+                    ) : (
+                      filteredDivul.map(d => (
+                        <TableRow key={d.id} className="border-b hover:bg-muted/30 transition-colors">
+                          <TableCell className="py-4 px-6"><p className="font-black text-xs uppercase text-primary">{d.nombre}</p><p className="text-[9px] text-muted-foreground font-bold">C.I. {d.cedula}</p></TableCell>
+                          <TableCell className="py-4 px-6"><p className="text-[10px] font-black uppercase">{d.departamento}</p><p className="text-[9px] font-bold text-muted-foreground">{d.distrito}</p></TableCell>
+                          <TableCell className="py-4 px-6"><Badge variant="secondary" className="text-[8px] font-black uppercase bg-primary/5 text-primary border-none">{d.vinculo}</Badge></TableCell>
+                          <TableCell className="text-right px-6">
+                            <div className="flex justify-end gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-primary/40 hover:text-primary"
+                                onClick={() => handleEditClick(d)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription className="text-xs">Esta acción es permanente y revocará al personal de las agendas futuras.</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter><AlertDialogCancel className="font-bold text-[10px] uppercase">Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(d.id)} className="bg-destructive text-white font-black text-[10px] uppercase">Confirmar Eliminación</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+            </CardContent>
+          </Card>
         </div>
       </main>
 
