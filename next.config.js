@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const cspHeader = `
-    default-src 'self';
+    default-src 'self' https://*.cloudworkstations.dev;
     script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://*.cloudworkstations.dev;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
     img-src 'self' blob: data: https://images.unsplash.com https://picsum.photos https://api.qrserver.com https://placehold.co https://*.googleusercontent.com https://*.gstatic.com;
@@ -9,9 +9,8 @@ const cspHeader = `
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'self' https://*.cloudworkstations.dev;
-    frame-src 'self' https://*.firebaseapp.com;
+    frame-src 'self' https://*.firebaseapp.com https://*.cloudworkstations.dev;
     connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com wss://*.firebaseio.com wss://*.cloudworkstations.dev https://*.cloudworkstations.dev;
-    block-all-mixed-content;
 `.replace(/\s{2,}/g, ' ').trim();
 
 const nextConfig = {
@@ -67,10 +66,6 @@ const nextConfig = {
         source: '/:path*',
         headers: [
           {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
-          },
-          {
             key: 'Content-Security-Policy',
             value: cspHeader,
           },
@@ -80,7 +75,7 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'DENY',
+            value: 'SAMEORIGIN',
           },
           {
             key: 'X-XSS-Protection',
