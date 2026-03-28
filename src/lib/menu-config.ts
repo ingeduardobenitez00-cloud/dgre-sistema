@@ -1,7 +1,13 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText, ClipboardList, CalendarCog, Archive, MapPin } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText, ClipboardList, CalendarCog, Archive, MapPin, Calendar } from 'lucide-react';
 
 export const dashboardMenuItems = [
+  {
+    href: '/calendario-capacitaciones',
+    label: 'Calendario Mensual',
+    icon: Calendar,
+    description: 'Vista estructurada de la programación nacional de actividades.',
+  },
   {
     href: '/anexo-i',
     label: 'Anexo I - Lugares Fijos',
