@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -46,9 +45,9 @@ service cloud.firestore {
       allow read: if isActive();
     }
 
-    /** Monitoreo de Presencia - Corregido para permitir expulsión por Admin **/
+    /** Monitoreo de Presencia - Corregido para permitir listado y expulsión por Admin **/
     match /presencia/{userId} {
-      allow read: if isAdmin() || isDirector();
+      allow read: if isAdmin() || isDirector() || (isSignedIn() && request.auth.uid == userId);
       allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
     }
 
@@ -69,6 +68,7 @@ service cloud.firestore {
 
     match /anexo-i/{anexoId} {
       allow read, write: if isActive();
+      allow delete: if isAdmin();
     }
 
     match /informes-divulgador/{informeId} {
@@ -109,25 +109,36 @@ service cloud.firestore {
 
     match /divulgadores/{document=**} {
       allow read: if isActive();
-      allow write: if isActive();
+      allow write: if isActive() || isAdmin();
     }
 
     match /maquinas/{maquinaId} {
-      allow read: if isActive();
+      allow read: if isActive() || isAdmin();
       allow write: if isAdmin();
     }
 
     match /locales-votacion/{localId} {
-      allow read: if isActive();
-      allow write: if isActive();
+      allow read: if isActive() || isAdmin();
+      allow write: if isAdmin();
     }
     
     match /reports/{reportId} {
-      allow read, write: if isActive();
+      allow read, write: if isActive() || isAdmin();
     }
 
     match /imagenes/{imagenId} {
-      allow read, write: if isActive();
+      allow read, write: if isActive() || isAdmin();
+    }
+
+    /** Reglas para Informes Semanales de Registro (Regional) **/
+    match /informes-semanales-registro/{informeId} {
+      allow read, write: if isActive() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /archivos-semanales-registro/{archivoId} {
+      allow read: if isAdmin() || isDirector();
+      allow write: if isAdmin();
     }
   }
 }
