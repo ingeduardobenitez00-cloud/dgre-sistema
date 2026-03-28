@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /** 
      * REGLAS DE SEGURIDAD INSTITUCIONAL CIDEE 2026 
-     * Blindaje contra accesos no autorizados y auditoría de perfiles.
+     * Protocolo de Blindaje y Recuperación Maestra.
      */
 
     function isSignedIn() {
@@ -18,26 +18,28 @@ service cloud.firestore {
 
     function isActive() {
       let data = getUserData();
-      return isSignedIn() && data != null && data.active == true;
+      return isSignedIn() && (request.auth.token.email == 'edubtz11@gmail.com' || (data != null && data.active == true));
     }
 
     function isAdmin() {
       let data = getUserData();
-      return isSignedIn() && data != null && data.role == 'admin';
+      return isSignedIn() && (request.auth.token.email == 'edubtz11@gmail.com' || (data != null && data.role == 'admin'));
     }
 
     function isDirector() {
       let data = getUserData();
-      return isSignedIn() && data != null && data.role == 'director';
+      return isSignedIn() && (request.auth.token.email == 'edubtz11@gmail.com' || (data != null && (data.role == 'admin' || data.role == 'director')));
     }
 
     /** Gestión de Usuarios - Blindaje de Lista **/
     match /users/{userId} {
       allow get: if isSignedIn();
       allow list: if isAdmin() || isDirector();
-      allow create: if isAdmin() || (isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'jefe');
+      // El administrador maestro (propietario) puede crear/editar cualquier cuenta.
+      // Otros administradores no pueden borrar ni editar la cuenta del propietario.
+      allow create: if isAdmin();
       allow update: if (request.auth.uid == userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.email != 'edubtz11@gmail.com';
     }
 
     /** Regla para el Padrón Electoral - Solo lectura para personal activo **/
@@ -45,23 +47,24 @@ service cloud.firestore {
       allow read: if isActive();
     }
 
-    /** Monitoreo de Presencia - Corregido para permitir listado y expulsión por Admin **/
+    /** Monitoreo de Presencia - Control de Auditoría **/
     match /presencia/{userId} {
       allow read: if isAdmin() || isDirector() || (isSignedIn() && request.auth.uid == userId);
       allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    /** CIDEE - Colecciones Transaccionales (Acceso restringido a personal activo) **/
+    /** CIDEE - Colecciones Transaccionales **/
     
     match /solicitudes-capacitacion/{solicitudId} {
-      allow get: if true; // Habilitado para ciudadanos que completan encuestas
+      allow get: if true; 
       allow list, create, update: if isActive();
       allow delete: if isAdmin();
     }
 
     match /encuestas-satisfaccion/{encuestaId} {
       allow read: if isActive();
-      allow create: if true; // Público
+      allow create: if true; 
       allow update: if isActive();
       allow delete: if isAdmin();
     }
@@ -130,7 +133,6 @@ service cloud.firestore {
       allow read, write: if isActive() || isAdmin();
     }
 
-    /** Reglas para Informes Semanales de Registro (Regional) **/
     match /informes-semanales-registro/{informeId} {
       allow read, write: if isActive() || isAdmin();
       allow delete: if isAdmin();

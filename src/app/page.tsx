@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -56,10 +55,13 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  const isAdmin = useMemo(() => {
+    if (!user) return false;
+    return user.profile?.role === 'admin' || user.email === 'edubtz11@gmail.com';
+  }, [user]);
+
   const groupedModules = useMemo(() => {
     if (!user || !mounted) return [];
-
-    const isAdmin = user.profile?.role === 'admin';
 
     return MODULE_GROUPS.map(group => {
       const accessibleInGroup = dashboardMenuItems.filter(item => {
@@ -80,7 +82,7 @@ export default function Home() {
         items: accessibleInGroup
       };
     }).filter(group => group.items.length > 0);
-  }, [user, mounted]);
+  }, [user, mounted, isAdmin]);
 
   if (isUserLoading || !mounted) {
     return (
@@ -93,8 +95,6 @@ export default function Home() {
     );
   }
 
-  const isAdmin = user?.profile?.role === 'admin';
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/5">
       <Header title="" />
@@ -105,7 +105,7 @@ export default function Home() {
             </h1>
             <p className="mt-1 text-xs text-muted-foreground font-medium flex items-center gap-2">
                 <LayoutGrid className="h-3.5 w-3.5" />
-                {isAdmin ? 'Acceso Administrativo Total Habilitado' : 'Seleccione una categoría para desplegar los módulos autorizados'}
+                {isAdmin ? 'Acceso Administrativo Maestro Habilitado' : 'Seleccione una categoría para desplegar los módulos autorizados'}
             </p>
         </div>
 

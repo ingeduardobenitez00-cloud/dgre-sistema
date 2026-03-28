@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -92,9 +91,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return <Loading />;
   }
 
-  // VALIDACIÓN DE USUARIO ACTIVO O ELIMINADO
-  // Si el usuario está autenticado pero no tiene perfil, es un intruso o ha sido expulsado
-  const isRestricted = user && !isPublicRoute && (user.profile?.active === false || !user.profile);
+  // VALIDACIÓN DE USUARIO ACTIVO O ELIMINADO CON PROTECCIÓN AL PROPIETARIO
+  const isOwner = user?.email === 'edubtz11@gmail.com';
+  const isRestricted = !isOwner && user && !isPublicRoute && (user.profile?.active === false || !user.profile);
 
   if (isRestricted) {
     return (

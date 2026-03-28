@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -264,9 +263,7 @@ export default function UsersPage() {
 
   const isAdminView = useMemo(() => {
     if (isProfileLoading || !currentUser?.profile) return false;
-    const role = currentUser.profile.role;
-    const perms = currentUser.profile.permissions || [];
-    return role === 'admin' || role === 'director' || perms.includes('admin_filter');
+    return currentUser.profile.role === 'admin' || currentUser.email === 'edubtz11@gmail.com';
   }, [currentUser, isProfileLoading]);
 
   const usersQuery = useMemoFirebase(() => {
@@ -306,7 +303,7 @@ export default function UsersPage() {
     const totalCount = allDistricts.size;
     const coveredDistricts = new Set();
     users.forEach(u => {
-      if (u.departamento && u.distrito && u.departamento !== 'N/A' && u.distrito !== 'N/A' && u.departamento !== 'ALCANCE NACIONAL') {
+      if (u.departamento && u.distrito && u.departamento !== 'N/A' && u.distrito !== 'N/A') {
         coveredDistricts.add(`${u.departamento}-${u.distrito}`);
       }
     });
@@ -337,27 +334,17 @@ export default function UsersPage() {
       }
     });
 
-    const extraDepts: Record<string, { name: string, districts: Record<string, { name: string, users: UserProfile[] }> }> = {};
-
     filteredUsers.forEach(u => {
       const deptName = u.departamento || 'ALCANCE NACIONAL';
       const distName = u.distrito || 'TODOS LOS DISTRITOS';
 
       if (depts[deptName]) {
-        if (!depts[deptName].districts[distName]) {
-            depts[deptName].districts[distName] = { name: distName, users: [] };
-        }
+        if (!depts[deptName].districts[distName]) depts[deptName].districts[distName] = { name: distName, users: [] };
         depts[deptName].districts[distName].users.push(u);
-      } else {
-        if (!extraDepts[deptName]) extraDepts[deptName] = { name: deptName, districts: {} };
-        if (!extraDepts[deptName].districts[distName]) extraDepts[deptName].districts[distName] = { name: distName, users: [] };
-        extraDepts[deptName].districts[distName].users.push(u);
       }
     });
 
-    const combined = { ...depts, ...extraDepts };
-
-    return Object.values(combined)
+    return Object.values(depts)
       .map(dept => ({
         ...dept,
         districts: Object.values(dept.districts).sort((a, b) => a.name.localeCompare(b.name))
@@ -445,7 +432,10 @@ export default function UsersPage() {
   };
   
   const toggleUserStatus = (user: UserProfile) => {
-    if (!firestore) return;
+    if (!firestore || user.email === 'edubtz11@gmail.com') {
+        if(user.email === 'edubtz11@gmail.com') toast({ variant: 'destructive', title: 'Acción Bloqueada', description: 'No se puede desactivar la cuenta del propietario.' });
+        return;
+    }
     const currentStatus = user.active !== false;
     const newStatus = !currentStatus;
     const docRef = doc(firestore, 'users', user.id);
@@ -454,11 +444,13 @@ export default function UsersPage() {
       .catch((error) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })));
   };
 
-  const handleDeleteUser = (userId: string) => {
-    if (!firestore) return;
-    const userDocRef = doc(firestore, 'users', userId);
-    const presenceDocRef = doc(firestore, 'presencia', userId);
-    deleteDoc(userDocRef).then(() => { deleteDoc(presenceDocRef).catch(() => {}); toast({ title: 'Usuario Eliminado' }); })
+  const handleDeleteUser = (user: UserProfile) => {
+    if (!firestore || user.email === 'edubtz11@gmail.com') {
+        if(user.email === 'edubtz11@gmail.com') toast({ variant: 'destructive', title: 'Acción Bloqueada', description: 'No se puede eliminar la cuenta del propietario.' });
+        return;
+    }
+    const userDocRef = doc(firestore, 'users', user.id);
+    deleteDoc(userDocRef).then(() => toast({ title: 'Usuario Eliminado' }))
       .catch((error) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'delete' })));
   };
 
@@ -466,15 +458,6 @@ export default function UsersPage() {
     event.preventDefault();
     const form = event.currentTarget;
     if (!firestore || !currentUser) return;
-
-    if (['coordinador', 'jefe', 'funcionario'].includes(regRole) && (!regDepartamento || !regDistrito || regDepartamento === 'N/A')) {
-        toast({ 
-            variant: 'destructive', 
-            title: 'Jurisdicción Requerida', 
-            description: 'Para este rol es obligatorio asignar un Departamento y Distrito específicos.' 
-        });
-        return;
-    }
 
     setIsSubmitting(true);
     const formData = new FormData(form);
@@ -504,7 +487,6 @@ export default function UsersPage() {
       await signOut(tempAuth);
       toast({ title: 'Usuario Creado con Éxito' });
       form.reset(); setSelectedModules(new Set()); setSelectedPerms(new Set());
-      setRegDepartamento(''); setRegDistrito('');
     } catch (error: any) { toast({ variant: 'destructive', title: 'Error', description: error.message }); }
     finally { if (tempApp) await deleteApp(tempApp); setIsSubmitting(false); }
   };
@@ -528,21 +510,6 @@ export default function UsersPage() {
 
   if (isAuthLoading || isProfileLoading) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary"/></div>;
-  }
-
-  if (!isAdminView) {
-    return (
-      <div className="flex min-h-screen flex-col bg-muted/10">
-        <Header title="Gestión de Usuarios" />
-        <main className="flex-1 p-8 flex items-center justify-center text-center">
-          <Card className="max-w-md w-full p-8 border-dashed">
-            <ShieldAlert className="h-16 w-16 mx-auto text-muted-foreground opacity-20 mb-4" />
-            <h2 className="text-xl font-black uppercase text-primary mb-2">Acceso Restringido</h2>
-            <p className="text-xs text-muted-foreground font-bold uppercase">Solo los administradores nacionales tienen acceso.</p>
-          </Card>
-        </main>
-      </div>
-    );
   }
 
   return (
@@ -665,7 +632,7 @@ export default function UsersPage() {
                                                                             <Button variant="ghost" size="icon" className={cn("h-7 w-7", u.active === false ? "text-green-600" : "text-amber-600")} title={u.active === false ? "Activar" : "Desactivar"} onClick={() => toggleUserStatus(u)}>
                                                                                 {u.active === false ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
                                                                             </Button>
-                                                                            <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem]"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿ELIMINAR?</AlertDialogTitle><AlertDialogDescription className="text-xs font-medium uppercase">Se borrará el perfil de {u.username} permanentemente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="pt-6"><AlertDialogCancel className="rounded-xl text-[10px]">CANCELAR</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive text-white rounded-xl text-[10px]">ELIMINAR</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div></TableCell>
+                                                                            <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem]"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿ELIMINAR?</AlertDialogTitle><AlertDialogDescription className="text-xs font-medium uppercase">Se borrará el perfil de {u.username} permanentemente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="pt-6"><AlertDialogCancel className="rounded-xl text-[10px]">CANCELAR</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(u)} className="bg-destructive text-white rounded-xl text-[10px]">ELIMINAR</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div></TableCell>
                                                                     </TableRow>
                                                                 ))}</TableBody>
                                                             </Table>

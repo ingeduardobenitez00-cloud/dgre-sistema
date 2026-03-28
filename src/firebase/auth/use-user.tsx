@@ -1,4 +1,3 @@
-
 'use client';
 import { useMemo } from 'react';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -14,10 +13,12 @@ export interface UserProfile {
   permissions?: string[];
   cedula?: string;
   vinculo?: 'PERMANENTE' | 'CONTRATADO' | 'COMISIONADO' | string;
+  active?: boolean;
 }
 
 export type AppUser = User & {
   profile?: UserProfile | null;
+  isAdmin?: boolean;
 };
 
 export interface UserHookResult {
@@ -39,14 +40,17 @@ export const useUser = (): UserHookResult => {
   
   const enrichedUser = useMemo(() => {
     if (!authUser) return null;
+    
+    // Bypass Maestro por Correo Propietario
+    const isAdmin = authUser.email === 'edubtz11@gmail.com' || profileData?.role === 'admin';
+    
     return {
       ...authUser,
       profile: profileData,
+      isAdmin
     };
   }, [authUser, profileData]);
 
-  // OPTIMIZACIÓN: Solo bloqueamos el inicio global con isAuthLoading.
-  // El perfil se carga de forma asíncrona para que la UI responda de inmediato.
   return {
     user: enrichedUser,
     isUserLoading: isAuthLoading,

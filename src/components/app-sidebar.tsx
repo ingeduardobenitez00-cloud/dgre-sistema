@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -128,7 +127,8 @@ export default function AppSidebar() {
   const isAccessible = (href: string) => {
     if (!user) return false;
     if (href === '/') return true;
-    if (user.profile?.role === 'admin') return true;
+    // Bypass Maestro por Correo Propietario
+    if (user.email === 'edubtz11@gmail.com' || user.profile?.role === 'admin') return true;
     const moduleName = href.substring(1);
     return user.profile?.modules?.includes(moduleName);
   };
