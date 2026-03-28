@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -42,7 +43,8 @@ import {
   CalendarCog,
   Archive,
   Settings,
-  MapPin
+  MapPin,
+  Calendar
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -63,6 +65,7 @@ export default function AppSidebar() {
     {
       label: "CIDEE - CAPACITACIONES",
       items: [
+        { href: "/calendario-capacitaciones", label: "Calendario Mensual", icon: Calendar },
         { href: "/anexo-i", label: "Anexo I - Lugares Fijos", icon: MapPin },
         { href: "/solicitud-capacitacion", label: "Anexo V - Solicitudes", icon: ClipboardCheck },
         { href: "/agenda-capacitacion", label: "Agenda", icon: CalendarDays },
