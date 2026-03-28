@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -17,8 +18,8 @@ import {
 const MODULE_GROUPS = [
   {
     label: "CIDEE - CAPACITACIONES",
-    description: "Gestión de solicitudes, agendas, movimientos de equipos, denuncias de lacres e informes de capacitación nacional.",
-    modules: ['anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'divulgadores', 'agenda-capacitacion', 'control-movimiento-maquinas', 'denuncia-lacres', 'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion', 'archivo-capacitaciones']
+    description: "Gestión de solicitudes, agendas separadas, movimientos de equipos, denuncias de lacres e informes de capacitación nacional.",
+    modules: ['anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 'agenda-anexo-v', 'divulgadores', 'control-movimiento-maquinas', 'denuncia-lacres', 'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'estadisticas-capacitacion', 'archivo-capacitaciones']
   },
   {
     label: "Registros Electorales",

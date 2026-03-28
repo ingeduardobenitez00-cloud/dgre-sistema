@@ -21,10 +21,16 @@ export const dashboardMenuItems = [
     description: 'Crea una nueva solicitud de capacitación para organizaciones políticas.',
   },
   {
-    href: '/agenda-capacitacion',
-    label: 'Agenda',
+    href: '/agenda-anexo-i',
+    label: 'Agenda Anexo I',
     icon: CalendarDays,
-    description: 'Visualiza el calendario de capacitaciones agendadas.',
+    description: 'Calendario exclusivo de actividades en lugares fijos (Oficinas/Centros).',
+  },
+  {
+    href: '/agenda-anexo-v',
+    label: 'Agenda Anexo V',
+    icon: CalendarDays,
+    description: 'Calendario exclusivo de pedidos de partidos y organizaciones.',
   },
   {
     href: '/control-movimiento-maquinas',

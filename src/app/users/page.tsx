@@ -88,7 +88,8 @@ const MODULE_STRUCTURE = [
       { id: 'anexo-i', label: 'ANEXO I - LUGARES FIJOS' },
       { id: 'lista-anexo-i', label: 'LISTADO DE ANEXO I' },
       { id: 'solicitud-capacitacion', label: 'ANEXO V - SOLICITUDES' },
-      { id: 'agenda-capacitacion', label: 'AGENDA DE ACTIVIDADES' },
+      { id: 'agenda-anexo-i', label: 'AGENDA ANEXO I' },
+      { id: 'agenda-anexo-v', label: 'AGENDA ANEXO V' },
       { id: 'control-movimiento-maquinas', label: 'MOVIMIENTO DE MÁQUINAS' },
       { id: 'denuncia-lacres', label: 'DENUNCIA DE LACRES' },
       { id: 'informe-movimientos-denuncias', label: 'TRAZABILIDAD LOGÍSTICA' },
@@ -259,11 +260,11 @@ export default function UsersPage() {
   const { user: currentUser, isUserLoading: isAuthLoading, isProfileLoading } = useUser();
 
   const isAdminView = useMemo(() => {
-    if (!currentUser?.profile) return false;
+    if (isProfileLoading || !currentUser?.profile) return false;
     const role = currentUser.profile.role;
     const perms = currentUser.profile.permissions || [];
     return role === 'admin' || role === 'director' || perms.includes('admin_filter');
-  }, [currentUser]);
+  }, [currentUser, isProfileLoading]);
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || !isAdminView) return null;
@@ -296,25 +297,18 @@ export default function UsersPage() {
     return [...new Set(datosData.filter(d => d.departamento === regDepartamento).map(d => d.distrito))].sort();
   }, [datosData, regDepartamento]);
 
-  // CÁLCULO DE COBERTURA DISTRITAL
   const districtCoverage = useMemo(() => {
     if (!datosData || !users) return { percent: 0, total: 0, covered: 0 };
-    
-    // Total de distritos oficiales únicos
     const allDistricts = new Set(datosData.map(d => `${d.departamento}-${d.distrito}`));
     const totalCount = allDistricts.size;
-    
-    // Distritos que tienen al menos un usuario asignado
     const coveredDistricts = new Set();
     users.forEach(u => {
       if (u.departamento && u.distrito && u.departamento !== 'N/A' && u.distrito !== 'N/A' && u.departamento !== 'ALCANCE NACIONAL') {
         coveredDistricts.add(`${u.departamento}-${u.distrito}`);
       }
     });
-    
     const coveredCount = coveredDistricts.size;
     const percent = totalCount > 0 ? Math.round((coveredCount / totalCount) * 100) : 0;
-    
     return { percent, total: totalCount, covered: coveredCount };
   }, [datosData, users]);
 
@@ -330,7 +324,6 @@ export default function UsersPage() {
 
   const userHierarchy = useMemo(() => {
     if (!datosData) return [];
-    
     const term = searchTerm.toLowerCase().trim();
     const depts: Record<string, { name: string, districts: Record<string, { name: string, users: UserProfile[] }> }> = {};
 
@@ -391,31 +384,17 @@ export default function UsersPage() {
 
   const handleToggleModuleAction = (moduleId: string, actionId: string, isEditing = false) => {
     const permKey = `${moduleId}:${actionId}`;
-    
     if (isEditing && editingUser) {
       const nextPerms = new Set(editingUser.permissions || []);
       const nextModules = new Set(editingUser.modules || []);
-      
-      if (nextPerms.has(permKey)) {
-        nextPerms.delete(permKey);
-      } else {
-        nextPerms.add(permKey);
-        nextModules.add(moduleId);
-      }
-      
-      setEditingUser({ 
-        ...editingUser, 
-        permissions: Array.from(nextPerms),
-        modules: Array.from(nextModules)
-      });
+      if (nextPerms.has(permKey)) nextPerms.delete(permKey);
+      else { nextPerms.add(permKey); nextModules.add(moduleId); }
+      setEditingUser({ ...editingUser, permissions: Array.from(nextPerms), modules: Array.from(nextModules) });
     } else {
       setSelectedPerms(prev => {
         const next = new Set(prev);
         if (next.has(permKey)) next.delete(permKey);
-        else {
-          next.add(permKey);
-          setSelectedModules(m => new Set(m).add(moduleId));
-        }
+        else { next.add(permKey); setSelectedModules(m => new Set(m).add(moduleId)); }
         return next;
       });
     }
@@ -426,31 +405,20 @@ export default function UsersPage() {
         const nextPerms = new Set(editingUser.permissions || []);
         const nextModules = new Set(editingUser.modules || []);
         const allSelected = items.every(item => nextPerms.has(`${item.id}:${actionId}`));
-
         items.forEach(item => {
             const key = `${item.id}:${actionId}`;
-            if (allSelected) {
-                nextPerms.delete(key);
-            } else {
-                nextPerms.add(key);
-                nextModules.add(item.id);
-            }
+            if (allSelected) nextPerms.delete(key);
+            else { nextPerms.add(key); nextModules.add(item.id); }
         });
-
         setEditingUser({ ...editingUser, permissions: Array.from(nextPerms), modules: Array.from(nextModules) });
     } else {
         setSelectedPerms(prev => {
             const next = new Set(prev);
             const allSelected = items.every(item => next.has(`${item.id}:${actionId}`));
-            
             items.forEach(item => {
                 const key = `${item.id}:${actionId}`;
-                if (allSelected) {
-                    next.delete(key);
-                } else {
-                    next.add(key);
-                    setSelectedModules(m => new Set(m).add(item.id));
-                }
+                if (allSelected) next.delete(key);
+                else { next.add(key); setSelectedModules(m => new Set(m).add(item.id)); }
             });
             return next;
         });
@@ -462,139 +430,66 @@ export default function UsersPage() {
     const actions = ['view', 'add', 'edit', 'pdf'];
     const newPerms = new Set<string>();
     const newModules = new Set<string>();
-
-    cideeModules.forEach(m => {
-        newModules.add(m);
-        actions.forEach(a => newPerms.add(`${m}:${a}`));
-    });
-    
+    cideeModules.forEach(m => { newModules.add(m); actions.forEach(a => newPerms.add(`${m}:${a}`)); });
     newPerms.add('admin_filter');
     newPerms.add('assign_staff');
-
     if (isEditing && editingUser) {
-        setEditingUser({
-            ...editingUser,
-            role: 'coordinador',
-            modules: Array.from(new Set([...(editingUser.modules || []), ...Array.from(newModules)])),
-            permissions: Array.from(new Set([...(editingUser.permissions || []), ...Array.from(newPerms)]))
-        });
+        setEditingUser({ ...editingUser, role: 'coordinador', modules: Array.from(new Set([...(editingUser.modules || []), ...Array.from(newModules)])), permissions: Array.from(new Set([...(editingUser.permissions || []), ...Array.from(newPerms)])) });
     } else {
-        setRegRole('coordinador');
-        setSelectedModules(newModules);
-        setSelectedPerms(newPerms);
+        setRegRole('coordinador'); setSelectedModules(newModules); setSelectedPerms(newPerms);
     }
-    toast({ title: "Perfil CIDEE Aplicado", description: "Se han preseleccionado los módulos y el filtro nacional." });
+    toast({ title: "Perfil CIDEE Aplicado" });
   };
   
   const toggleUserStatus = (user: UserProfile) => {
     if (!firestore) return;
-
     const newStatus = user.active === false;
     const docRef = doc(firestore, 'users', user.id);
-
     updateDoc(docRef, { active: newStatus })
-      .then(() => {
-        toast({
-          title: 'Estado Actualizado',
-          description: `El usuario ahora está ${newStatus ? 'activo' : 'inactivo'}.`
-        });
-      })
-      .catch((error) => {
-        toast({
-          variant: 'destructive',
-          title: 'Error al actualizar',
-          description: 'No se pudo cambiar el estado del usuario.'
-        });
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' }));
-      });
+      .then(() => toast({ title: 'Estado Actualizado' }))
+      .catch((error) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })));
   };
 
   const handleDeleteUser = (userId: string) => {
     if (!firestore) return;
-    
     const userDocRef = doc(firestore, 'users', userId);
     const presenceDocRef = doc(firestore, 'presencia', userId);
-
-    deleteDoc(userDocRef)
-      .then(() => {
-        deleteDoc(presenceDocRef).catch(() => {}); 
-        toast({ title: 'Usuario Eliminado', description: 'El acceso ha sido revocado permanentemente.' });
-      })
-      .catch((error) => {
-        toast({ variant: 'destructive', title: 'Error al eliminar' });
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'delete' }));
-      });
+    deleteDoc(userDocRef).then(() => { deleteDoc(presenceDocRef).catch(() => {}); toast({ title: 'Usuario Eliminado' }); })
+      .catch((error) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'delete' })));
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
     if (!firestore || !currentUser) return;
-
     setIsSubmitting(true);
     const formData = new FormData(form);
     const email = (formData.get('email') as string || '').trim();
     const password = formData.get('password') as string;
     const username = formData.get('username') as string;
-
-    const newUserProfile: Omit<UserProfile, 'id' | 'active'> & { active: boolean } = { 
-      username: username, 
-      email, 
-      role: regRole, 
-      modules: Array.from(selectedModules), 
-      permissions: Array.from(selectedPerms), 
-      departamento: regDepartamento || '', 
-      distrito: regDistrito || '',
-      active: true 
-    };
-
+    const newUserProfile = { username, email, role: regRole, modules: Array.from(selectedModules), permissions: Array.from(selectedPerms), departamento: regDepartamento || '', distrito: regDistrito || '', active: true };
     const tempAppName = 'temp-creation-' + Math.random().toString(36).substring(7);
     let tempApp: FirebaseApp | undefined = undefined;
-
     try {
       tempApp = initializeApp(firebaseConfig, tempAppName);
       const tempAuth = getAuth(tempApp);
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
-      const docRef = doc(firestore, 'users', userCredential.user.uid);
-      await setDoc(docRef, newUserProfile);
+      await setDoc(doc(firestore, 'users', userCredential.user.uid), newUserProfile);
       await signOut(tempAuth);
       toast({ title: 'Usuario Creado' });
-      form.reset();
-      setSelectedModules(new Set());
-      setSelectedPerms(new Set());
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
-    } finally {
-      if (tempApp) await deleteApp(tempApp);
-      setIsSubmitting(false);
-    }
+      form.reset(); setSelectedModules(new Set()); setSelectedPerms(new Set());
+    } catch (error: any) { toast({ variant: 'destructive', title: 'Error', description: error.message }); }
+    finally { if (tempApp) await deleteApp(tempApp); setIsSubmitting(false); }
   };
 
   const handleUpdateUser = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!firestore || !editingUser) return;
     setIsSubmitting(true);
-    
-    const updateData = { 
-      username: editingUser.username,
-      role: editingUser.role, 
-      modules: editingUser.modules || [], 
-      permissions: editingUser.permissions || [],
-      departamento: editingUser.departamento || '',
-      distrito: editingUser.distrito || ''
-    };
-    
+    const updateData = { username: editingUser.username, role: editingUser.role, modules: editingUser.modules || [], permissions: editingUser.permissions || [], departamento: editingUser.departamento || '', distrito: editingUser.distrito || '' };
     const docRef = doc(firestore, 'users', editingUser.id);
-    updateDoc(docRef, updateData)
-      .then(() => {
-        toast({ title: 'Perfil Actualizado' });
-        setEditModalOpen(false);
-        setIsSubmitting(false);
-      })
-      .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
-        setIsSubmitting(false);
-      });
+    updateDoc(docRef, updateData).then(() => { toast({ title: 'Perfil Actualizado' }); setEditModalOpen(false); setIsSubmitting(false); })
+      .catch(async (error) => { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })); setIsSubmitting(false); });
   };
 
   if (isAuthLoading || isProfileLoading) {
@@ -605,11 +500,11 @@ export default function UsersPage() {
     return (
       <div className="flex min-h-screen flex-col bg-muted/10">
         <Header title="Gestión de Usuarios" />
-        <main className="flex-1 p-8 flex items-center justify-center">
-          <Card className="max-w-md w-full text-center p-8 border-dashed">
+        <main className="flex-1 p-8 flex items-center justify-center text-center">
+          <Card className="max-w-md w-full p-8 border-dashed">
             <ShieldAlert className="h-16 w-16 mx-auto text-muted-foreground opacity-20 mb-4" />
             <h2 className="text-xl font-black uppercase text-primary mb-2">Acceso Restringido</h2>
-            <p className="text-xs text-muted-foreground font-bold uppercase">Solo los administradores nacionales tienen acceso a este módulo.</p>
+            <p className="text-xs text-muted-foreground font-bold uppercase">Solo los administradores nacionales tienen acceso.</p>
           </Card>
         </main>
       </div>
@@ -620,7 +515,6 @@ export default function UsersPage() {
     <div className="flex min-h-screen flex-col bg-muted/5">
       <Header title="Gestión de Usuarios" />
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8">
-        
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
             <div>
                 <h1 className="text-3xl font-black tracking-tight uppercase text-primary leading-none">Matriz de Personal</h1>
@@ -628,11 +522,8 @@ export default function UsersPage() {
                     <ShieldCheck className="h-3 w-3" /> Configuración de perfiles y accesos de seguridad
                 </p>
             </div>
-            
             <Card className="bg-white border-2 shadow-sm p-4 rounded-2xl flex items-center gap-4 min-w-[240px]">
-                <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center">
-                    <Activity className="h-5 w-5 text-primary" />
-                </div>
+                <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center"><Activity className="h-5 w-5 text-primary" /></div>
                 <div>
                     <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">COBERTURA DISTRITAL</p>
                     <div className="flex items-baseline gap-2">
@@ -648,356 +539,107 @@ export default function UsersPage() {
           <form onSubmit={handleSubmit}>
             <CardHeader className="border-b py-6 bg-muted/10">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <CardTitle className="uppercase font-black text-xs flex items-center gap-2 tracking-widest text-primary">
-                    <UserPlus className="h-4 w-4" /> Registrar Funcionario
-                </CardTitle>
-                <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="font-black uppercase text-[10px] gap-2 border-primary/20 text-primary hover:bg-primary/5 h-9"
-                    onClick={() => handleApplyCIDEEProfile(false)}
-                >
-                    <Zap className="h-3.5 w-3.5 fill-primary" /> APLICAR PERFIL CIDEE
-                </Button>
+                <CardTitle className="uppercase font-black text-xs flex items-center gap-2 tracking-widest text-primary"><UserPlus className="h-4 w-4" /> Registrar Funcionario</CardTitle>
+                <Button type="button" variant="outline" size="sm" className="font-black uppercase text-[10px] gap-2 h-9" onClick={() => handleApplyCIDEEProfile(false)}><Zap className="h-3.5 w-3.5 fill-primary" /> PERFIL CIDEE</Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-10 pt-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Nombre y Apellido</Label><Input name="username" placeholder="Nombre y Apellido" required className="font-bold h-11 border-2" /></div>
+                <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Correo Institucional</Label><Input name="email" type="email" placeholder="usuario@tsje.gov.py" required className="font-bold h-11 border-2" /></div>
+                <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Contraseña</Label><Input name="password" type="password" required className="font-bold h-11 border-2" /></div>
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Nombre y Apellido</Label>
-                    <Input name="username" placeholder="Nombre y Apellido" required className="font-bold h-11 border-2" />
-                </div>
-                <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Correo Institucional</Label>
-                    <Input name="email" type="email" placeholder="usuario@tsje.gov.py" required autoCapitalize="none" className="font-bold h-11 border-2" />
-                </div>
-                <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Contraseña</Label>
-                    <Input name="password" type="password" required className="font-bold h-11 border-2" />
-                </div>
-                <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-primary">Rol Institucional</Label>
+                    <Label className="text-[9px] font-black uppercase">Rol Institucional</Label>
                     <Select onValueChange={(v: any) => setRegRole(v)} value={regRole}>
                         <SelectTrigger className="font-black h-11 border-2 uppercase text-[10px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="admin" className="font-black text-[10px]">ADMINISTRADOR</SelectItem>
-                            <SelectItem value="director" className="font-black text-[10px]">DIRECTOR</SelectItem>
-                            <SelectItem value="coordinador" className="font-black text-[10px]">COORDINADOR CIDEE</SelectItem>
-                            <SelectItem value="jefe" className="font-black text-[10px]">JEFE DE OFICINA</SelectItem>
-                            <SelectItem value="funcionario" className="font-black text-[10px]">FUNCIONARIO</SelectItem>
-                            <SelectItem value="viewer" className="font-black text-[10px]">SOLO LECTURA</SelectItem>
+                            <SelectItem value="admin">ADMINISTRADOR</SelectItem><SelectItem value="director">DIRECTOR</SelectItem><SelectItem value="coordinador">COORDINADOR CIDEE</SelectItem><SelectItem value="jefe">JEFE DE OFICINA</SelectItem><SelectItem value="funcionario">FUNCIONARIO</SelectItem><SelectItem value="viewer">SOLO LECTURA</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Departamento Asignado</Label>
+                    <Label className="text-[9px] font-black uppercase">Departamento</Label>
                     <Select onValueChange={setRegDepartamento} value={regDepartamento}>
                         <SelectTrigger className="font-black h-11 border-2 uppercase text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="N/A" className="font-black text-[10px]">ALCANCE NACIONAL</SelectItem>
-                            {departments.map(d => <SelectItem key={d} value={d} className="font-black text-[10px]">{d}</SelectItem>)}
-                        </SelectContent>
+                        <SelectContent><SelectItem value="N/A">ALCANCE NACIONAL</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Distrito Asignado</Label>
+                    <Label className="text-[9px] font-black uppercase">Distrito</Label>
                     <Select onValueChange={setRegDistrito} value={regDistrito} disabled={!regDepartamento || regDepartamento === 'N/A'}>
                         <SelectTrigger className="font-black h-11 border-2 uppercase text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="N/A" className="font-black text-[10px]">TODOS LOS DISTRITOS</SelectItem>
-                            {districts.map(d => <SelectItem key={d} value={d} className="font-black text-[10px]">{d}</SelectItem>)}
-                        </SelectContent>
+                        <SelectContent><SelectItem value="N/A">TODOS LOS DISTRITOS</SelectItem>{districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
               </div>
-
               <Separator />
-
-              <PermissionMatrix 
-                selectedPerms={selectedPerms}
-                selectedModules={selectedModules}
-                onTogglePerm={handleTogglePerm}
-                onToggleModuleAction={handleToggleModuleAction}
-                onToggleColumn={handleToggleColumn}
-              />
-
+              <PermissionMatrix selectedPerms={selectedPerms} selectedModules={selectedModules} onTogglePerm={handleTogglePerm} onToggleModuleAction={handleToggleModuleAction} onToggleColumn={handleToggleColumn} />
             </CardContent>
-            <CardFooter className="bg-muted/30 border-t p-6">
-              <Button type="submit" className="w-full h-16 font-black uppercase shadow-xl text-lg tracking-widest" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin mr-3" /> : "REGISTRAR ACCESO CENTRAL"}
-              </Button>
-            </CardFooter>
+            <CardFooter className="bg-muted/30 border-t p-6"><Button type="submit" className="w-full h-16 font-black uppercase shadow-xl text-lg" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin mr-3" /> : "REGISTRAR ACCESO CENTRAL"}</Button></CardFooter>
           </form>
         </Card>
 
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-primary p-6 rounded-xl shadow-lg">
-                <div className="flex items-center gap-3">
-                    <Users className="h-6 w-6 text-white opacity-50" />
-                    <div>
-                        <h2 className="text-white font-black uppercase text-sm tracking-widest leading-none">Matriz de Distribución Nacional</h2>
-                        <p className="text-white/60 font-bold uppercase text-[9px] mt-1 tracking-tighter">Supervisión de cobertura por oficina regional</p>
-                    </div>
-                </div>
-                <div className="relative w-full md:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
-                    <Input 
-                        placeholder="Filtrar por nombre, correo o zona..." 
-                        className="h-10 pl-10 text-[10px] font-bold bg-white/10 border-white/20 text-white placeholder:text-white/30 rounded-full"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
+                <div className="flex items-center gap-3"><Users className="h-6 w-6 text-white opacity-50" /><div><h2 className="text-white font-black uppercase text-sm">Matriz de Distribución Nacional</h2><p className="text-white/60 font-bold uppercase text-[9px]">Supervisión de cobertura por oficina regional</p></div></div>
+                <div className="relative w-full md:w-80"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" /><Input placeholder="Filtrar por nombre, correo o zona..." className="h-10 pl-10 text-[10px] font-bold bg-white/10 border-white/20 text-white rounded-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
             </div>
-
-            {isLoadingUsers ? (
-                <div className="flex justify-center items-center py-20 bg-white rounded-xl shadow-md">
-                    <Loader2 className="animate-spin h-10 w-10 text-primary" />
-                </div>
-            ) : (
+            {isLoadingUsers ? <div className="flex justify-center items-center py-20 bg-white rounded-xl shadow-md"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div> : (
                 <Accordion type="multiple" className="space-y-4">
-                    {userHierarchy.map((dept) => {
-                        const totalUsers = dept.districts.reduce((acc, d) => acc + d.users.length, 0);
-                        const pendingDistricts = dept.districts.filter(d => d.users.length === 0).length;
-
-                        return (
-                            <AccordionItem key={dept.name} value={dept.name} className="border-none bg-white rounded-xl shadow-md overflow-hidden">
-                                <AccordionTrigger className="hover:no-underline px-8 py-5 bg-white group">
-                                    <div className="flex items-center justify-between w-full pr-6 text-left">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-lg bg-primary/5 text-primary flex items-center justify-center font-black border border-primary/10">
-                                                <Landmark className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-lg font-black uppercase tracking-tight text-[#1A1A1A]">{dept.name}</h2>
-                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                                                    {dept.districts.length} OFICINAS | {totalUsers} FUNCIONARIOS
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            {pendingDistricts > 0 && (
-                                                <Badge variant="destructive" className="bg-amber-100 text-amber-700 border-amber-200 text-[8px] font-black uppercase animate-pulse">
-                                                    {pendingDistricts} PENDIENTES
-                                                </Badge>
-                                            )}
-                                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[8px] font-black uppercase">
-                                                {totalUsers} ACTIVOS
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="px-8 pb-8 pt-2">
-                                    <Accordion type="multiple" className="space-y-3 pt-4">
-                                        {dept.districts.map((dist) => {
-                                            const hasUsers = dist.users.length > 0;
-                                            return (
-                                                <AccordionItem key={dist.name} value={dist.name} className="border-2 rounded-xl overflow-hidden transition-all hover:border-primary/10">
-                                                    <AccordionTrigger className="hover:no-underline px-6 py-3 bg-muted/5 group">
-                                                        <div className="flex items-center justify-between w-full pr-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <Building2 className={cn("h-4 w-4", hasUsers ? "text-primary" : "text-muted-foreground/40")} />
-                                                                <span className="font-black uppercase text-xs tracking-tight">{dist.name}</span>
-                                                            </div>
-                                                            {!hasUsers && (
-                                                                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-                                                                    <AlertCircle className="h-3.5 w-3.5" />
-                                                                    <span className="text-[8px] font-black uppercase">USUARIO PENDIENTE</span>
-                                                                </div>
-                                                            )}
-                                                            {hasUsers && (
-                                                                <Badge className="bg-black text-white text-[8px] font-black">{dist.users.length} {dist.users.length === 1 ? 'FUNCIONARIO' : 'FUNCIONARIOS'}</Badge>
-                                                            )}
+                    {userHierarchy.map((dept) => (
+                        <AccordionItem key={dept.name} value={dept.name} className="border-none bg-white rounded-xl shadow-md overflow-hidden">
+                            <AccordionTrigger className="hover:no-underline px-8 py-5 bg-white group">
+                                <div className="flex items-center justify-between w-full pr-6 text-left">
+                                    <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-lg bg-primary/5 text-primary flex items-center justify-center font-black border border-primary/10"><Landmark className="h-5 w-5" /></div><div><h2 className="text-lg font-black uppercase tracking-tight text-[#1A1A1A]">{dept.name}</h2><p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">{dept.districts.length} OFICINAS</p></div></div>
+                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[8px] font-black uppercase">{dept.districts.reduce((acc, d) => acc + d.users.length, 0)} ACTIVOS</Badge>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-8 pb-8 pt-2">
+                                <Accordion type="multiple" className="space-y-3 pt-4">
+                                    {dept.districts.map((dist) => {
+                                        const hasUsers = dist.users.length > 0;
+                                        return (
+                                            <AccordionItem key={dist.name} value={dist.name} className="border-2 rounded-xl overflow-hidden transition-all hover:border-primary/10">
+                                                <AccordionTrigger className="hover:no-underline px-6 py-3 bg-muted/5 group">
+                                                    <div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-3"><Building2 className={cn("h-4 w-4", hasUsers ? "text-primary" : "text-muted-foreground/40")} /><span className="font-black uppercase text-xs">{dist.name}</span></div>{hasUsers && <Badge className="bg-black text-white text-[8px] font-black">{dist.users.length} PERSONAL</Badge>}</div>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="p-0 bg-white">
+                                                    {!hasUsers ? <div className="py-10 text-center opacity-30"><UserCircle className="h-10 w-10 mx-auto" /><p className="text-[10px] font-bold uppercase">Sin personal asignado</p></div> : (
+                                                        <div className="overflow-x-auto">
+                                                            <Table>
+                                                                <TableHeader className="bg-muted/30"><TableRow><TableHead className="text-[8px] font-black uppercase px-6">Funcionario</TableHead><TableHead className="text-[8px] font-black uppercase">Rol</TableHead><TableHead className="text-right text-[8px] font-black uppercase px-6">Acción</TableHead></TableRow></TableHeader>
+                                                                <TableBody>{dist.users.map(u => (
+                                                                    <TableRow key={u.id} className={cn("hover:bg-primary/5", u.active === false && "bg-amber-50/50")}>
+                                                                        <TableCell className="px-6 py-3"><div className="flex flex-col"><span className="font-black text-[11px] uppercase text-primary leading-tight">{u.username}</span><span className="text-[9px] font-bold text-muted-foreground">{u.email}</span></div></TableCell>
+                                                                        <TableCell><Badge variant="outline" className="text-[7px] font-black uppercase">{u.role}</Badge></TableCell>
+                                                                        <TableCell className="text-right px-6"><div className="flex justify-end gap-2"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingUser({...u}); setEditModalOpen(true); }}><Edit className="h-3.5 w-3.5" /></Button><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => toggleUserStatus(u)}><ShieldAlert className="h-3.5 w-3.5" /></Button><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem]"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿ELIMINAR?</AlertDialogTitle><AlertDialogDescription className="text-xs font-medium uppercase">Se borrará el perfil de {u.username} permanentemente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="pt-6"><AlertDialogCancel className="rounded-xl text-[10px]">CANCELAR</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive text-white rounded-xl text-[10px]">ELIMINAR</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div></TableCell>
+                                                                    </TableRow>
+                                                                ))}</TableBody>
+                                                            </Table>
                                                         </div>
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="p-0 bg-white">
-                                                        {!hasUsers ? (
-                                                            <div className="py-10 text-center space-y-2 opacity-30">
-                                                                <UserCircle className="h-10 w-10 mx-auto text-muted-foreground" />
-                                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Sin personal asignado a esta oficina</p>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="overflow-x-auto">
-                                                                <Table>
-                                                                    <TableHeader className="bg-muted/30">
-                                                                        <TableRow>
-                                                                            <TableHead className="text-[8px] font-black uppercase px-6">Funcionario</TableHead>
-                                                                            <TableHead className="text-[8px] font-black uppercase">Rol</TableHead>
-                                                                            <TableHead className="text-[8px] font-black uppercase">Estado</TableHead>
-                                                                            <TableHead className="text-right text-[8px] font-black uppercase px-6">Acción</TableHead>
-                                                                        </TableRow>
-                                                                    </TableHeader>
-                                                                    <TableBody>
-                                                                        {dist.users.map(u => (
-                                                                            <TableRow key={u.id} className={cn("hover:bg-primary/5 transition-colors", u.active === false && "bg-amber-50/50")}>
-                                                                                <TableCell className="px-6 py-3">
-                                                                                    <div className="flex flex-col">
-                                                                                        <span className="font-black text-[11px] uppercase text-primary leading-tight">{u.username}</span>
-                                                                                        <span className="text-[9px] font-bold text-muted-foreground uppercase">{u.email}</span>
-                                                                                    </div>
-                                                                                </TableCell>
-                                                                                <TableCell>
-                                                                                    <Badge variant="outline" className="text-[7px] font-black uppercase border-primary/10 bg-primary/5">
-                                                                                        {u.role}
-                                                                                    </Badge>
-                                                                                </TableCell>
-                                                                                <TableCell>
-                                                                                    <div className="flex items-center gap-1.5">
-                                                                                        <div className={cn("h-1.5 w-1.5 rounded-full", u.active !== false ? "bg-green-500" : "bg-destructive")} />
-                                                                                        <span className="text-[8px] font-black uppercase">{u.active !== false ? 'Activo' : 'Inactivo'}</span>
-                                                                                    </div>
-                                                                                </TableCell>
-                                                                                <TableCell className="text-right px-6">
-                                                                                    <div className="flex justify-end gap-2">
-                                                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingUser({...u}); setEditModalOpen(true); }}>
-                                                                                            <Edit className="h-3.5 w-3.5" />
-                                                                                        </Button>
-                                                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => toggleUserStatus(u)}>
-                                                                                            <ShieldAlert className="h-3.5 w-3.5" />
-                                                                                        </Button>
-                                                                                        <AlertDialog>
-                                                                                            <AlertDialogTrigger asChild>
-                                                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
-                                                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                                                </Button>
-                                                                                            </AlertDialogTrigger>
-                                                                                            <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
-                                                                                                <AlertDialogHeader>
-                                                                                                    <AlertDialogTitle className="font-black uppercase">¿ELIMINAR DEFINITIVAMENTE?</AlertDialogTitle>
-                                                                                                    <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground pt-2">
-                                                                                                        Esta acción es irreversible. Se borrará el perfil de {u.username} del sistema central.
-                                                                                                    </AlertDialogDescription>
-                                                                                                </AlertDialogHeader>
-                                                                                                <AlertDialogFooter className="pt-6">
-                                                                                                    <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px] border-2">CANCELAR</AlertDialogCancel>
-                                                                                                    <AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
-                                                                                                        SÍ, ELIMINAR USUARIO
-                                                                                                    </AlertDialogAction>
-                                                                                                </AlertDialogFooter>
-                                                                                            </AlertDialogContent>
-                                                                                        </AlertDialog>
-                                                                                    </div>
-                                                                                </TableCell>
-                                                                            </TableRow>
-                                                                        ))}
-                                                                    </TableBody>
-                                                                </Table>
-                                                            </div>
-                                                        )}
-                                                    </AccordionContent>
-                                                </AccordionItem>
-                                            );
-                                        })}
-                                    </Accordion>
-                                </AccordionContent>
-                            </AccordionItem>
-                        );
-                    })}
+                                                    )}
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        );
+                                    })}
+                                </Accordion>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
                 </Accordion>
             )}
         </div>
       </main>
 
       <Dialog open={isEditModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 border-none shadow-2xl overflow-hidden rounded-2xl">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden rounded-2xl">
           {editingUser && (
-            <form onSubmit={handleUpdateUser} className="flex flex-col h-full bg-white overflow-hidden">
-              <DialogHeader className="p-8 bg-black text-white shrink-0">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-                            <Settings className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <DialogTitle className="text-2xl font-black uppercase leading-none">Editar Perfil</DialogTitle>
-                            <DialogDescription className="text-white/60 font-bold uppercase text-[9px] tracking-widest mt-2">
-                                FUNCIONARIO: {editingUser.username}
-                            </DialogDescription>
-                        </div>
-                    </div>
-                    <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm" 
-                        className="font-black uppercase text-[10px] gap-2 border-white/20 text-white hover:bg-white/10 h-9"
-                        onClick={() => handleApplyCIDEEProfile(true)}
-                    >
-                        <Zap className="h-3.5 w-3.5 fill-white" /> APLICAR PERFIL CIDEE
-                    </Button>
-                </div>
-              </DialogHeader>
-              
-              <ScrollArea className="flex-1">
-                <div className="p-8 space-y-10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Nombre y Apellido</Label>
-                            <Input 
-                                value={editingUser.username} 
-                                onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
-                                className="font-bold h-12 border-2" 
-                            />
-                        </div>
-                        <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase text-primary">Rol</Label>
-                            <Select onValueChange={(v: any) => setEditingUser({...editingUser, role: v})} value={editingUser.role}>
-                                <SelectTrigger className="font-black h-12 border-2 text-[10px] uppercase"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="admin" className="font-black text-[10px]">ADMINISTRADOR</SelectItem>
-                                    <SelectItem value="director" className="font-black text-[10px]">DIRECTOR</SelectItem>
-                                    <SelectItem value="coordinador" className="font-black text-[10px]">COORDINADOR CIDEE</SelectItem>
-                                    <SelectItem value="jefe" className="font-black text-[10px]">JEFE DE OFICINA</SelectItem>
-                                    <SelectItem value="funcionario" className="font-black text-[10px]">FUNCIONARIO</SelectItem>
-                                    <SelectItem value="viewer" className="font-black text-[10px]">SOLO LECTURA</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Departamento</Label>
-                            <Select onValueChange={(v) => setEditingUser({...editingUser, departamento: v, distrito: ''})} value={editingUser.departamento || 'N/A'}>
-                                <SelectTrigger className="font-black h-12 border-2 text-[10px] uppercase"><SelectValue placeholder="Elegir..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="N/A" className="font-black text-[10px]">ALCANCE NACIONAL</SelectItem>
-                                    {departments.map(d => <SelectItem key={d} value={d} className="font-black text-[10px]">{d}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Distrito</Label>
-                            <Select onValueChange={(v) => setEditingUser({...editingUser, distrito: v})} value={editingUser.distrito || 'N/A'} disabled={!editingUser.departamento || editingUser.departamento === 'N/A'}>
-                                <SelectTrigger className="font-black h-12 border-2 text-[10px] uppercase"><SelectValue placeholder="Elegir..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="N/A" className="font-black text-[10px]">TODOS LOS DISTRITOS</SelectItem>
-                                    {datosData?.filter(d => d.departamento === editingUser.departamento).map(d => <SelectItem key={d.distrito} value={d.distrito} className="font-black text-[10px]">{d.distrito}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <Separator />
-
-                    <PermissionMatrix 
-                        userObj={editingUser} 
-                        isEditing={true} 
-                        selectedPerms={selectedPerms}
-                        selectedModules={selectedModules}
-                        onTogglePerm={handleTogglePerm}
-                        onToggleModuleAction={handleToggleModuleAction}
-                        onToggleColumn={handleToggleColumn}
-                    />
-                </div>
-              </ScrollArea>
-              
-              <DialogFooter className="p-8 bg-muted/30 border-t shrink-0">
-                <DialogClose asChild><Button variant="outline" type="button" className="font-black uppercase text-[10px] px-8 h-14">CANCELAR</Button></DialogClose>
-                <Button type="submit" disabled={isSubmitting} className="font-black uppercase text-xs px-12 h-14 flex-1 shadow-xl">
-                    {isSubmitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : "ACTUALIZAR MATRIZ DE PERFIL"}
-                </Button>
-              </DialogFooter>
+            <form onSubmit={handleUpdateUser} className="flex flex-col h-full bg-white">
+              <DialogHeader className="p-8 bg-black text-white shrink-0"><div className="flex justify-between items-center"><div className="flex items-center gap-4"><div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center"><Settings className="h-6 w-6" /></div><div><DialogTitle className="text-2xl font-black uppercase">Editar Perfil</DialogTitle><DialogDescription className="text-white/60 font-bold uppercase text-[9px]">ID: {editingUser.id}</DialogDescription></div></div><Button type="button" variant="outline" size="sm" className="font-black uppercase text-[10px] h-9" onClick={() => handleApplyCIDEEProfile(true)}><Zap className="h-3.5 w-3.5 fill-white" /> PERFIL CIDEE</Button></div></DialogHeader>
+              <ScrollArea className="flex-1"><div className="p-8 space-y-10"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Nombre</Label><Input value={editingUser.username} onChange={(e) => setEditingUser({...editingUser, username: e.target.value})} className="font-bold h-12 border-2" /></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Rol</Label><Select onValueChange={(v: any) => setEditingUser({...editingUser, role: v})} value={editingUser.role}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">ADMIN</SelectItem><SelectItem value="director">DIRECTOR</SelectItem><SelectItem value="coordinador">COORDINADOR</SelectItem><SelectItem value="jefe">JEFE</SelectItem><SelectItem value="funcionario">FUNCIONARIO</SelectItem><SelectItem value="viewer">VIEWER</SelectItem></SelectContent></Select></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Dpto</Label><Select onValueChange={(v) => setEditingUser({...editingUser, departamento: v, distrito: ''})} value={editingUser.departamento || 'N/A'}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="N/A">NACIONAL</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase">Distrito</Label><Select onValueChange={(v) => setEditingUser({...editingUser, distrito: v})} value={editingUser.distrito || 'N/A'} disabled={!editingUser.departamento || editingUser.departamento === 'N/A'}><SelectTrigger className="font-black h-12 border-2 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="N/A">TODOS</SelectItem>{datosData?.filter(d => d.departamento === editingUser.departamento).map(d => <SelectItem key={d.distrito} value={d.distrito}>{d.distrito}</SelectItem>)}</SelectContent></Select></div></div><Separator /><PermissionMatrix userObj={editingUser} isEditing={true} selectedPerms={selectedPerms} selectedModules={selectedModules} onTogglePerm={handleTogglePerm} onToggleModuleAction={handleToggleModuleAction} onToggleColumn={handleToggleColumn} /></div></ScrollArea>
+              <DialogFooter className="p-8 bg-muted/30 border-t"><DialogClose asChild><Button variant="outline" type="button" className="font-black uppercase text-[10px] px-8 h-14">CANCELAR</Button></DialogClose><Button type="submit" disabled={isSubmitting} className="font-black uppercase text-xs h-14 flex-1 shadow-xl">{isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "ACTUALIZAR MATRIZ"}</Button></DialogFooter>
             </form>
           )}
         </DialogContent>
