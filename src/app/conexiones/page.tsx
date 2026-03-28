@@ -1,11 +1,12 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
-import { Loader2, Activity, Globe, Clock, UserCheck, ShieldCheck, MapPin, Trash2, Search, Mail, UserPlus, ShieldAlert } from 'lucide-react';
+import { collection, query, orderBy, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { Loader2, Activity, Globe, Clock, UserCheck, ShieldCheck, MapPin, Trash2, Search, Mail, UserPlus, ShieldAlert, UserX } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { recordAuditLog } from '@/lib/audit';
 
 type PresenceRecord = {
   id: string;
@@ -39,10 +41,6 @@ type PresenceRecord = {
   registration_method?: string;
 };
 
-/**
- * AJUSTE DE TOLERANCIA HORARIA:
- * Se amplía a 75 minutos (1h 15m) para compensar desfases de zona horaria (Paraguay UTC-4 vs Server).
- */
 const ONLINE_THRESHOLD_MS = 4500000;
 
 export default function ConexionesPage() {
@@ -51,6 +49,7 @@ export default function ConexionesPage() {
   const { toast } = useToast();
   const [now, setNow] = useState(Date.now());
   const [searchTerm, setSearchTerm] = useState('');
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30000);
@@ -88,16 +87,39 @@ export default function ConexionesPage() {
     }).length;
   }, [presenceData, now]);
 
-  const handleDeletePresence = (id: string) => {
-    if (!firestore) return;
-    const docRef = doc(firestore, 'presencia', id);
-    deleteDoc(docRef)
-        .then(() => {
-            toast({ title: "Registro removido", description: "La entrada de conexión ha sido borrada manualmente." });
-        })
-        .catch(() => {
-            toast({ variant: 'destructive', title: "Error", description: "No se pudo eliminar el registro." });
+  const handleDeleteIntruder = async (record: PresenceRecord) => {
+    if (!firestore || !currentUser) return;
+    
+    setIsDeleting(record.usuario_id);
+    const batch = writeBatch(firestore);
+    
+    // Eliminar perfil de usuario (Revoca todos los permisos)
+    batch.delete(doc(firestore, 'users', record.usuario_id));
+    
+    // Eliminar registro de presencia
+    batch.delete(doc(firestore, 'presencia', record.usuario_id));
+
+    try {
+        await batch.commit();
+        
+        recordAuditLog(firestore, {
+            usuario_id: currentUser.uid,
+            usuario_nombre: currentUser.profile?.username || currentUser.email || 'Admin',
+            usuario_rol: 'admin',
+            accion: 'BORRAR',
+            modulo: 'seguridad',
+            detalles: `EXPULSIÓN DEFINITIVA de usuario intruso: ${record.email} (${record.username})`
         });
+
+        toast({ 
+            title: "Usuario Expulsado", 
+            description: "Se ha eliminado el perfil y revocado el acceso de forma permanente." 
+        });
+    } catch (e) {
+        toast({ variant: 'destructive', title: "Error", description: "No se pudo completar la expulsión." });
+    } finally {
+        setIsDeleting(null);
+    }
   };
 
   if (isUserLoading || isLoading) {
@@ -262,21 +284,24 @@ export default function ConexionesPage() {
                                         <TableCell className="text-right px-8">
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/40 hover:text-destructive hover:bg-destructive/5 rounded-full">
-                                                        <Trash2 className="h-4 w-4" />
+                                                    <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive/40 hover:text-destructive hover:bg-destructive/5 rounded-full" disabled={isDeleting === record.usuario_id}>
+                                                        {isDeleting === record.usuario_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserX className="h-5 w-5" />}
                                                     </Button>
                                                 </AlertDialogTrigger>
-                                                <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle className="font-black uppercase tracking-tight">¿REMOVER REGISTRO?</AlertDialogTitle>
-                                                        <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground">
-                                                            Esta acción borrará la entrada de conexión de <span className="text-primary">{record.username}</span> del monitor. El registro se volverá a crear automáticamente si el usuario vuelve a navegar en el sistema.
+                                                <AlertDialogContent className="rounded-3xl border-none shadow-2xl p-8">
+                                                    <AlertDialogHeader className="space-y-4">
+                                                        <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto border-4 border-destructive/20">
+                                                            <ShieldAlert className="h-8 w-8 text-destructive" />
+                                                        </div>
+                                                        <AlertDialogTitle className="font-black uppercase tracking-tight text-center text-xl">¿ELIMINAR Y EXPULSAR USUARIO?</AlertDialogTitle>
+                                                        <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground text-center">
+                                                            ADVERTENCIA: Esta acción es definitiva. Se borrará el perfil de <span className="text-primary">{record.username}</span> y se le revocará todo permiso de acceso al sistema de forma inmediata.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
-                                                    <AlertDialogFooter className="mt-6">
-                                                        <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px]">CANCELAR</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeletePresence(record.id)} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8">
-                                                            ELIMINAR ENTRADA
+                                                    <AlertDialogFooter className="mt-8 sm:justify-center gap-4">
+                                                        <AlertDialogCancel className="h-12 rounded-xl font-black uppercase text-[10px] px-8 border-2">CANCELAR</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteIntruder(record)} className="h-12 bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8 shadow-xl">
+                                                            SÍ, EXPULSAR DEFINITIVAMENTE
                                                         </AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>

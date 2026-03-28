@@ -1,8 +1,9 @@
+
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { AlertTriangle, RefreshCw, ShieldAlert, LogOut } from 'lucide-react';
+import { AlertTriangle, RefreshCw, ShieldAlert, LogOut, UserX } from 'lucide-react';
 import { useUser, useFirebase } from '@/firebase';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from '@/components/app-sidebar';
@@ -11,7 +12,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Loading from '@/app/loading';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isUserLoading, userError } = useUser();
+  const { user, isUserLoading, userError, isProfileLoading } = useUser();
   const { auth, firestore } = useFirebase();
   const pathname = usePathname();
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // SISTEMA DE PRESENCIA (HEARTBEAT)
   const updatePresence = useCallback(async () => {
-    if (!user || !firestore) return;
+    if (!user || !firestore || !user.profile) return;
     
     const presenceRef = doc(firestore, 'presencia', user.uid);
     const presenceData = {
@@ -34,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       role: user.profile?.role || 'funcionario',
       departamento: user.profile?.departamento || 'N/A',
       distrito: user.profile?.distrito || 'N/A',
-      registration_method: user.profile?.registration_method || 'no_especificado', // TRANSMISIÓN DE ORIGEN
+      registration_method: user.profile?.registration_method || 'no_especificado',
       ultima_actividad: serverTimestamp(),
       ruta_actual: pathname || '/'
     };
@@ -86,29 +87,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // OPTIMIZACIÓN: Bloqueo de renderizado para rutas privadas si no hay usuario
-  if (!mounted || isUserLoading || (!user && !isPublicRoute)) {
+  // OPTIMIZACIÓN: Bloqueo de renderizado para rutas privadas
+  if (!mounted || isUserLoading || (user && isProfileLoading && !isPublicRoute)) {
     return <Loading />;
   }
 
-  // VALIDACIÓN DE USUARIO ACTIVO
-  const isInactive = user && user.profile?.active === false && !isPublicRoute;
+  // VALIDACIÓN DE USUARIO ACTIVO O ELIMINADO
+  // Si el usuario está autenticado pero no tiene perfil, es un intruso o ha sido expulsado
+  const isRestricted = user && !isPublicRoute && (user.profile?.active === false || !user.profile);
 
-  if (isInactive) {
+  if (isRestricted) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center p-6 bg-muted/10">
         <div className="max-w-md w-full text-center space-y-8 animate-in fade-in zoom-in duration-500">
           <div className="bg-destructive/10 h-24 w-24 rounded-full flex items-center justify-center mx-auto border-4 border-destructive/20">
-            <ShieldAlert className="h-12 w-12 text-destructive" />
+            <UserX className="h-12 w-12 text-destructive" />
           </div>
           <div className="space-y-4">
-            <h1 className="text-3xl font-black uppercase text-primary tracking-tighter leading-none">Acceso Restringido</h1>
+            <h1 className="text-3xl font-black uppercase text-primary tracking-tighter leading-none">Acceso Denegado</h1>
             <div className="p-6 bg-white border-2 border-destructive/20 rounded-2xl shadow-xl">
               <p className="text-sm font-bold uppercase text-muted-foreground leading-relaxed">
-                Su cuenta se encuentra actualmente <span className="text-destructive font-black">INACTIVA</span>.
+                Su cuenta ha sido <span className="text-destructive font-black">EXPULSADA</span> o se encuentra inactiva.
               </p>
               <p className="text-xs font-medium uppercase text-muted-foreground mt-4 leading-relaxed">
-                Por favor, contacte con la Dirección General del Registro Electoral (DGRE) para habilitar su acceso al sistema institucional.
+                El sistema de seguridad ha revocado sus permisos de acceso. Si considera que esto es un error, contacte a la Dirección General.
               </p>
             </div>
           </div>
