@@ -23,7 +23,8 @@ import {
     Landmark, 
     Building2,
     MonitorPlay,
-    ChevronRight
+    ChevronRight,
+    AlertTriangle
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -139,7 +140,7 @@ export default function ConexionesPage() {
     setIsDeleting(record.usuario_id);
     const batch = writeBatch(firestore);
     
-    // Eliminar perfil de usuario (Revoca todos los permisos)
+    // Eliminar perfil de usuario (Revoca todos los permisos y dispara el Kill-Switch)
     batch.delete(doc(firestore, 'users', record.usuario_id));
     
     // Eliminar registro de presencia
@@ -276,7 +277,7 @@ export default function ConexionesPage() {
                                                         <TableRow>
                                                             <TableHead className="text-[9px] font-black uppercase px-8">Estado</TableHead>
                                                             <TableHead className="text-[9px] font-black uppercase">Funcionario / Registro</TableHead>
-                                                            <TableHead className="text-[9px] font-black uppercase">Origen Registro</TableHead>
+                                                            <TableHead className="text-[9px] font-black uppercase text-center">Origen Registro</TableHead>
                                                             <TableHead className="text-[9px] font-black uppercase">Última Actividad</TableHead>
                                                             <TableHead className="text-[9px] font-black uppercase">Sección Actual</TableHead>
                                                             <TableHead className="text-right text-[9px] font-black uppercase px-8">Acción</TableHead>
@@ -286,9 +287,10 @@ export default function ConexionesPage() {
                                                         {dist.items.map((record) => {
                                                             const lastMillis = record.ultima_actividad?.toMillis?.() || 0;
                                                             const isOnline = Math.abs(now - lastMillis) < ONLINE_THRESHOLD_MS;
+                                                            const isAutoRegistered = record.registration_method === 'auto_registro_jefe';
                                                             
                                                             return (
-                                                                <TableRow key={record.id} className="hover:bg-muted/20 transition-colors border-b last:border-0">
+                                                                <TableRow key={record.id} className={cn("hover:bg-muted/20 transition-colors border-b last:border-0", isAutoRegistered && "bg-amber-50/20")}>
                                                                     <TableCell className="px-8 py-6">
                                                                         <div className="flex items-center gap-2">
                                                                             <div className={cn(
@@ -320,18 +322,21 @@ export default function ConexionesPage() {
                                                                             </div>
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell>
+                                                                    <TableCell className="text-center">
                                                                         {record.registration_method === 'auto_registro_jefe' ? (
-                                                                            <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase gap-1.5 py-1 px-3">
-                                                                                <UserPlus className="h-3 w-3" /> AUTO-REGISTRO (JEFE)
-                                                                            </Badge>
+                                                                            <div className="flex flex-col items-center gap-1">
+                                                                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[8px] font-black uppercase gap-1.5 py-1 px-3">
+                                                                                    <AlertTriangle className="h-3 w-3" /> VERIFICACIÓN PENDIENTE
+                                                                                </Badge>
+                                                                                <span className="text-[7px] font-black text-amber-600 uppercase">AUTO-REGISTRO WEB</span>
+                                                                            </div>
                                                                         ) : record.registration_method === 'creado_por_admin' ? (
-                                                                            <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[8px] font-black uppercase gap-1.5 py-1 px-3">
-                                                                                <ShieldCheck className="h-3 w-3" /> CREADO POR ADMIN
+                                                                            <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase gap-1.5 py-1 px-3">
+                                                                                <ShieldCheck className="h-3 w-3" /> PERSONAL VERIFICADO
                                                                             </Badge>
                                                                         ) : (
                                                                             <Badge variant="outline" className="text-muted-foreground/40 border-muted text-[8px] font-black uppercase py-1 px-3">
-                                                                                NO ESPECIFICADO
+                                                                                LEGADO / DESCONOCIDO
                                                                             </Badge>
                                                                         )}
                                                                     </TableCell>
@@ -365,9 +370,9 @@ export default function ConexionesPage() {
                                                                                     <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto border-4 border-destructive/20">
                                                                                         <ShieldAlert className="h-8 w-8 text-destructive" />
                                                                                     </div>
-                                                                                    <AlertDialogTitle className="font-black uppercase tracking-tight text-center text-xl">¿ELIMINAR Y EXPULSAR USUARIO?</AlertDialogTitle>
+                                                                                    <AlertDialogTitle className="font-black uppercase tracking-tight text-center text-xl">¿EXPULSAR USUARIO SOSPECHOSO?</AlertDialogTitle>
                                                                                     <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground text-center">
-                                                                                        ADVERTENCIA: Esta acción es definitiva. Se borrará el perfil de <span className="text-primary font-black">{record.username}</span> y se le revocará todo permiso de acceso al sistema de forma inmediata.
+                                                                                        ADVERTENCIA: Esta acción es definitiva. Se borrará el perfil de <span className="text-primary font-black">{record.username}</span> y se le revocará todo permiso de acceso al sistema de forma inmediata mediante el Kill-Switch institucional.
                                                                                     </AlertDialogDescription>
                                                                                 </AlertDialogHeader>
                                                                                 <AlertDialogFooter className="mt-8 sm:justify-center gap-4">
@@ -397,7 +402,7 @@ export default function ConexionesPage() {
 
         <div className="text-center pb-12 pt-8">
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] opacity-40 italic leading-relaxed">
-                * Monitor de seguridad institucional. La expulsión de usuarios revoca permisos de acceso en tiempo real.
+                * Monitor de seguridad institucional. Los usuarios con insignia ámbar deben ser auditados prioritariamente.
             </p>
         </div>
       </main>

@@ -4,8 +4,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /** 
-     * REGLAS DE SEGURIDAD CIDEE 2026 
-     * Actualizadas para permitir flujo ininterrumpido de Denuncias y Movimientos.
+     * REGLAS DE SEGURIDAD INSTITUCIONAL CIDEE 2026 
+     * Blindaje contra accesos no autorizados y auditoría de perfiles.
      */
 
     function isSignedIn() {
@@ -15,6 +15,11 @@ service cloud.firestore {
     function getUserData() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       return exists(path) ? get(path).data : null;
+    }
+
+    function isActive() {
+      let data = getUserData();
+      return isSignedIn() && data != null && data.active == true;
     }
 
     function isAdmin() {
@@ -27,120 +32,102 @@ service cloud.firestore {
       return isSignedIn() && data != null && data.role == 'director';
     }
 
-    /** Regla para Configuración Global **/
-    match /config/{configId} {
-      allow read: if isSignedIn() || configId == 'reporte_semanal'; 
-      allow write: if isAdmin();
-    }
-
-    /** Regla para Auditoría - Permite registro de logs a todo usuario logueado **/
-    match /auditoria/{logId} {
-      allow read: if isAdmin() || isDirector();
-      allow create: if isSignedIn();
-    }
-
-    /** Regla para Presencia **/
-    match /presencia/{userId} {
-      allow read: if isAdmin() || isDirector();
-      allow write: if isSignedIn() && request.auth.uid == userId;
-    }
-
-    /** Regla para el Padrón Electoral **/
-    match /padron/{document=**} {
-      allow read: if isSignedIn();
-    }
-
-    /** Regla para Personal Operativo **/
-    match /divulgadores/{document=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    /** Regla para Inventario de Máquinas **/
-    match /maquinas/{maquinaId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    /** Reglas Generales de Geografía **/
-    match /datos/{datoId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    /** Gestión de Usuarios **/
+    /** Gestión de Usuarios - Blindaje de Lista **/
     match /users/{userId} {
-      allow get, list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isAdmin() || isDirector();
       allow create: if isAdmin() || (isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'jefe');
       allow update: if (request.auth.uid == userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
-    /** CIDEE - Colecciones Transaccionales (Alta disponibilidad operativa) **/
-    
-    match /anexo-i/{anexoId} {
-      allow read, write: if isSignedIn();
+    /** Regla para el Padrón Electoral - Solo lectura para personal activo **/
+    match /padron/{document=**} {
+      allow read: if isActive();
     }
 
+    /** Monitoreo de Presencia **/
+    match /presencia/{userId} {
+      allow read: if isAdmin() || isDirector();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** CIDEE - Colecciones Transaccionales (Acceso restringido a personal activo) **/
+    
     match /solicitudes-capacitacion/{solicitudId} {
-      allow get: if true; // Habilita carga de datos para ciudadanos externos (Encuesta)
-      allow list, create, update: if isSignedIn();
+      allow get: if true; // Habilitado para ciudadanos que completan encuestas
+      allow list, create, update: if isActive();
       allow delete: if isAdmin();
     }
 
     match /encuestas-satisfaccion/{encuestaId} {
-      allow read: if isSignedIn();
-      allow create: if true; // Ciudadanos sin login pueden responder
-      allow update: if isSignedIn();
+      allow read: if isActive();
+      allow create: if true; // Público
+      allow update: if isActive();
       allow delete: if isAdmin();
     }
 
+    match /anexo-i/{anexoId} {
+      allow read, write: if isActive();
+    }
+
     match /informes-divulgador/{informeId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isActive();
       allow delete: if isAdmin();
     }
 
     match /informes-semanales-anexo-iv/{informeId} {
-      allow read, write: if isSignedIn();
-      allow delete: if isAdmin();
-    }
-
-    match /informes-semanales-registro/{informeId} {
-      allow read, write: if isSignedIn();
-      allow delete: if isAdmin();
-    }
-
-    match /archivos-semanales-registro/{archivoId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isActive();
       allow delete: if isAdmin();
     }
 
     match /movimientos-maquinas/{movimientoId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isActive();
       allow delete: if isAdmin();
     }
 
     match /denuncias-lacres/{denunciaId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isActive();
       allow delete: if isAdmin();
     }
 
-    match /partidos-politicos/{partidoId} {
+    /** Reglas Generales de Configuración y Geografía **/
+    match /datos/{datoId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    match /locales-votacion/{localId} {
+    match /config/{configId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /auditoria/{logId} {
+      allow read: if isAdmin() || isDirector();
+      allow create: if isSignedIn();
+    }
+
+    match /divulgadores/{document=**} {
+      allow read: if isActive();
+      allow write: if isActive();
+    }
+
+    match /maquinas/{maquinaId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /locales-votacion/{localId} {
+      allow read: if isActive();
+      allow write: if isActive();
     }
     
     match /reports/{reportId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isActive();
     }
 
     match /imagenes/{imagenId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isActive();
     }
   }
 }
