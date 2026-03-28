@@ -46,10 +46,10 @@ service cloud.firestore {
       allow read: if isActive();
     }
 
-    /** Monitoreo de Presencia **/
+    /** Monitoreo de Presencia - Corregido para permitir expulsión por Admin **/
     match /presencia/{userId} {
       allow read: if isAdmin() || isDirector();
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
     }
 
     /** CIDEE - Colecciones Transaccionales (Acceso restringido a personal activo) **/
