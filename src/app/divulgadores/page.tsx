@@ -7,7 +7,27 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { UserPlus, Users, Loader2, Edit, Trash2, Search, AlertCircle, UserCircle, MapPin, Landmark, Navigation, FileUp, CheckCircle2, TableIcon, X, AlertTriangle, FileWarning, Filter } from 'lucide-react';
+import { 
+  UserPlus, 
+  Users, 
+  Loader2, 
+  Edit, 
+  Trash2, 
+  Search, 
+  AlertCircle, 
+  UserCircle, 
+  MapPin, 
+  Landmark, 
+  Navigation, 
+  FileUp, 
+  CheckCircle2, 
+  TableIcon, 
+  X, 
+  AlertTriangle, 
+  FileWarning, 
+  Filter,
+  Building2 
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
