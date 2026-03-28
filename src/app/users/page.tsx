@@ -29,7 +29,9 @@ import {
   Building2,
   AlertCircle,
   Zap,
-  Activity
+  Activity,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -444,10 +446,11 @@ export default function UsersPage() {
   
   const toggleUserStatus = (user: UserProfile) => {
     if (!firestore) return;
-    const newStatus = user.active === false;
+    const currentStatus = user.active !== false;
+    const newStatus = !currentStatus;
     const docRef = doc(firestore, 'users', user.id);
     updateDoc(docRef, { active: newStatus })
-      .then(() => toast({ title: 'Estado Actualizado' }))
+      .then(() => toast({ title: newStatus ? 'Usuario Activado' : 'Usuario Desactivado' }))
       .catch((error) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })));
   };
 
@@ -464,7 +467,6 @@ export default function UsersPage() {
     const form = event.currentTarget;
     if (!firestore || !currentUser) return;
 
-    // VALIDACIÓN ESTRICTA DE JURISDICCIÓN PARA ROLES OPERATIVOS
     if (['coordinador', 'jefe', 'funcionario'].includes(regRole) && (!regDepartamento || !regDistrito || regDepartamento === 'N/A')) {
         toast({ 
             variant: 'destructive', 
@@ -625,7 +627,7 @@ export default function UsersPage() {
                             <AccordionTrigger className="hover:no-underline px-8 py-5 bg-white group">
                                 <div className="flex items-center justify-between w-full pr-6 text-left">
                                     <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-lg bg-primary/5 text-primary flex items-center justify-center font-black border border-primary/10"><Landmark className="h-5 w-5" /></div><div><h2 className="text-lg font-black uppercase tracking-tight text-[#1A1A1A]">{dept.name}</h2><p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">{dept.districts.length} OFICINAS</p></div></div>
-                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[8px] font-black uppercase">{dept.districts.reduce((acc, d) => acc + d.users.length, 0)} ACTIVOS</Badge>
+                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[8px] font-black uppercase">{dept.districts.reduce((acc, d) => acc + d.users.length, 0)} PERSONAL ACTIVADO</Badge>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="px-8 pb-8 pt-2">
@@ -641,12 +643,29 @@ export default function UsersPage() {
                                                     {!hasUsers ? <div className="py-10 text-center opacity-30"><UserCircle className="h-10 w-10 mx-auto" /><p className="text-[10px] font-bold uppercase">Sin personal asignado</p></div> : (
                                                         <div className="overflow-x-auto">
                                                             <Table>
-                                                                <TableHeader className="bg-muted/30"><TableRow><TableHead className="text-[8px] font-black uppercase px-6">Funcionario</TableHead><TableHead className="text-[8px] font-black uppercase">Rol</TableHead><TableHead className="text-right text-[8px] font-black uppercase px-6">Acción</TableHead></TableRow></TableHeader>
+                                                                <TableHeader className="bg-muted/30">
+                                                                    <TableRow>
+                                                                        <TableHead className="text-[8px] font-black uppercase px-6">Funcionario</TableHead>
+                                                                        <TableHead className="text-[8px] font-black uppercase">Rol</TableHead>
+                                                                        <TableHead className="text-[8px] font-black uppercase">Estado</TableHead>
+                                                                        <TableHead className="text-right text-[8px] font-black uppercase px-6">Acción</TableHead>
+                                                                    </TableRow>
+                                                                </TableHeader>
                                                                 <TableBody>{dist.users.map(u => (
                                                                     <TableRow key={u.id} className={cn("hover:bg-primary/5", u.active === false && "bg-amber-50/50")}>
                                                                         <TableCell className="px-6 py-3"><div className="flex flex-col"><span className="font-black text-[11px] uppercase text-primary leading-tight">{u.username}</span><span className="text-[9px] font-bold text-muted-foreground">{u.email}</span></div></TableCell>
                                                                         <TableCell><Badge variant="outline" className="text-[7px] font-black uppercase">{u.role}</Badge></TableCell>
-                                                                        <TableCell className="text-right px-6"><div className="flex justify-end gap-2"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingUser({...u}); setEditModalOpen(true); }}><Edit className="h-3.5 w-3.5" /></Button><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => toggleUserStatus(u)}><ShieldAlert className="h-3.5 w-3.5" /></Button><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem]"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿ELIMINAR?</AlertDialogTitle><AlertDialogDescription className="text-xs font-medium uppercase">Se borrará el perfil de {u.username} permanentemente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="pt-6"><AlertDialogCancel className="rounded-xl text-[10px]">CANCELAR</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive text-white rounded-xl text-[10px]">ELIMINAR</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div></TableCell>
+                                                                        <TableCell>
+                                                                            <Badge variant={u.active === false ? "destructive" : "default"} className="text-[7px] font-black uppercase">
+                                                                                {u.active === false ? "INACTIVO" : "ACTIVO"}
+                                                                            </Badge>
+                                                                        </TableCell>
+                                                                        <TableCell className="text-right px-6"><div className="flex justify-end gap-2">
+                                                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingUser({...u}); setEditModalOpen(true); }}><Edit className="h-3.5 w-3.5" /></Button>
+                                                                            <Button variant="ghost" size="icon" className={cn("h-7 w-7", u.active === false ? "text-green-600" : "text-amber-600")} title={u.active === false ? "Activar" : "Desactivar"} onClick={() => toggleUserStatus(u)}>
+                                                                                {u.active === false ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+                                                                            </Button>
+                                                                            <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem]"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase">¿ELIMINAR?</AlertDialogTitle><AlertDialogDescription className="text-xs font-medium uppercase">Se borrará el perfil de {u.username} permanentemente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="pt-6"><AlertDialogCancel className="rounded-xl text-[10px]">CANCELAR</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive text-white rounded-xl text-[10px]">ELIMINAR</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div></TableCell>
                                                                     </TableRow>
                                                                 ))}</TableBody>
                                                             </Table>
