@@ -601,7 +601,11 @@ export default function AgendaAnexoIPage() {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                )}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
       </main>
 
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
