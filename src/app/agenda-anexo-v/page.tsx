@@ -349,7 +349,7 @@ export default function AgendaAnexoVPage() {
         logging: false
       });
       const link = document.createElement('a');
-      const entity = qrSolicitud.solicitante_entidad || qrSolicitud.otra_entidad || 'Solicitud';
+      const entity = qrSolicitud.solicitante_entidad || qrSolicitud.otra_entidad || 'Capacitacion';
       link.download = `QR-${entity.replace(/\s+/g, '-')}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
@@ -367,7 +367,6 @@ export default function AgendaAnexoVPage() {
         const pageWidth = doc.internal.pageSize.getWidth();
         
         doc.addImage(logoBase64, 'PNG', pageWidth/2 - 15, 15, 30, 30);
-        
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
         doc.text("JUSTICIA ELECTORAL", pageWidth/2, 55, { align: 'center' });
@@ -387,9 +386,9 @@ export default function AgendaAnexoVPage() {
         const qrSize = 100;
         doc.addImage(qrBase64, 'PNG', (pageWidth - qrSize)/2, 75, qrSize, qrSize);
 
+        const entity = qrSolicitud.solicitante_entidad || qrSolicitud.otra_entidad;
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        const entity = qrSolicitud.solicitante_entidad || qrSolicitud.otra_entidad || '';
         doc.text(entity.toUpperCase(), pageWidth/2, 190, { align: 'center' });
         
         doc.setFontSize(12);
@@ -413,25 +412,25 @@ export default function AgendaAnexoVPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
-      <Header title="Agenda Anexo V - Solicitudes" />
+      <Header title="Agenda de Capacitaciones" />
       
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-                <h1 className="text-3xl font-black uppercase text-primary">Agenda Solicitudes</h1>
+                <h1 className="text-3xl font-black uppercase text-primary">Agenda de Capacitaciones</h1>
                 <p className="text-muted-foreground text-xs font-bold uppercase mt-1 flex items-center gap-2">
-                    <Activity className="h-4 w-4" /> Seguimiento de pedidos de partidos y organizaciones.
+                    <Activity className="h-4 w-4" /> Seguimiento nacional de actividades registradas.
                 </p>
             </div>
             <div className="bg-white px-4 py-2 rounded-full border border-dashed flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-[#2563EB] animate-pulse" />
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-[9px] font-black uppercase text-muted-foreground">VISTA OPERATIVA</span>
             </div>
         </div>
 
         {groupedData.length === 0 ? (
           <Card className="p-20 text-center border-dashed bg-white rounded-3xl">
-            <p className="font-black text-muted-foreground uppercase tracking-widest opacity-30">No hay solicitudes agendadas en su jurisdicción</p>
+            <p className="font-black text-muted-foreground uppercase tracking-widest opacity-30">No hay actividades agendadas en su jurisdicción</p>
           </Card>
         ) : (
           <Accordion type="multiple" className="space-y-6">
@@ -474,7 +473,7 @@ export default function AgendaAnexoVPage() {
                                         size="sm" 
                                         className="text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 h-8 gap-2"
                                         onClick={() => setDeletingDistrict({ dept: dept.label, dist: dist.label, items: dist.items })}
-                                        title="Eliminar todas las solicitudes de este distrito"
+                                        title="Vaciar todos los registros de este distrito"
                                     >
                                         <Trash2 className="h-3 w-3" /> VACIAR DISTRITO
                                     </Button>
@@ -505,7 +504,7 @@ export default function AgendaAnexoVPage() {
                                                         )}
                                                     </div>
                                                     <p className="font-black text-base uppercase leading-tight text-[#1A1A1A]">{item.solicitante_entidad || item.otra_entidad}</p>
-                                                    <Badge className="bg-[#E2E8F0] text-[#475569] font-black uppercase text-[8px] px-3">{item.tipo_solicitud}</Badge>
+                                                    <Badge className="bg-primary/5 text-primary border-primary/10 font-black uppercase text-[8px] px-3">{item.tipo_solicitud}</Badge>
                                                 </div>
 
                                                 <div className="lg:col-span-3 space-y-4">
@@ -615,7 +614,7 @@ export default function AgendaAnexoVPage() {
       </main>
 
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
+        <DialogContent className="max-w-4xl h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
           {viewingActivity && (
             <div className="flex flex-col h-full bg-white">
                 <div className="bg-black text-white p-8 shrink-0">

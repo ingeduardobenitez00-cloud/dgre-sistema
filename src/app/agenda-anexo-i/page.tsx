@@ -620,7 +620,7 @@ export default function AgendaAnexoIPage() {
       </main>
 
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
+        <DialogContent className="max-w-4xl h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
           {viewingActivity && (
             <div className="flex flex-col h-full bg-white">
                 <div className="bg-black text-white p-8 shrink-0">

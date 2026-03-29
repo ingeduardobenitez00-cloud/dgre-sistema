@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -32,7 +31,8 @@ import {
   PowerOff,
   ShieldAlert,
   Ban,
-  ImageIcon
+  ImageIcon,
+  Clock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -532,7 +532,7 @@ export default function AgendaCapacitacionPage() {
       </main>
 
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
+        <DialogContent className="max-w-4xl h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
           {viewingActivity && (
             <div className="flex flex-col h-full bg-white">
                 <div className="bg-black text-white p-8 shrink-0">
@@ -558,15 +558,15 @@ export default function AgendaCapacitacionPage() {
                     <div className="space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Local</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Building2 className="h-2.5 w-2.5" /> Local</p>
                                 <p className="text-xs font-black uppercase">{viewingActivity.lugar_local}</p>
                             </div>
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Fecha Programada</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> Fecha Programada</p>
                                 <p className="text-xs font-black uppercase">{formatDateToDDMMYYYY(viewingActivity.fecha)}</p>
                             </div>
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Horario Pactado</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> Horario Pactado</p>
                                 <p className="text-xs font-black uppercase">{viewingActivity.hora_desde} A {viewingActivity.hora_hasta} HS</p>
                             </div>
                         </div>
@@ -578,7 +578,7 @@ export default function AgendaCapacitacionPage() {
                                 <Activity className="h-5 w-5 text-primary" />
                                 <h3 className="font-black uppercase text-xs tracking-widest">Trazabilidad Logística</h3>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-10">
                                 {(() => {
                                     const mov = movimientosData?.find(m => m.solicitud_id === viewingActivity.id);
                                     const inf = informesData?.find(i => i.solicitud_id === viewingActivity.id);
