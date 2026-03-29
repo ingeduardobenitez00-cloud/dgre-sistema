@@ -282,7 +282,7 @@ export default function CalendarioCapacitacionesPage() {
                                             className={cn(
                                                 "px-2 py-1.5 rounded-lg border-l-4 cursor-pointer transition-all hover:translate-x-1 shadow-sm text-left mb-1 last:mb-0",
                                                 act.tipo_solicitud === 'divulgacion' ? "bg-blue-50 border-l-blue-600" :
-                                                act.tipo_solicitud === 'capacitacion' ? "bg-purple-50 border-l-purple-600" :
+                                                act.tipo_solicitud === 'capacitacion' ? "bg-blue-50 border-l-blue-600" :
                                                 "bg-green-50 border-l-green-600"
                                             )}
                                         >
@@ -292,8 +292,7 @@ export default function CalendarioCapacitacionesPage() {
                                                 </p>
                                                 <Badge variant="outline" className={cn(
                                                     "text-[5.5px] font-black px-1 py-0 h-3 border-primary/10",
-                                                    isAnexoI ? "bg-green-100 text-green-800" : 
-                                                    act.tipo_solicitud === 'divulgacion' ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
+                                                    isAnexoI ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
                                                 )}>
                                                     {isAnexoI ? 'ANEXO I' : act.tipo_solicitud === 'divulgacion' ? 'DIV. MV' : 'CAP. MM'}
                                                 </Badge>
@@ -320,18 +319,27 @@ export default function CalendarioCapacitacionesPage() {
             </div>
         </Card>
 
-        <div className="flex justify-center gap-8 py-4 px-8 bg-white border-2 rounded-3xl border-dashed">
-            <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-blue-600" />
-                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">DIVULGACIÓN MV</span>
+        {/* LEYENDA INSTITUCIONAL SEGÚN REFERENCIA */}
+        <div className="flex flex-col md:flex-row justify-center items-center gap-12 py-8 px-10 bg-white border-2 rounded-[2.5rem] border-dashed shadow-sm">
+            <div className="flex flex-col items-center gap-3">
+                <span className="text-[11px] font-black uppercase italic tracking-wider text-primary">Solicitudes (ANEXO V)</span>
+                <div className="flex gap-8">
+                    <div className="flex items-center gap-2.5">
+                        <div className="h-3.5 w-3.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">DIVULGACIÓN MV</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                        <div className="h-3.5 w-3.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">CAPACITACIÓN MM</span>
+                    </div>
+                </div>
             </div>
-            <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-purple-600" />
-                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">CAPACITACIÓN MM</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-green-600" />
-                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">LUGAR FIJO (ANEXO I)</span>
+            
+            <div className="h-12 w-px bg-muted hidden md:block" />
+            
+            <div className="flex items-center gap-3">
+                <div className="h-3.5 w-3.5 rounded-full bg-green-600 shadow-[0_0_8px_rgba(22,163,74,0.4)]" />
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">LUGAR FIJO (ANEXO I)</span>
             </div>
         </div>
       </main>
@@ -353,9 +361,7 @@ export default function CalendarioCapacitacionesPage() {
                 <Card key={act.id} className="border-2 rounded-2xl overflow-hidden group hover:border-primary/20 transition-all">
                     <div className={cn(
                         "h-1.5 w-full",
-                        act.tipo_solicitud === 'divulgacion' ? "bg-blue-600" :
-                        act.tipo_solicitud === 'capacitacion' ? "bg-purple-600" :
-                        "bg-green-600"
+                        act.tipo_solicitud === 'Lugar Fijo' ? "bg-green-600" : "bg-blue-600"
                     )} />
                     <CardContent className="p-6 space-y-4">
                         <div className="space-y-1">
