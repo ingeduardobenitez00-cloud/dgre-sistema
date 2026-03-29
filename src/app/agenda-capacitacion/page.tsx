@@ -16,14 +16,12 @@ import {
   QrCode, 
   Building2, 
   Search, 
-  Check, 
   Trash2, 
   Users, 
   MessageSquareHeart, 
   Eye,
   FileText,
   Activity,
-  ClipboardCheck,
   X,
   Copy,
   CheckCircle2,
@@ -31,6 +29,7 @@ import {
   Power,
   PowerOff,
   ShieldAlert,
+  Printer,
   Ban,
   ImageIcon,
   Clock
@@ -334,7 +333,7 @@ export default function AgendaCapacitacionPage() {
             <div>
                 <h1 className="text-3xl font-black uppercase text-primary">Agenda de Capacitaciones</h1>
                 <p className="text-muted-foreground text-xs font-bold uppercase mt-1 flex items-center gap-2">
-                    <ClipboardCheck className="h-4 w-4" /> Seguimiento nacional de actividades registradas.
+                    <Activity className="h-4 w-4" /> Seguimiento nacional de actividades registradas.
                 </p>
             </div>
             <div className="bg-white px-4 py-2 rounded-full border border-dashed flex items-center gap-2">
@@ -658,79 +657,81 @@ export default function AgendaCapacitacionPage() {
       </Dialog>
 
       <Dialog open={!!qrSolicitud} onOpenChange={(o) => !o && setQrSolicitud(null)}>
-        <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
-          <div className="p-8 flex flex-col items-center bg-white space-y-6">
-            <div ref={qrContainerRef} className="flex flex-col items-center bg-white p-8 rounded-[2rem] w-full">
-                {/* Logos Row */}
-                <div className="flex items-center justify-center gap-6 mb-8 w-full">
-                    <img src="/logo.png" alt="Logo 1" width={40} height={40} className="object-contain" />
-                    <img src="/logo1.png" alt="Logo 2" width={40} height={40} className="object-contain" />
-                    <img src="/logo3.png" alt="Logo 3" width={40} height={40} className="object-contain" />
-                </div>
-
-                <div className="p-4 bg-white border-4 border-muted/20 rounded-[3rem] shadow-inner mb-8">
-                    {qrSolicitud && (
-                        <img 
-                            src={qrImageUrl} 
-                            alt="QR" 
-                            width={220} 
-                            height={220} 
-                            className="rounded-[2rem]" 
-                            crossOrigin="anonymous" 
-                        />
-                    )}
-                </div>
-                
-                <div className="text-center space-y-4 w-full">
-                    <div className="space-y-1">
-                        <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE / ENTIDAD</p>
-                        <h3 className="font-black uppercase text-base leading-tight text-primary">
-                            {qrSolicitud?.solicitante_entidad || qrSolicitud?.otra_entidad}
-                        </h3>
+        <DialogContent className="max-w-md max-h-[95vh] rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6 flex flex-col items-center bg-white space-y-4">
+                <div ref={qrContainerRef} className="flex flex-col items-center bg-white p-6 rounded-[2rem] w-full border border-muted/10">
+                    {/* Logos Row */}
+                    <div className="flex items-center justify-center gap-4 mb-6 w-full">
+                        <img src="/logo.png" alt="Logo 1" width={32} height={32} className="object-contain" />
+                        <img src="/logo1.png" alt="Logo 2" width={32} height={32} className="object-contain" />
+                        <img src="/logo3.png" alt="Logo 3" width={32} height={32} className="object-contain" />
                     </div>
 
-                    <div className="h-px bg-muted w-1/3 mx-auto" />
-
-                    <div className="space-y-1">
-                        <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">LOCAL Y DIRECCIÓN</p>
-                        <p className="text-[11px] font-black uppercase text-primary">
-                            {qrSolicitud?.lugar_local}
-                            {qrSolicitud?.direccion_calle ? ` - ${qrSolicitud.direccion_calle}` : ''}
-                        </p>
+                    <div className="p-3 bg-white border-4 border-muted/20 rounded-[2.5rem] shadow-inner mb-6">
+                        {qrSolicitud && (
+                            <img 
+                                src={qrImageUrl} 
+                                alt="QR" 
+                                width={180} 
+                                height={180} 
+                                className="rounded-[1.5rem]" 
+                                crossOrigin="anonymous" 
+                            />
+                        )}
                     </div>
-
-                    <div className="flex justify-center gap-8 pt-2">
-                        <div className="space-y-0.5 text-center">
-                            <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">FECHA</p>
-                            <p className="text-xs font-black text-primary">{formatDateToDDMMYYYY(qrSolicitud?.fecha)}</p>
+                    
+                    <div className="text-center space-y-3 w-full">
+                        <div className="space-y-1">
+                            <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE / ENTIDAD</p>
+                            <h3 className="font-black uppercase text-sm leading-tight text-primary">
+                                {qrSolicitud?.solicitante_entidad || qrSolicitud?.otra_entidad}
+                            </h3>
                         </div>
-                        <div className="space-y-0.5 text-center">
-                            <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">HORARIO</p>
-                            <p className="text-xs font-black text-primary">{qrSolicitud?.hora_desde} A {qrSolicitud?.hora_hasta} HS</p>
+
+                        <div className="h-px bg-muted w-1/4 mx-auto" />
+
+                        <div className="space-y-1">
+                            <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">LOCAL Y DIRECCIÓN</p>
+                            <p className="text-[10px] font-black uppercase text-primary leading-tight px-4">
+                                {qrSolicitud?.lugar_local}
+                                {qrSolicitud?.direccion_calle ? ` - ${qrSolicitud.direccion_calle}` : ''}
+                            </p>
+                        </div>
+
+                        <div className="flex justify-center gap-6 pt-1">
+                            <div className="space-y-0.5 text-center">
+                                <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">FECHA</p>
+                                <p className="text-[10px] font-black text-primary">{formatDateToDDMMYYYY(qrSolicitud?.fecha)}</p>
+                            </div>
+                            <div className="space-y-0.5 text-center">
+                                <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">HORARIO</p>
+                                <p className="text-[10px] font-black text-primary">{qrSolicitud?.hora_desde} A {qrSolicitud?.hora_hasta} HS</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="w-full grid grid-cols-1 gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="h-14 rounded-2xl font-black uppercase text-[9px] border-2 flex flex-col gap-1 items-center justify-center p-2" onClick={copyToClipboard} title="Copiar enlace de encuesta">
-                        <Copy className={cn("h-4 w-4", copied ? "text-green-600" : "text-muted-foreground")} />
-                        <span>COPIAR ENLACE</span>
+                <div className="w-full grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[8px] border-2 flex flex-col gap-1 items-center justify-center p-1" onClick={copyToClipboard} title="Copiar enlace de encuesta">
+                            <Copy className={cn("h-3.5 w-3.5", copied ? "text-green-600" : "text-muted-foreground")} />
+                            <span>COPIAR ENLACE</span>
+                        </Button>
+                        <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[8px] border-2 flex flex-col gap-1 items-center justify-center p-1" onClick={() => {
+                            if (!qrSolicitud) return;
+                            toast({ title: "Generando PDF..." });
+                        }} title="Descargar PDF para imprimir">
+                            <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>IMPRIMIR QR</span>
+                        </Button>
+                    </div>
+                    <Button variant="outline" className="h-12 rounded-xl font-black uppercase text-[8px] border-2 flex flex-col gap-1 items-center justify-center p-1" onClick={handleDownloadPng} title="Generar imagen PNG para WhatsApp">
+                        <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>GENERAR IMAGEN EN PNG</span>
                     </Button>
-                    <Button variant="outline" className="h-14 rounded-2xl font-black uppercase text-[9px] border-2 flex flex-col gap-1 items-center justify-center p-2" onClick={() => {
-                        if (!qrSolicitud) return;
-                        toast({ title: "Generando PDF..." });
-                    }} title="Descargar PDF para imprimir">
-                        <Printer className="h-4 w-4 text-muted-foreground" />
-                        <span>IMPRIMIR QR</span>
-                    </Button>
+                    <Button className="w-full h-12 rounded-xl font-black uppercase text-[10px] bg-black text-white shadow-lg" onClick={() => setQrSolicitud(null)}>CERRAR</Button>
                 </div>
-                <Button variant="outline" className="h-14 rounded-2xl font-black uppercase text-[9px] border-2 flex flex-col gap-1 items-center justify-center p-2" onClick={handleDownloadPng} title="Generar imagen PNG para WhatsApp">
-                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>GENERAR IMAGEN EN PNG</span>
-                </Button>
-                <Button className="w-full h-14 rounded-2xl font-black uppercase text-xs bg-black text-white shadow-xl" onClick={() => setQrSolicitud(null)}>CERRAR</Button>
             </div>
           </div>
         </DialogContent>
