@@ -620,7 +620,7 @@ export default function AgendaAnexoIPage() {
       </main>
 
       <Dialog open={!!viewingActivity} onOpenChange={(o) => !o && setViewingActivity(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
+        <DialogContent className="max-w-4xl h-[90vh] p-0 border-none shadow-2xl overflow-hidden rounded-[2.5rem] flex flex-col">
           {viewingActivity && (
             <div className="flex flex-col h-full bg-white">
                 <div className="bg-black text-white p-8 shrink-0">
@@ -642,7 +642,7 @@ export default function AgendaAnexoIPage() {
                     </DialogHeader>
                 </div>
 
-                <ScrollArea className="flex-1 p-8">
+                <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-black/20">
                     <div className="space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
@@ -705,7 +705,7 @@ export default function AgendaAnexoIPage() {
                             {isLoadingAnexoPadre ? (
                                 <div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
                             ) : anexoPadreData?.foto_respaldo ? (
-                                <div className="relative aspect-video w-full rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted">
+                                <div className="relative aspect-video w-full rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted group">
                                     {anexoPadreData.foto_respaldo.startsWith('data:application/pdf') ? (
                                         <div className="w-full h-full flex flex-col items-center justify-center bg-white">
                                             <FileText className="h-16 w-16 text-primary opacity-20" />
@@ -714,7 +714,7 @@ export default function AgendaAnexoIPage() {
                                     ) : (
                                         <Image src={anexoPadreData.foto_respaldo} alt="Firma Anexo I" fill className="object-cover" />
                                     )}
-                                    <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                         <div className="bg-white/20 backdrop-blur-md p-4 rounded-full">
                                             <Maximize2 className="h-8 w-8 text-white" />
                                         </div>
@@ -766,7 +766,7 @@ export default function AgendaAnexoIPage() {
                             </div>
                         </div>
                     </div>
-                </ScrollArea>
+                </div>
             </div>
           )}
         </DialogContent>
