@@ -6,7 +6,7 @@ import Header from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { type SolicitudCapacitacion } from '@/lib/data';
+import { type SolicitudCapacitacion, type Dato } from '@/lib/data';
 import { 
   Loader2, 
   ChevronLeft, 
@@ -17,7 +17,9 @@ import {
   Info,
   Building2,
   Users,
-  Printer
+  Printer,
+  FileText,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,7 +55,7 @@ export default function CalendarioCapacitacionesPage() {
 
   const profile = user?.profile;
 
-  // Lógica de filtrado por jurisdicción (Consistente con agendas)
+  // Lógica de filtrado por jurisdicción
   const hasAdminFilter = useMemo(() => 
     ['admin', 'director', 'coordinador'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
     [profile]
@@ -73,7 +75,6 @@ export default function CalendarioCapacitacionesPage() {
     if (!firestore || isUserLoading || !profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
     
-    // Rango del mes actual para optimizar la consulta
     const start = format(startOfWeek(startOfMonth(currentMonth)), 'yyyy-MM-dd');
     const end = format(endOfWeek(endOfMonth(currentMonth)), 'yyyy-MM-dd');
 
@@ -89,10 +90,13 @@ export default function CalendarioCapacitacionesPage() {
 
   const { data: activities, isLoading: isLoadingActivities } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
 
+  const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
+  const { data: datosData } = useCollection<Dato>(datosQuery);
+
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 }); // Domingo
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 });
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
 
     return eachDayOfInterval({ start: startDate, end: endDate });
@@ -179,29 +183,43 @@ export default function CalendarioCapacitacionesPage() {
                             </div>
 
                             <div className="space-y-1.5 overflow-hidden">
-                                {dayActivities.slice(0, 4).map((act) => (
-                                    <div 
-                                        key={act.id} 
-                                        onClick={() => setSelectedDayActivities(dayActivities)}
-                                        className={cn(
-                                            "px-2 py-1.5 rounded-lg border-l-4 cursor-pointer transition-all hover:translate-x-1 shadow-sm text-left",
-                                            act.tipo_solicitud === 'divulgacion' ? "bg-blue-50 border-l-blue-600" :
-                                            act.tipo_solicitud === 'capacitacion' ? "bg-purple-50 border-l-purple-600" :
-                                            "bg-green-50 border-l-green-600"
-                                        )}
-                                    >
-                                        <p className="text-[7px] font-bold text-primary/60 uppercase truncate">
-                                            {act.distrito}
-                                        </p>
-                                        <p className="text-[8px] font-black uppercase truncate text-[#1A1A1A] leading-tight">
-                                            {act.lugar_local}
-                                        </p>
-                                        <div className="flex items-center gap-1 mt-0.5 opacity-60">
-                                            <Clock className="h-2 w-2" />
-                                            <span className="text-[7px] font-bold uppercase">{act.hora_desde} A {act.hora_hasta} HS</span>
+                                {dayActivities.slice(0, 4).map((act) => {
+                                    const dato = datosData?.find(d => d.departamento === act.departamento && d.distrito === act.distrito);
+                                    const deptCode = dato?.departamento_codigo || '00';
+                                    const isAnexoI = act.tipo_solicitud === 'Lugar Fijo';
+
+                                    return (
+                                        <div 
+                                            key={act.id} 
+                                            onClick={() => setSelectedDayActivities(dayActivities)}
+                                            className={cn(
+                                                "px-2 py-1.5 rounded-lg border-l-4 cursor-pointer transition-all hover:translate-x-1 shadow-sm text-left mb-1 last:mb-0",
+                                                act.tipo_solicitud === 'divulgacion' ? "bg-blue-50 border-l-blue-600" :
+                                                act.tipo_solicitud === 'capacitacion' ? "bg-purple-50 border-l-purple-600" :
+                                                "bg-green-50 border-l-green-600"
+                                            )}
+                                        >
+                                            <div className="flex justify-between items-start gap-1">
+                                                <p className="text-[6.5px] font-black text-primary/60 uppercase truncate">
+                                                    {deptCode} - 00 - 00 {act.distrito}
+                                                </p>
+                                                <Badge variant="outline" className={cn(
+                                                    "text-[5.5px] font-black px-1 py-0 h-3 border-primary/10",
+                                                    isAnexoI ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
+                                                )}>
+                                                    {isAnexoI ? 'ANEXO I' : 'ANEXO V'}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[8px] font-black uppercase truncate text-[#1A1A1A] leading-tight mt-0.5">
+                                                {act.lugar_local}
+                                            </p>
+                                            <div className="flex items-center gap-1 mt-0.5 opacity-60">
+                                                <Clock className="h-2 w-2" />
+                                                <span className="text-[6.5px] font-bold uppercase">{act.hora_desde} A {act.hora_hasta} HS</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                                 {dayActivities.length > 4 && (
                                     <p className="text-[8px] font-black text-center text-muted-foreground uppercase py-1">
                                         + {dayActivities.length - 4} actividades
@@ -225,7 +243,7 @@ export default function CalendarioCapacitacionesPage() {
             </div>
             <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-green-600" />
-                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Lugar Fijo</span>
+                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Lugar Fijo (Anexo I)</span>
             </div>
         </div>
       </main>
@@ -253,9 +271,17 @@ export default function CalendarioCapacitacionesPage() {
                     )} />
                     <CardContent className="p-6 space-y-4">
                         <div className="space-y-1">
-                            <Badge variant="secondary" className="font-black text-[8px] uppercase tracking-widest bg-muted/50">
-                                {act.tipo_solicitud}
-                            </Badge>
+                            <div className="flex items-center justify-between mb-2">
+                                <Badge variant="secondary" className="font-black text-[8px] uppercase tracking-widest bg-muted/50">
+                                    {act.tipo_solicitud}
+                                </Badge>
+                                <Badge className={cn(
+                                    "text-[8px] font-black uppercase",
+                                    act.tipo_solicitud === 'Lugar Fijo' ? "bg-green-600" : "bg-blue-600"
+                                )}>
+                                    {act.tipo_solicitud === 'Lugar Fijo' ? 'ANEXO I' : 'ANEXO V'}
+                                </Badge>
+                            </div>
                             <h4 className="text-sm font-black uppercase leading-tight text-primary">{act.lugar_local}</h4>
                         </div>
 
