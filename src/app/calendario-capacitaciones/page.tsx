@@ -19,7 +19,10 @@ import {
   Users,
   Printer,
   FileText,
-  ClipboardCheck
+  ClipboardCheck,
+  Search,
+  Filter,
+  Landmark
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +48,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from 'next/link';
 
 export default function CalendarioCapacitacionesPage() {
@@ -52,6 +62,10 @@ export default function CalendarioCapacitacionesPage() {
   const { firestore } = useFirebase();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDayActivities, setSelectedDayActivities] = useState<SolicitudCapacitacion[] | null>(null);
+
+  // Estados de Filtro para Admin
+  const [filterDept, setFilterDept] = useState<string>('all');
+  const [filterDist, setFilterDist] = useState<string>('all');
 
   const profile = user?.profile;
 
@@ -79,19 +93,38 @@ export default function CalendarioCapacitacionesPage() {
     const end = format(endOfWeek(endOfMonth(currentMonth)), 'yyyy-MM-dd');
 
     let q;
-    if (hasAdminFilter) q = colRef;
+    if (hasAdminFilter) {
+        if (filterDept !== 'all') {
+            q = query(colRef, where('departamento', '==', filterDept));
+            if (filterDist !== 'all') {
+                q = query(q, where('distrito', '==', filterDist));
+            }
+        } else {
+            q = colRef;
+        }
+    }
     else if (hasDeptFilter && profile.departamento) q = query(colRef, where('departamento', '==', profile.departamento));
     else if (hasDistFilter && profile.departamento && profile.distrito) {
         q = query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
     } else return null;
 
     return query(q, where('fecha', '>=', start), where('fecha', '<=', end));
-  }, [firestore, isUserLoading, profile, currentMonth, hasAdminFilter, hasDeptFilter, hasDistFilter]);
+  }, [firestore, isUserLoading, profile, currentMonth, hasAdminFilter, hasDeptFilter, hasDistFilter, filterDept, filterDist]);
 
   const { data: activities, isLoading: isLoadingActivities } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
   const { data: datosData } = useCollection<Dato>(datosQuery);
+
+  const departments = useMemo(() => {
+    if (!datosData) return [];
+    return [...new Set(datosData.map(d => d.departamento))].sort();
+  }, [datosData]);
+
+  const districts = useMemo(() => {
+    if (!datosData || filterDept === 'all') return [];
+    return [...new Set(datosData.filter(d => d.departamento === filterDept).map(d => d.distrito))].sort();
+  }, [datosData, filterDept]);
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
@@ -115,7 +148,7 @@ export default function CalendarioCapacitacionesPage() {
       
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
         
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-4">
             <div className="flex items-center gap-4">
                 <div className="bg-black text-white p-3 rounded-2xl shadow-xl">
                     <CalendarIcon className="h-6 w-6" />
@@ -123,23 +156,52 @@ export default function CalendarioCapacitacionesPage() {
                 <div>
                     <h1 className="text-3xl font-black uppercase text-primary tracking-tighter leading-none">Calendario Mensual</h1>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 tracking-widest flex items-center gap-2">
-                        Jurisdicción: {hasAdminFilter ? "NACIONAL" : profile?.distrito || profile?.departamento}
+                        Jurisdicción: {hasAdminFilter ? (filterDept === 'all' ? "NACIONAL" : filterDist === 'all' ? filterDept : `${filterDist} - ${filterDept}`) : profile?.distrito || profile?.departamento}
                     </p>
                 </div>
             </div>
 
-            <div className="flex items-center gap-4 bg-white border-2 rounded-2xl p-2 shadow-sm">
-                <Button variant="ghost" size="icon" onClick={prevMonth} className="h-10 w-10 rounded-xl hover:bg-muted">
-                    <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <div className="min-w-[180px] text-center">
-                    <h2 className="text-lg font-black uppercase tracking-tight">
-                        {format(currentMonth, 'MMMM yyyy', { locale: es })}
-                    </h2>
+            <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                {hasAdminFilter && (
+                    <div className="flex items-center gap-2 bg-white border-2 rounded-2xl p-2 shadow-sm w-full md:w-auto">
+                        <div className="flex items-center gap-2 px-2 border-r pr-4">
+                            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-[9px] font-black uppercase text-muted-foreground">Filtros</span>
+                        </div>
+                        <Select value={filterDept} onValueChange={(v) => { setFilterDept(v); setFilterDist('all'); }}>
+                            <SelectTrigger className="h-9 w-[140px] text-[10px] font-bold uppercase border-none focus:ring-0">
+                                <SelectValue placeholder="Dpto: Todos" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">DPTO: TODOS</SelectItem>
+                                {departments.map(d => <SelectItem key={d} value={d} className="text-[10px] font-bold uppercase">{d}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Select value={filterDist} onValueChange={setFilterDist} disabled={filterDept === 'all'}>
+                            <SelectTrigger className="h-9 w-[140px] text-[10px] font-bold uppercase border-none focus:ring-0">
+                                <SelectValue placeholder="Dist: Todos" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">DIST: TODOS</SelectItem>
+                                {districts.map(d => <SelectItem key={d} value={d} className="text-[10px] font-bold uppercase">{d}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-4 bg-white border-2 rounded-2xl p-2 shadow-sm">
+                    <Button variant="ghost" size="icon" onClick={prevMonth} className="h-9 w-9 rounded-xl hover:bg-muted">
+                        <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <div className="min-w-[140px] text-center">
+                        <h2 className="text-sm font-black uppercase tracking-tight">
+                            {format(currentMonth, 'MMMM yyyy', { locale: es })}
+                        </h2>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={nextMonth} className="h-9 w-9 rounded-xl hover:bg-muted">
+                        <ChevronRight className="h-5 w-5" />
+                    </Button>
                 </div>
-                <Button variant="ghost" size="icon" onClick={nextMonth} className="h-10 w-10 rounded-xl hover:bg-muted">
-                    <ChevronRight className="h-5 w-5" />
-                </Button>
             </div>
         </div>
 
