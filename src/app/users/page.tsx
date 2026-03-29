@@ -324,7 +324,9 @@ export default function UsersPage() {
     return users.filter(u => 
       u.username.toLowerCase().includes(term) || 
       u.email.toLowerCase().includes(term) || 
-      u.role.toLowerCase().includes(term)
+      u.role.toLowerCase().includes(term) ||
+      (u.distrito && u.distrito.toLowerCase().includes(term)) ||
+      (u.departamento && u.departamento.toLowerCase().includes(term))
     ).sort((a,b) => a.username.localeCompare(b.username));
   }, [users, searchTerm]);
 
@@ -333,6 +335,7 @@ export default function UsersPage() {
     const term = searchTerm.toLowerCase().trim();
     const depts: Record<string, { name: string, districts: Record<string, { name: string, users: UserProfile[] }> }> = {};
 
+    // Inicializar departamentos y distritos del maestro de geografía
     datosData.forEach(d => {
       if (!depts[d.departamento]) depts[d.departamento] = { name: d.departamento, districts: {} };
       if (!depts[d.departamento].districts[d.distrito]) {
@@ -340,24 +343,32 @@ export default function UsersPage() {
       }
     });
 
+    // Mapear usuarios filtrados a sus respectivos departamentos y distritos
     filteredUsers.forEach(u => {
       const deptName = u.departamento || 'ALCANCE NACIONAL';
       const distName = u.distrito || 'TODOS LOS DISTRITOS';
 
-      if (depts[deptName]) {
-        if (!depts[deptName].districts[distName]) depts[deptName].districts[distName] = { name: distName, users: [] };
-        depts[deptName].districts[distName].users.push(u);
-      }
+      if (!depts[deptName]) depts[deptName] = { name: deptName, districts: {} };
+      if (!depts[deptName].districts[distName]) depts[deptName].districts[distName] = { name: distName, users: [] };
+      depts[deptName].districts[distName].users.push(u);
     });
 
+    // Filtrar la jerarquía para que sea "directa" al buscar
     return Object.values(depts)
       .map(dept => ({
         ...dept,
-        districts: Object.values(dept.districts).sort((a, b) => a.name.localeCompare(b.name))
+        districts: Object.values(dept.districts)
+          .filter(d => {
+            if (!term) return d.users.length > 0; // Por defecto mostrar solo distritos con usuarios
+            // Si hay búsqueda, mostrar si el distrito coincide o si tiene usuarios que coinciden
+            return d.name.toLowerCase().includes(term) || d.users.length > 0;
+          })
+          .sort((a, b) => a.name.localeCompare(b.name))
       }))
       .filter(dept => {
-        if (!term) return true;
-        return dept.name.toLowerCase().includes(term) || dept.districts.some(d => d.users.length > 0);
+        if (!term) return dept.districts.length > 0;
+        // Si hay búsqueda, mostrar si el departamento coincide o si tiene distritos válidos después del filtro
+        return dept.name.toLowerCase().includes(term) || dept.districts.length > 0;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [datosData, filteredUsers, searchTerm]);
@@ -599,7 +610,7 @@ export default function UsersPage() {
                 </div>
                 <div className="relative w-full md:w-80">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
-                    <Input placeholder="Buscar por nombre, email o zona..." className="h-10 pl-10 text-[10px] font-bold bg-white/10 border-white/20 text-white rounded-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    <Input placeholder="Buscar por nombre, distrito o dpto..." className="h-10 pl-10 text-[10px] font-bold bg-white/10 border-white/20 text-white rounded-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                 </div>
             </div>
 
@@ -615,7 +626,7 @@ export default function UsersPage() {
                                         </div>
                                         <div>
                                             <h2 className="text-lg font-black uppercase tracking-tight text-[#1A1A1A]">{dept.name}</h2>
-                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">{dept.districts.length} OFICINAS</p>
+                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">{dept.districts.length} OFICINAS ACTIVAS</p>
                                         </div>
                                     </div>
                                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[8px] font-black uppercase">{dept.districts.reduce((acc, d) => acc + d.users.length, 0)} TOTAL</Badge>
@@ -624,8 +635,6 @@ export default function UsersPage() {
                             <AccordionContent className="px-8 pb-8 pt-2">
                                 <Accordion type="multiple" className="space-y-3 pt-4">
                                     {dept.districts.map((dist) => {
-                                        const hasUsers = dist.users.length > 0;
-                                        if (!hasUsers) return null;
                                         return (
                                             <AccordionItem key={dist.name} value={dist.name} className="border-2 rounded-xl overflow-hidden transition-all hover:border-primary/10">
                                                 <AccordionTrigger className="hover:no-underline px-6 py-3 bg-muted/5 group">
