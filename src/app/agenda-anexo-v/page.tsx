@@ -31,7 +31,11 @@ import {
   ShieldAlert,
   Printer,
   Ban,
-  ImageIcon
+  ImageIcon,
+  Navigation,
+  User,
+  Phone,
+  Maximize2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -622,7 +626,7 @@ export default function AgendaAnexoVPage() {
                                     <FileText className="h-6 w-6" />
                                 </div>
                                 <div>
-                                    <DialogTitle className="text-2xl font-black uppercase leading-none tracking-tight">FICHA DE SOLICITUD ANEXO V</DialogTitle>
+                                    <DialogTitle className="text-2xl font-black uppercase leading-none tracking-tight">FICHA DE SOLITUD ANEXO V</DialogTitle>
                                     <DialogDescription className="text-white/60 font-bold uppercase text-[10px] mt-2 tracking-widest">
                                         ID DE CONTROL: {viewingActivity.id}
                                     </DialogDescription>
@@ -637,17 +641,99 @@ export default function AgendaAnexoVPage() {
                     <div className="space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Solicitante</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Building2 className="h-2.5 w-2.5" /> Solicitante</p>
                                 <p className="text-xs font-black uppercase">{viewingActivity.solicitante_entidad || viewingActivity.otra_entidad}</p>
                             </div>
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Fecha Programada</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> Fecha Programada</p>
                                 <p className="text-xs font-black uppercase">{formatDateToDDMMYYYY(viewingActivity.fecha)}</p>
                             </div>
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Horario Pactado</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> Horario Pactado</p>
                                 <p className="text-xs font-black uppercase">{viewingActivity.hora_desde} A {viewingActivity.hora_hasta} HS</p>
                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><MapPin className="h-2.5 w-2.5" /> Local y Dirección</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.lugar_local} - {viewingActivity.direccion_calle || 'S/D'} {viewingActivity.barrio_compania ? ` (${viewingActivity.barrio_compania})` : ''}</p>
+                            </div>
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Navigation className="h-2.5 w-2.5" /> Coordenadas GPS</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.gps || 'S/D'}</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><User className="h-2.5 w-2.5" /> Responsable Partido</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.nombre_completo}</p>
+                            </div>
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase">Cédula Solicitante</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.cedula || 'S/D'}</p>
+                            </div>
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Phone className="h-2.5 w-2.5" /> Teléfono</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.telefono || 'S/D'}</p>
+                            </div>
+                        </div>
+
+                        <Separator className="border-dashed" />
+
+                        {/* SECCIÓN DE PERSONAL ASIGNADO */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <Users className="h-5 w-5 text-primary" />
+                                <h3 className="font-black uppercase text-xs tracking-widest">Personal Operativo (Divulgadores)</h3>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {(viewingActivity.divulgadores || viewingActivity.asignados || []).map(p => (
+                                    <div key={p.id} className="p-4 border-2 rounded-2xl flex items-center gap-3 bg-white shadow-sm">
+                                        <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center">
+                                            <User className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase leading-none">{p.nombre}</p>
+                                            <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">C.I. {p.cedula} | {p.vinculo}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(viewingActivity.divulgadores || viewingActivity.asignados || []).length === 0 && (
+                                    <p className="text-xs font-bold text-destructive uppercase italic">Sin personal asignado para esta actividad.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* SECCIÓN DE RESPALDO DOCUMENTAL */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <ImageIcon className="h-5 w-5 text-primary" />
+                                <h3 className="font-black uppercase text-xs tracking-widest">Respaldo Documental (Firma)</h3>
+                            </div>
+                            {viewingActivity.foto_firma ? (
+                                <div className="relative aspect-video w-full rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted">
+                                    {viewingActivity.foto_firma.startsWith('data:application/pdf') ? (
+                                        <div className="w-full h-full flex flex-col items-center justify-center bg-white">
+                                            <FileText className="h-16 w-16 text-primary opacity-20" />
+                                            <p className="text-[10px] font-black uppercase mt-2">Documento PDF Guardado</p>
+                                        </div>
+                                    ) : (
+                                        <Image src={viewingActivity.foto_firma} alt="Firma Solicitante" fill className="object-cover" />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <div className="bg-white/20 backdrop-blur-md p-4 rounded-full">
+                                            <Maximize2 className="h-8 w-8 text-white" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-10 border-2 border-dashed rounded-3xl text-center opacity-30">
+                                    <ImageIcon className="h-10 w-10 mx-auto mb-2" />
+                                    <p className="text-[10px] font-black uppercase">Sin respaldo visual registrado</p>
+                                </div>
+                            )}
                         </div>
 
                         <Separator className="border-dashed" />
@@ -657,7 +743,7 @@ export default function AgendaAnexoVPage() {
                                 <Activity className="h-5 w-5 text-primary" />
                                 <h3 className="font-black uppercase text-xs tracking-widest">Trazabilidad Logística</h3>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-10">
                                 {(() => {
                                     const mov = movimientosData?.find(m => m.solicitud_id === viewingActivity.id);
                                     const inf = informesData?.find(i => i.solicitud_id === viewingActivity.id);

@@ -5,9 +5,9 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
-import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
-import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador, type EncuestaSatisfaccion } from '@/lib/data';
+import { type SolicitudCapacitacion, type Dato, type Divulgador, type MovimientoMaquina, type InformeDivulgador, type EncuestaSatisfaccion, type AnexoI } from '@/lib/data';
 import { 
   Loader2, 
   MapPin, 
@@ -31,7 +31,10 @@ import {
   ShieldAlert,
   Printer,
   Ban,
-  ImageIcon
+  ImageIcon,
+  Navigation,
+  User,
+  Maximize2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -80,6 +83,14 @@ export default function AgendaAnexoIPage() {
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
   const profile = user?.profile;
+
+  // Cargar el documento AnexoI padre para ver la firma cuando se visualiza la ficha
+  const anexoPadreRef = useMemoFirebase(() => {
+    if (!firestore || !viewingActivity?.anexo_id) return null;
+    return doc(firestore, 'anexo-i', viewingActivity.anexo_id);
+  }, [firestore, viewingActivity?.anexo_id]);
+
+  const { data: anexoPadreData, isLoading: isLoadingAnexoPadre } = useDoc<AnexoI>(anexoPadreRef);
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -635,17 +646,86 @@ export default function AgendaAnexoIPage() {
                     <div className="space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Local</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Building2 className="h-2.5 w-2.5" /> Local</p>
                                 <p className="text-xs font-black uppercase">{viewingActivity.lugar_local}</p>
                             </div>
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Fecha Programada</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> Fecha Programada</p>
                                 <p className="text-xs font-black uppercase">{formatDateToDDMMYYYY(viewingActivity.fecha)}</p>
                             </div>
                             <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
-                                <p className="text-[8px] font-black text-muted-foreground uppercase">Horario Pactado</p>
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> Horario Pactado</p>
                                 <p className="text-xs font-black uppercase">{viewingActivity.hora_desde} A {viewingActivity.hora_hasta} HS</p>
                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><MapPin className="h-2.5 w-2.5" /> Dirección</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.direccion_calle || 'S/D'} {viewingActivity.barrio_compania ? ` - ${viewingActivity.barrio_compania}` : ''}</p>
+                            </div>
+                            <div className="space-y-1 p-4 bg-muted/20 rounded-2xl border">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Navigation className="h-2.5 w-2.5" /> Coordenadas GPS</p>
+                                <p className="text-xs font-black uppercase">{viewingActivity.gps || 'S/D'}</p>
+                            </div>
+                        </div>
+
+                        <Separator className="border-dashed" />
+
+                        {/* SECCIÓN DE PERSONAL ASIGNADO */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <Users className="h-5 w-5 text-primary" />
+                                <h3 className="font-black uppercase text-xs tracking-widest">Personal Operativo</h3>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {(viewingActivity.divulgadores || viewingActivity.asignados || []).map(p => (
+                                    <div key={p.id} className="p-4 border-2 rounded-2xl flex items-center gap-3 bg-white shadow-sm">
+                                        <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center">
+                                            <User className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase leading-none">{p.nombre}</p>
+                                            <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">C.I. {p.cedula} | {p.vinculo}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(viewingActivity.divulgadores || viewingActivity.asignados || []).length === 0 && (
+                                    <p className="text-xs font-bold text-destructive uppercase italic">Sin personal asignado para esta actividad.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* SECCIÓN DE RESPALDO DOCUMENTAL */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <ImageIcon className="h-5 w-5 text-primary" />
+                                <h3 className="font-black uppercase text-xs tracking-widest">Respaldo Documental (Lote)</h3>
+                            </div>
+                            {isLoadingAnexoPadre ? (
+                                <div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                            ) : anexoPadreData?.foto_respaldo ? (
+                                <div className="relative aspect-video w-full rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted">
+                                    {anexoPadreData.foto_respaldo.startsWith('data:application/pdf') ? (
+                                        <div className="w-full h-full flex flex-col items-center justify-center bg-white">
+                                            <FileText className="h-16 w-16 text-primary opacity-20" />
+                                            <p className="text-[10px] font-black uppercase mt-2">Documento PDF Guardado</p>
+                                        </div>
+                                    ) : (
+                                        <Image src={anexoPadreData.foto_respaldo} alt="Firma Anexo I" fill className="object-cover" />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <div className="bg-white/20 backdrop-blur-md p-4 rounded-full">
+                                            <Maximize2 className="h-8 w-8 text-white" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-10 border-2 border-dashed rounded-3xl text-center opacity-30">
+                                    <ImageIcon className="h-10 w-10 mx-auto mb-2" />
+                                    <p className="text-[10px] font-black uppercase">Sin respaldo visual registrado en el lote</p>
+                                </div>
+                            )}
                         </div>
 
                         <Separator className="border-dashed" />
@@ -655,7 +735,7 @@ export default function AgendaAnexoIPage() {
                                 <Activity className="h-5 w-5 text-primary" />
                                 <h3 className="font-black uppercase text-xs tracking-widest">Trazabilidad Logística</h3>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-10">
                                 {(() => {
                                     const mov = movimientosData?.find(m => m.solicitud_id === viewingActivity.id);
                                     const inf = informesData?.find(i => i.solicitud_id === viewingActivity.id);
