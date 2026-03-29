@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -62,6 +63,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { ImageViewerDialog } from '@/components/image-viewer-dialog';
 
 export default function AgendaAnexoVPage() {
   const { user, isUserLoading } = useUser();
@@ -80,6 +82,7 @@ export default function AgendaAnexoVPage() {
   const [divulSearch, setDivulSearch] = useState('');
   const [copied, setCopied] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [fullViewerImage, setFullViewerImage] = useState<string | null>(null);
 
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
@@ -367,6 +370,7 @@ export default function AgendaAnexoVPage() {
         const pageWidth = doc.internal.pageSize.getWidth();
         
         doc.addImage(logoBase64, 'PNG', pageWidth/2 - 15, 15, 30, 30);
+        
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
         doc.text("JUSTICIA ELECTORAL", pageWidth/2, 55, { align: 'center' });
@@ -712,7 +716,10 @@ export default function AgendaAnexoVPage() {
                                 <h3 className="font-black uppercase text-xs tracking-widest">Respaldo Documental (Firma)</h3>
                             </div>
                             {viewingActivity.foto_firma ? (
-                                <div className="relative aspect-video w-full rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted group">
+                                <div 
+                                    className="relative aspect-video w-full rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted group cursor-pointer"
+                                    onClick={() => viewingActivity.foto_firma && !viewingActivity.foto_firma.startsWith('data:application/pdf') && setFullViewerImage(viewingActivity.foto_firma)}
+                                >
                                     {viewingActivity.foto_firma.startsWith('data:application/pdf') ? (
                                         <div className="w-full h-full flex flex-col items-center justify-center bg-white">
                                             <FileText className="h-16 w-16 text-primary opacity-20" />
@@ -721,11 +728,13 @@ export default function AgendaAnexoVPage() {
                                     ) : (
                                         <Image src={viewingActivity.foto_firma} alt="Firma Solicitante" fill className="object-cover" />
                                     )}
-                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <div className="bg-white/20 backdrop-blur-md p-4 rounded-full">
-                                            <Maximize2 className="h-8 w-8 text-white" />
+                                    {!viewingActivity.foto_firma.startsWith('data:application/pdf') && (
+                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <div className="bg-white/20 backdrop-blur-md p-4 rounded-full">
+                                                <Maximize2 className="h-8 w-8 text-white" />
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="p-10 border-2 border-dashed rounded-3xl text-center opacity-30">
@@ -927,6 +936,12 @@ export default function AgendaAnexoVPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImageViewerDialog 
+        isOpen={!!fullViewerImage}
+        onOpenChange={(o) => !o && setFullViewerImage(null)}
+        image={fullViewerImage}
+      />
     </div>
   );
 }

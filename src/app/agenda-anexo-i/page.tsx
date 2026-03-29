@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -61,6 +62,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { ImageViewerDialog } from '@/components/image-viewer-dialog';
 
 export default function AgendaAnexoIPage() {
   const { user, isUserLoading } = useUser();
@@ -79,6 +81,7 @@ export default function AgendaAnexoIPage() {
   const [divulSearch, setDivulSearch] = useState('');
   const [copied, setCopied] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [fullViewerImage, setFullViewerImage] = useState<string | null>(null);
 
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
@@ -705,7 +708,10 @@ export default function AgendaAnexoIPage() {
                             {isLoadingAnexoPadre ? (
                                 <div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
                             ) : anexoPadreData?.foto_respaldo ? (
-                                <div className="relative aspect-video w-full rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted group">
+                                <div 
+                                    className="relative aspect-video w-full rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted group cursor-pointer"
+                                    onClick={() => anexoPadreData.foto_respaldo && !anexoPadreData.foto_respaldo.startsWith('data:application/pdf') && setFullViewerImage(anexoPadreData.foto_respaldo)}
+                                >
                                     {anexoPadreData.foto_respaldo.startsWith('data:application/pdf') ? (
                                         <div className="w-full h-full flex flex-col items-center justify-center bg-white">
                                             <FileText className="h-16 w-16 text-primary opacity-20" />
@@ -714,11 +720,13 @@ export default function AgendaAnexoIPage() {
                                     ) : (
                                         <Image src={anexoPadreData.foto_respaldo} alt="Firma Anexo I" fill className="object-cover" />
                                     )}
-                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <div className="bg-white/20 backdrop-blur-md p-4 rounded-full">
-                                            <Maximize2 className="h-8 w-8 text-white" />
+                                    {!anexoPadreData.foto_respaldo.startsWith('data:application/pdf') && (
+                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <div className="bg-white/20 backdrop-blur-md p-4 rounded-full">
+                                                <Maximize2 className="h-8 w-8 text-white" />
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="p-10 border-2 border-dashed rounded-3xl text-center opacity-30">
@@ -918,6 +926,12 @@ export default function AgendaAnexoIPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImageViewerDialog 
+        isOpen={!!fullViewerImage}
+        onOpenChange={(o) => !o && setFullViewerImage(null)}
+        image={fullViewerImage}
+      />
     </div>
   );
 }
