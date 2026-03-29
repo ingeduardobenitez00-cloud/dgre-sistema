@@ -688,15 +688,6 @@ export default function AgendaCapacitacionPage() {
                     
                     <div className="text-center space-y-3 w-full">
                         <div className="space-y-1">
-                            <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">SOLICITANTE / ENTIDAD</p>
-                            <h3 className="font-black uppercase text-sm leading-tight text-primary">
-                                {qrSolicitud?.solicitante_entidad || qrSolicitud?.otra_entidad}
-                            </h3>
-                        </div>
-
-                        <div className="h-px bg-muted w-1/4 mx-auto" />
-
-                        <div className="space-y-1">
                             <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest">LOCAL Y DIRECCIÓN</p>
                             <p className="text-[10px] font-black uppercase text-primary leading-tight px-4">
                                 {qrSolicitud?.lugar_local}
