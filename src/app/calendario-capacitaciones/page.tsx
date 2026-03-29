@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { type SolicitudCapacitacion, type Dato } from '@/lib/data';
 import { 
   Loader2, 
@@ -22,7 +22,8 @@ import {
   ClipboardCheck,
   Search,
   Filter,
-  Landmark
+  Landmark,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,20 +57,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 export default function CalendarioCapacitacionesPage() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
+  const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDayActivities, setSelectedDayActivities] = useState<SolicitudCapacitacion[] | null>(null);
 
-  // Estados de Filtro para Admin
+  // Estados de Filtro
   const [filterDept, setFilterDept] = useState<string>('all');
   const [filterDist, setFilterDist] = useState<string>('all');
 
   const profile = user?.profile;
 
-  // Lógica de filtrado por jurisdicción
   const hasAdminFilter = useMemo(() => 
     ['admin', 'director', 'coordinador'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter'),
     [profile]
@@ -85,14 +87,17 @@ export default function CalendarioCapacitacionesPage() {
     [profile, hasAdminFilter, hasDeptFilter]
   );
 
+  // Consulta de Solicitudes con lógica de filtrado reactiva
   const solicitudesQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !profile) return null;
     const colRef = collection(firestore, 'solicitudes-capacitacion');
     
+    // Rango de fechas del mes visible
     const start = format(startOfWeek(startOfMonth(currentMonth)), 'yyyy-MM-dd');
     const end = format(endOfWeek(endOfMonth(currentMonth)), 'yyyy-MM-dd');
 
     let q;
+    
     if (hasAdminFilter) {
         if (filterDept !== 'all') {
             q = query(colRef, where('departamento', '==', filterDept));
@@ -102,19 +107,34 @@ export default function CalendarioCapacitacionesPage() {
         } else {
             q = colRef;
         }
-    }
-    else if (hasDeptFilter && profile.departamento) q = query(colRef, where('departamento', '==', profile.departamento));
-    else if (hasDistFilter && profile.departamento && profile.distrito) {
+    } else if (hasDeptFilter && profile.departamento) {
+        q = query(colRef, where('departamento', '==', profile.departamento));
+    } else if (hasDistFilter && profile.departamento && profile.distrito) {
         q = query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
-    } else return null;
+    } else {
+        return null;
+    }
 
+    // Aplicar filtro de fecha sobre la base filtrada
     return query(q, where('fecha', '>=', start), where('fecha', '<=', end));
   }, [firestore, isUserLoading, profile, currentMonth, hasAdminFilter, hasDeptFilter, hasDistFilter, filterDept, filterDist]);
 
-  const { data: activities, isLoading: isLoadingActivities } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
+  const { data: activities, isLoading: isLoadingActivities, error: activityError } = useCollection<SolicitudCapacitacion>(solicitudesQuery);
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
-  const { data: datosData } = useCollection<Dato>(datosQuery);
+  const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
+
+  // Notificar si hay error en la consulta (posible falta de índice)
+  useEffect(() => {
+    if (activityError) {
+        console.error("Error en calendario:", activityError);
+        toast({
+            variant: 'destructive',
+            title: "Error de Sincronización",
+            description: "No se pudieron recuperar las actividades para el filtro seleccionado. Verifique los índices de la base de datos."
+        });
+    }
+  }, [activityError, toast]);
 
   const departments = useMemo(() => {
     if (!datosData) return [];
@@ -138,7 +158,7 @@ export default function CalendarioCapacitacionesPage() {
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
-  if (isUserLoading) {
+  if (isUserLoading || isLoadingDatos) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
   }
 
@@ -205,7 +225,16 @@ export default function CalendarioCapacitacionesPage() {
             </div>
         </div>
 
-        <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white">
+        <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white relative">
+            {isLoadingActivities && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground">Sincronizando agenda...</p>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-7 bg-black text-white border-b border-black">
                 {['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => (
                     <div key={day} className="py-4 text-center">
