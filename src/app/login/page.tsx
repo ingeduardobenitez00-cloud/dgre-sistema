@@ -116,6 +116,7 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       const jefeModules = [
+        'calendario-capacitaciones',
         'anexo-i',
         'lista-anexo-i',
         'solicitud-capacitacion',
