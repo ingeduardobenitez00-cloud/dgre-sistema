@@ -4,8 +4,8 @@
 import { useState, useMemo } from 'react';
 import Header from '@/components/header';
 import { Card, CardContent } from '@/components/ui/card';
-import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection } from 'firebase/firestore';
 import { type InformeDivulgador } from '@/lib/data';
 import { Loader2, Images, MapPin, Calendar, Users, UserCheck, Search, ImageOff, Maximize2, Building2, Landmark, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -22,36 +22,40 @@ export default function GaleriaCapacitacionesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
-  const informesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'informes-divulgador'), orderBy('fecha', 'desc'));
-  }, [firestore]);
+  // Consulta directa a informes-divulgador sin ordenamiento en servidor para evitar errores de índice
+  const informesRef = useMemoFirebase(() => (firestore ? collection(firestore, 'informes-divulgador') : null), [firestore]);
+  const { data: informes, isLoading } = useCollection<InformeDivulgador>(informesRef);
 
-  const { data: informes, isLoading } = useCollection<InformeDivulgador>(informesQuery);
-
-  // Agrupación Jerárquica: Dept -> Dist -> Informes
+  // Agrupación Jerárquica: Dept -> Dist -> Informes con Fotos
   const groupedInformes = useMemo(() => {
     if (!informes) return [];
 
     const term = searchTerm.toLowerCase().trim();
-    const filtered = informes.filter(inf => 
-        (inf.fotos && inf.fotos.length > 0) && (
-            inf.lugar_divulgacion.toLowerCase().includes(term) ||
-            inf.nombre_divulgador.toLowerCase().includes(term) ||
-            inf.distrito.toLowerCase().includes(term) ||
-            inf.departamento.toLowerCase().includes(term)
-        )
-    );
+    
+    // Filtrar informes que tengan fotos y coincidan con el término de búsqueda
+    const filtered = informes.filter(inf => {
+        const hasPhotos = Array.isArray(inf.fotos) && inf.fotos.length > 0;
+        if (!hasPhotos) return false;
+
+        if (!term) return true;
+
+        const lugar = (inf.lugar_divulgacion || '').toLowerCase();
+        const responsable = (inf.nombre_divulgador || '').toLowerCase();
+        const dist = (inf.distrito || '').toLowerCase();
+        const dept = (inf.departamento || '').toLowerCase();
+
+        return lugar.includes(term) || responsable.includes(term) || dist.includes(term) || dept.includes(term);
+    }).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
     const depts: Record<string, Record<string, InformeDivulgador[]>> = {};
 
     filtered.forEach(inf => {
-      const dpt = inf.departamento || 'SIN DEPARTAMENTO';
-      const dst = inf.distrito || 'SIN DISTRITO';
+      const dptName = inf.departamento || 'SIN DEPARTAMENTO';
+      const dstName = inf.distrito || 'SIN DISTRITO';
 
-      if (!depts[dpt]) depts[dpt] = {};
-      if (!depts[dpt][dst]) depts[dpt][dst] = [];
-      depts[dpt][dst].push(inf);
+      if (!depts[dptName]) depts[dptName] = {};
+      if (!depts[dptName][dstName]) depts[dptName][dstName] = [];
+      depts[dptName][dstName].push(inf);
     });
 
     return Object.entries(depts)
@@ -80,7 +84,7 @@ export default function GaleriaCapacitacionesPage() {
             <div>
                 <h1 className="text-3xl font-black tracking-tight text-primary uppercase leading-none">Galería de Capacitaciones</h1>
                 <p className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-2 mt-2 tracking-widest">
-                    <Images className="h-3.5 w-3.5" /> Evidencias fotográficas organizadas por jurisdicción
+                    <Images className="h-3.5 w-3.5" /> Evidencias fotográficas de la colección de informes
                 </p>
             </div>
             <div className="relative w-full md:w-80">
@@ -98,7 +102,7 @@ export default function GaleriaCapacitacionesPage() {
             <Card className="p-20 text-center border-dashed bg-white rounded-[2.5rem]">
                 <div className="flex flex-col items-center justify-center opacity-20">
                     <ImageOff className="h-20 w-20 mb-4" />
-                    <p className="font-black uppercase tracking-widest text-sm">No se encontraron evidencias fotográficas</p>
+                    <p className="font-black uppercase tracking-widest text-sm">No se encontraron informes con fotos</p>
                 </div>
             </Card>
         ) : (
@@ -136,7 +140,6 @@ export default function GaleriaCapacitacionesPage() {
                                         <AccordionContent className="pt-6 space-y-8 px-2">
                                             {dist.items.map((inf) => (
                                                 <Card key={inf.id} className="border-none shadow-lg rounded-[2rem] overflow-hidden bg-white group/card">
-                                                    {/* ENCABEZADO DE DATOS COMPLETOS */}
                                                     <div className="p-6 md:p-8 border-b bg-muted/5">
                                                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                                                             <div className="lg:col-span-6 space-y-4">
@@ -173,7 +176,6 @@ export default function GaleriaCapacitacionesPage() {
                                                         </div>
                                                     </div>
 
-                                                    {/* GALERÍA DE FOTOS */}
                                                     <CardContent className="p-6 md:p-8">
                                                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                                             {inf.fotos?.map((photo, pIdx) => (
