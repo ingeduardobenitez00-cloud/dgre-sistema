@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -20,7 +21,7 @@ import {
   sendPasswordResetEmail,
   signOut,
 } from 'firebase/auth';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2, UserPlus, LogIn, MapPin, ShieldAlert } from 'lucide-react';
@@ -153,6 +154,17 @@ export default function LoginPage() {
         registration_method: 'auto_registro_jefe'
       });
 
+      // NOTIFICACIÓN PARA EL ADMINISTRADOR
+      await addDoc(collection(firestore, 'notificaciones'), {
+        tipo: 'NUEVO_USUARIO',
+        titulo: 'Nueva Solicitud de Acceso',
+        mensaje: `El usuario ${regData.username.toUpperCase()} ha solicitado acceso como Jefe para ${regData.distrito}.`,
+        usuario_id: user.uid,
+        leida: false,
+        fecha_creacion: new Date().toISOString(),
+        server_timestamp: serverTimestamp()
+      });
+
       recordAuditLog(firestore, {
         usuario_id: user.uid,
         usuario_nombre: regData.username,
@@ -211,7 +223,7 @@ export default function LoginPage() {
                 </div>
             </div>
              <div className="space-y-1 text-center">
-                <h3 className="text-[10px] font-black tracking-tight uppercase text-[#1A1A1A] leading-none opacity-80">
+                <h3 className="text-[10px] font-black tracking-tight uppercase text-[#1A1A1A] opacity-80 leading-none">
                     DIRECCION GENERAL DEL REGISTRO ELECTORAL
                 </h3>
                 <h1 className="text-2xl font-black tracking-tighter uppercase text-primary leading-none py-1">
@@ -311,7 +323,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Correo Electrónico</Label>
+                  <Label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Correo Institucional</Label>
                   <Input 
                     type="email" 
                     required 

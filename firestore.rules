@@ -37,6 +37,11 @@ service cloud.firestore {
       return isOwner() || (isSignedIn() && data != null && (data.role == 'admin' || data.role == 'director'));
     }
 
+    function isStaff() {
+      let data = getUserData();
+      return isOwner() || (isSignedIn() && data != null && (data.role == 'admin' || data.role == 'director' || data.role == 'coordinador'));
+    }
+
     /** Gestión de Usuarios - Blindaje de Lista **/
     match /users/{userId} {
       allow get: if isSignedIn();
@@ -45,6 +50,13 @@ service cloud.firestore {
       allow update: if (request.auth.uid == userId) || isAdmin();
       // El propietario no puede ser borrado bajo ninguna circunstancia
       allow delete: if isAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.email != 'edubtz11@gmail.com';
+    }
+
+    /** Notificaciones de Sistema **/
+    match /notificaciones/{notiId} {
+      allow read, update: if isStaff();
+      allow create: if isSignedIn();
+      allow delete: if isAdmin();
     }
 
     /** Regla para el Padrón Electoral **/
