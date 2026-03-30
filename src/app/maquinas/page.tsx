@@ -19,10 +19,12 @@ import {
   Download, 
   Building2, 
   Landmark,
-  ShieldAlert
+  ShieldAlert,
+  Edit,
+  X
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch, addDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, writeBatch, addDoc, deleteDoc, query, where, updateDoc } from 'firebase/firestore';
 import { type MaquinaVotacion, type Dato } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -61,6 +63,7 @@ export default function MaquinasPage() {
   const [fileNameMaq, setFileNameMaq] = useState<string | null>(null);
   const [previewMaq, setPreviewMaq] = useState<Omit<MaquinaVotacion, 'id' | 'fecha_registro'>[]>([]);
 
+  const [editingMaquinaId, setEditingMaquinaId] = useState<string | null>(null);
   const [manualMaq, setManualMaq] = useState({
     codigo: '',
     departamento: '',
@@ -71,7 +74,7 @@ export default function MaquinasPage() {
   const isAdminView = ['admin', 'director'].includes(profile?.role || '') || profile?.permissions?.includes('admin_filter');
 
   const datosQuery = useMemoFirebase(() => firestore ? collection(firestore, 'datos') : null, [firestore]);
-  const { data: datosData } = useCollection<Dato>(datosQuery);
+  const { data: datosData, isLoading: isLoadingDatos } = useCollection<Dato>(datosQuery);
 
   const maquinasQuery = useMemoFirebase(() => {
     if (!firestore || !profile) return null;
@@ -159,15 +162,36 @@ export default function MaquinasPage() {
     }
     setIsUploadingMaq(true);
     try {
-      await addDoc(collection(firestore, 'maquinas'), {
-        ...manualMaq,
+      const docData = {
         codigo: manualMaq.codigo.toUpperCase().trim(),
-        fecha_registro: new Date().toISOString()
-      });
-      toast({ title: 'Máquina registrada' });
-      setManualMaq({ ...manualMaq, codigo: '' });
+        departamento: manualMaq.departamento,
+        distrito: manualMaq.distrito
+      };
+
+      if (editingMaquinaId) {
+        await updateDoc(doc(firestore, 'maquinas', editingMaquinaId), docData);
+        toast({ title: 'Máquina actualizada' });
+        setEditingMaquinaId(null);
+      } else {
+        await addDoc(collection(firestore, 'maquinas'), {
+          ...docData,
+          fecha_registro: new Date().toISOString()
+        });
+        toast({ title: 'Máquina registrada' });
+      }
+      setManualMaq({ codigo: '', departamento: '', distrito: '' });
     } catch (err) { toast({ variant: 'destructive', title: 'Error' }); }
     finally { setIsUploadingMaq(false); }
+  };
+
+  const handleEditClick = (maq: MaquinaVotacion) => {
+    setEditingMaquinaId(maq.id);
+    setManualMaq({
+      codigo: maq.codigo,
+      departamento: maq.departamento,
+      distrito: maq.distrito
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteMaquina = (id: string) => {
@@ -203,9 +227,17 @@ export default function MaquinasPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 space-y-6">
-                <Card className="shadow-lg border-t-4 border-t-black">
-                    <CardHeader className="bg-muted/10 border-b">
-                        <CardTitle className="text-xs font-black uppercase flex items-center gap-2"><Plus className="h-4 w-4" /> Registro Individual</CardTitle>
+                <Card className={cn("shadow-lg border-t-4", editingMaquinaId ? "border-t-primary" : "border-t-black")}>
+                    <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between py-4">
+                        <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
+                            {editingMaquinaId ? <Edit className="h-4 w-4" /> : <Plus className="h-4 w-4" />} 
+                            {editingMaquinaId ? "Editar Máquina" : "Registro Individual"}
+                        </CardTitle>
+                        {editingMaquinaId && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => { setEditingMaquinaId(null); setManualMaq({codigo: '', departamento: '', distrito: ''}); }}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
                     </CardHeader>
                     <CardContent className="pt-6 space-y-4">
                         <div className="space-y-1.5">
@@ -227,9 +259,15 @@ export default function MaquinasPage() {
                             </Select>
                         </div>
                     </CardContent>
-                    <CardFooter className="bg-muted/30 border-t p-4">
-                        <Button className="w-full font-black uppercase text-[10px] h-12 shadow-md" onClick={handleManualSaveMaq} disabled={isUploadingMaq || !manualMaq.codigo || !manualMaq.distrito}>
-                            {isUploadingMaq ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />} GUARDAR MÁQUINA
+                    <CardFooter className="bg-muted/30 border-t p-4 gap-2">
+                        {editingMaquinaId && (
+                            <Button variant="outline" className="flex-1 font-black uppercase text-[10px] h-12" onClick={() => { setEditingMaquinaId(null); setManualMaq({codigo: '', departamento: '', distrito: ''}); }}>
+                                CANCELAR
+                            </Button>
+                        )}
+                        <Button className="flex-[2] font-black uppercase text-[10px] h-12 shadow-md" onClick={handleManualSaveMaq} disabled={isUploadingMaq || !manualMaq.codigo || !manualMaq.distrito}>
+                            {isUploadingMaq ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />} 
+                            {editingMaquinaId ? "ACTUALIZAR DATOS" : "GUARDAR MÁQUINA"}
                         </Button>
                     </CardFooter>
                 </Card>
@@ -289,21 +327,31 @@ export default function MaquinasPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right px-8">
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent className="rounded-[2.5rem]">
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle className="font-black uppercase tracking-tight">¿ELIMINAR EQUIPO DEL STOCK?</AlertDialogTitle>
-                                                                <AlertDialogDescription className="text-xs font-bold uppercase text-muted-foreground">Se borrará permanentemente la máquina {m.codigo} de este distrito. Esta acción no afecta a los movimientos históricos ya cerrados.</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter className="pt-6">
-                                                                <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px]">CANCELAR</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDeleteMaquina(m.id)} className="bg-destructive text-white rounded-xl font-black uppercase text-[10px] px-8">ELIMINAR EQUIPO</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-9 w-9 text-primary opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-primary/10"
+                                                            onClick={() => handleEditClick(m)}
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent className="rounded-[2.5rem]">
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle className="font-black uppercase tracking-tight">¿ELIMINAR EQUIPO DEL STOCK?</AlertDialogTitle>
+                                                                    <AlertDialogDescription className="text-xs font-bold uppercase text-muted-foreground">Se borrará permanentemente la máquina {m.codigo} de este distrito. Esta acción no afecta a los movimientos históricos ya cerrados.</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter className="pt-6">
+                                                                    <AlertDialogCancel className="rounded-xl font-black uppercase text-[10px]">CANCELAR</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDeleteMaquina(m.id)} className="bg-destructive text-white rounded-xl font-black uppercase text-[10px] px-8">ELIMINAR EQUIPO</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))
