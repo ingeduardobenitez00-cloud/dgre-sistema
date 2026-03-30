@@ -57,6 +57,15 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="apple-touch-icon" href="/logo1.png" />
+        {/* SCRIPT DE AUTO-RECUPERACIÓN DE CACHÉ TRAS PUBLICACIÓN */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.addEventListener('error', function(e) {
+            if (e.message && (e.message.indexOf('chunk') > -1 || e.message.indexOf('Loading chunk') > -1)) {
+              console.log('Detectada inconsistencia de versión. Recargando...');
+              window.location.reload();
+            }
+          });
+        ` }} />
       </head>
       <body
         className={cn(
