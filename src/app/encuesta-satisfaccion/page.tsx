@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Check, Lock, DatabaseZap } from 'lucide-react';
 import { useUser, useFirebase, useMemoFirebase, useDoc, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, query, where, getDocs } from 'firebase/firestore';
-import { type SolicitudCapacitacion, type InformeDivulgador } from '@/lib/data';
+import { type SolicitudCapacitacion } from '@/lib/data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn, formatDateToDDMMYYYY } from '@/lib/utils';
@@ -68,13 +68,13 @@ function EncuestaContent() {
   
   const { data: linkedSolicitud, isLoading: isLoadingLinked } = useDoc<SolicitudCapacitacion>(solicitudRef);
 
-  // VALIDACIÓN MANUAL: Solo se bloquea si el usuario no es funcionario y el toggle está apagado
+  // VALIDACIÓN: Se bloquea el acceso público si la solicitud no tiene habilitado el QR
   const isPublicDisabled = useMemo(() => {
-    if (user) return false; 
-    if (!solicitudIdFromUrl) return false; 
-    if (!linkedSolicitud) return false; 
-    return !linkedSolicitud.qr_habilitado; 
-  }, [linkedSolicitud, user, solicitudIdFromUrl]);
+    if (user) return false; // El personal siempre puede cargar
+    if (!solicitudIdFromUrl) return false; // Carga manual permitida
+    if (!linkedSolicitud && !isLoadingLinked) return false; // Si no hay datos, mostramos formulario vacío
+    return linkedSolicitud ? !linkedSolicitud.qr_enabled : false; 
+  }, [linkedSolicitud, user, solicitudIdFromUrl, isLoadingLinked]);
 
   useEffect(() => {
     if (linkedSolicitud) {
@@ -371,7 +371,7 @@ function EncuestaContent() {
                     {isSubmitting ? <Loader2 className="animate-spin mr-4 h-8 w-8" /> : "ENVIAR MI OPINIÓN"}
                 </Button>
                 </CardFooter>
-            </Card>
+              </Card>
             </>
           )}
         </div>

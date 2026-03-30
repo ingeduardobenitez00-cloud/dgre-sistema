@@ -74,7 +74,9 @@ service cloud.firestore {
     /** CIDEE - Colecciones Transaccionales **/
     
     match /solicitudes-capacitacion/{solicitudId} {
-      allow read: if isActive();
+      // Se permite el 'get' público para que el portal ciudadano pueda cargar los metadatos de la encuesta (Lugar, Fecha, Hora)
+      allow get: if true;
+      allow list: if isActive();
       allow create, update: if isActive();
       allow delete: if isAdmin();
     }
@@ -133,6 +135,7 @@ service cloud.firestore {
       allow create: if isSignedIn();
     }
 
+    /** Regla para Divulgadores **/
     match /divulgadores/{document=**} {
       allow read: if isActive();
       allow write: if isActive() || isAdmin();
