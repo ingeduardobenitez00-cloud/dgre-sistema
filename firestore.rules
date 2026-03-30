@@ -64,6 +64,7 @@ service cloud.firestore {
     /** Regla para el Padrón Electoral **/
     match /padron/{document=**} {
       allow read: if isActive();
+      allow write: if isAdmin();
     }
 
     /** Monitoreo de Presencia **/
@@ -149,6 +150,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    /** Regla para Locales **/
     match /locales-votacion/{localId} {
       allow read: if isActive() || isAdmin();
       allow write: if isAdmin();
