@@ -222,7 +222,7 @@ const PermissionMatrix = ({
                             <div className="flex items-center gap-1">
                                 <Checkbox 
                                     checked={allInColSelected}
-                                    onCheckedChange={(checked) => onToggleColumn(a.id, cat.items, isEditing)}
+                                    onToggle={() => onToggleColumn(a.id, cat.items, isEditing)}
                                     className="h-3.5 w-3.5 border-primary/30"
                                 />
                                 <span className="text-[7px] font-black text-muted-foreground">ALL</span>
@@ -457,7 +457,6 @@ export default function UsersPage() {
   };
 
   const handleApplyJefeProfile = (isEditing = false) => {
-    // Lista exacta de módulos de la imagen (13 módulos)
     const jefeModules = [
       'calendario-capacitaciones', 
       'anexo-i', 
@@ -474,7 +473,6 @@ export default function UsersPage() {
       'archivo-capacitaciones'
     ];
     
-    // Permisos exactos de la imagen: VER (view), GUARDAR (add), PDF (pdf)
     const actions = ['view', 'add', 'pdf'];
     const newPerms = new Set<string>();
     const newModules = new Set<string>(jefeModules);
@@ -483,7 +481,6 @@ export default function UsersPage() {
       actions.forEach(a => newPerms.add(`${m}:${a}`));
     });
     
-    // Mantener filtros obligatorios para que el Jefe opere en su zona
     newPerms.add('district_filter');
     newPerms.add('assign_staff');
 
@@ -508,7 +505,6 @@ export default function UsersPage() {
     setIsSubmitting(true);
     const batch = writeBatch(firestore);
     
-    // Configuración exacta según la imagen solicitada
     const jefeModules = [
       'calendario-capacitaciones', 
       'anexo-i', 
@@ -535,7 +531,6 @@ export default function UsersPage() {
 
     let count = 0;
     users.forEach(u => {
-      // Sincronizar solo jefes activos, excluyendo al administrador maestro
       if (u.role === 'jefe' && u.active !== false && u.email !== 'edubtz11@gmail.com') {
         const docRef = doc(firestore, 'users', u.id);
         batch.update(docRef, {
@@ -572,11 +567,20 @@ export default function UsersPage() {
       .catch((error) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })));
   };
 
-  const handleDeleteUser = (user: UserProfile) => {
+  const handleDeleteUser = async (user: UserProfile) => {
     if (!firestore || user.email === 'edubtz11@gmail.com') return;
-    const userDocRef = doc(firestore, 'users', user.id);
-    deleteDoc(userDocRef).then(() => toast({ title: 'Usuario Elimnado' }))
-      .catch((error) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'delete' })));
+    
+    // SINCRONIZACIÓN DE ELIMINACIÓN: Borramos perfil y rastro de conexión
+    const batch = writeBatch(firestore);
+    batch.delete(doc(firestore, 'users', user.id));
+    batch.delete(doc(firestore, 'presencia', user.id));
+
+    try {
+        await batch.commit();
+        toast({ title: 'Usuario Eliminado y Rastro Limpiado' });
+    } catch (error: any) {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${user.id}`, operation: 'delete' }));
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -852,7 +856,7 @@ export default function UsersPage() {
                                                                                                 <AlertDialogHeader>
                                                                                                     <AlertDialogTitle className="font-black uppercase">¿ELIMINAR ACCESO?</AlertDialogTitle>
                                                                                                     <AlertDialogDescription className="text-xs font-medium uppercase">
-                                                                                                        Esta acción es permanente. Se borrará el perfil de {u.username} del sistema central.
+                                                                                                        Esta acción es permanente. Se borrará el perfil de {u.username} del sistema central y su rastro de conexión.
                                                                                                     </AlertDialogDescription>
                                                                                                 </AlertDialogHeader>
                                                                                                 <AlertDialogFooter className="pt-6">

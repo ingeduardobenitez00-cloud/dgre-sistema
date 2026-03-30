@@ -24,7 +24,8 @@ import {
     Building2,
     MonitorPlay,
     ChevronRight,
-    AlertTriangle
+    AlertTriangle,
+    RefreshCw
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +51,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
+} from "@/components/accordion";
 import { recordAuditLog } from '@/lib/audit';
 
 type PresenceRecord = {
@@ -75,6 +76,7 @@ export default function ConexionesPage() {
   const [now, setNow] = useState(Date.now());
   const [searchTerm, setSearchTerm] = useState('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isPurging, setIsPurging] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30000);
@@ -88,11 +90,29 @@ export default function ConexionesPage() {
 
   const { data: presenceData, isLoading } = useCollection<PresenceRecord>(presenceQuery);
 
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore || isUserLoading) return null;
+    return collection(firestore, 'users');
+  }, [firestore, isUserLoading]);
+
+  const { data: usersData } = useCollection<any>(usersQuery);
+
+  // VALIDACIÓN DE INTEGRIDAD: Solo mostramos conexiones de usuarios que existen realmente
+  const validatedPresence = useMemo(() => {
+    if (!presenceData || !usersData) return presenceData || [];
+    const existingUserIds = new Set(usersData.map((u: any) => u.id));
+    return presenceData.filter(p => existingUserIds.has(p.usuario_id));
+  }, [presenceData, usersData]);
+
+  const orphansCount = useMemo(() => {
+    if (!presenceData || !usersData) return 0;
+    const existingUserIds = new Set(usersData.map((u: any) => u.id));
+    return presenceData.filter(p => !existingUserIds.has(p.usuario_id)).length;
+  }, [presenceData, usersData]);
+
   const groupedData = useMemo(() => {
-    if (!presenceData) return [];
-    
     const term = searchTerm.toLowerCase().trim();
-    const filtered = presenceData.filter(p => 
+    const filtered = validatedPresence.filter(p => 
       p.username.toLowerCase().includes(term) || 
       p.email.toLowerCase().includes(term) ||
       p.departamento?.toLowerCase().includes(term) ||
@@ -115,7 +135,6 @@ export default function ConexionesPage() {
         const districtGroups = Object.entries(dists)
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([dName, items]) => {
-            // Verificar si hay algún usuario en línea en este distrito
             const hasOnlineUser = items.some(p => {
                 const last = p.ultima_actividad?.toMillis?.() || 0;
                 return Math.abs(now - last) < ONLINE_THRESHOLD_MS;
@@ -132,7 +151,6 @@ export default function ConexionesPage() {
             };
           });
 
-        // Verificar si hay algún usuario en línea en todo el departamento
         const hasOnlineInDept = districtGroups.some(dg => dg.hasOnline);
 
         return {
@@ -141,15 +159,41 @@ export default function ConexionesPage() {
             hasOnline: hasOnlineInDept
         };
       });
-  }, [presenceData, searchTerm, now]);
+  }, [validatedPresence, searchTerm, now]);
 
   const activeCount = useMemo(() => {
-    if (!presenceData) return 0;
-    return presenceData.filter(p => {
+    return validatedPresence.filter(p => {
       const last = p.ultima_actividad?.toMillis?.() || 0;
       return Math.abs(now - last) < ONLINE_THRESHOLD_MS;
     }).length;
-  }, [presenceData, now]);
+  }, [validatedPresence, now]);
+
+  const handlePurgeOrphans = async () => {
+    if (!firestore || !presenceData || !usersData) return;
+    setIsPurging(true);
+    const existingUserIds = new Set(usersData.map((u: any) => u.id));
+    const orphans = presenceData.filter(p => !existingUserIds.has(p.usuario_id));
+    
+    if (orphans.length === 0) {
+        toast({ title: "Sistema Limpio", description: "No se detectaron registros huérfanos." });
+        setIsPurging(false);
+        return;
+    }
+
+    const batch = writeBatch(firestore);
+    orphans.forEach(o => {
+        batch.delete(doc(firestore, 'presencia', o.id));
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: "Depuración Exitosa", description: `Se han eliminado ${orphans.length} registros de usuarios inexistentes.` });
+    } catch (e) {
+        toast({ variant: 'destructive', title: "Error", description: "No se pudo realizar la limpieza." });
+    } finally {
+        setIsPurging(false);
+    }
+  };
 
   const handleDeleteUserRecord = async (record: PresenceRecord) => {
     if (!firestore || !currentUser) return;
@@ -169,12 +213,12 @@ export default function ConexionesPage() {
             usuario_rol: 'admin',
             accion: 'BORRAR',
             modulo: 'seguridad',
-            detalles: `Eliminación administrativa de usuario: ${record.email}`
+            detalles: `Eliminación administrativa de usuario y rastro: ${record.email}`
         });
 
         toast({ 
             title: "Usuario Eliminado", 
-            description: "Se ha revocado el acceso de forma permanente." 
+            description: "Se ha revocado el acceso y limpiado el rastro de conexión." 
         });
     } catch (e) {
         toast({ variant: 'destructive', title: "Error", description: "No se pudo completar la operación." });
@@ -214,7 +258,7 @@ export default function ConexionesPage() {
             <div>
                 <h1 className="text-3xl font-black tracking-tight text-primary uppercase leading-none">Control de Presencia</h1>
                 <p className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-2 mt-2 tracking-widest">
-                    <Activity className="h-3.5 w-3.5" /> Monitoreo geográfico de usuarios en tiempo real
+                    <Activity className="h-3.5 w-3.5" /> Monitoreo geográfico sincronizado con el Directorio
                 </p>
             </div>
             <div className="flex flex-col md:flex-row items-end gap-4 w-full md:w-auto">
@@ -239,11 +283,31 @@ export default function ConexionesPage() {
                     </Card>
                     <Card className="bg-black text-white px-6 py-4 shadow-xl border-none">
                         <div className="text-[10px] font-black uppercase opacity-70 tracking-widest leading-none mb-1">Total Registrados</div>
-                        <div className="text-2xl font-black">{presenceData?.length || 0}</div>
+                        <div className="text-2xl font-black">{validatedPresence.length}</div>
                     </Card>
                 </div>
             </div>
         </div>
+
+        {orphansCount > 0 && (
+            <div className="p-6 bg-amber-50 border-2 border-dashed border-amber-200 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center gap-4">
+                    <AlertTriangle className="h-10 w-10 text-amber-600" />
+                    <div>
+                        <p className="font-black uppercase text-sm text-amber-800">Inconsistencia de Datos Detectada</p>
+                        <p className="text-[10px] font-bold uppercase text-amber-700">Se han encontrado {orphansCount} registros de conexión que pertenecen a usuarios ya eliminados del sistema.</p>
+                    </div>
+                </div>
+                <Button 
+                    onClick={handlePurgeOrphans} 
+                    disabled={isPurging}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase text-[10px] h-11 px-8 rounded-xl gap-2 shadow-lg"
+                >
+                    {isPurging ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                    DEPURAR REGISTROS HUÉRFANOS
+                </Button>
+            </div>
+        )}
 
         {groupedData.length === 0 ? (
             <Card className="p-20 text-center border-dashed bg-white rounded-[2.5rem]">
