@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -186,7 +187,7 @@ export default function MaquinasPage() {
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
             <div>
                 <h1 className="text-3xl font-black uppercase text-primary tracking-tight">Gestión de Equipos</h1>
-                <p className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-2 mt-1 tracking-widest">
+                <p className="text-muted-foreground text-[10px] font-bold uppercase mt-1 tracking-widest">
                     <Cpu className="h-3.5 w-3.5" /> Stock institucional de Máquinas de Votación por jurisdicción
                 </p>
             </div>
