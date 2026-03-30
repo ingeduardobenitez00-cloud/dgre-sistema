@@ -777,7 +777,7 @@ export default function UsersPage() {
                         <div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center"><Settings className="h-6 w-6" /></div>
                         <div><DialogTitle className="text-2xl font-black uppercase">Editar Perfil</DialogTitle><DialogDescription className="text-white/60 font-bold uppercase text-[9px]">ID: {editingUser.id}</DialogDescription></div>
                     </div>
-                    <Button type="button" variant="outline" size="sm" className="font-black uppercase text-[10px] h-9" onClick={() => handleApplyCIDEEProfile(true)}><Zap className="h-3.5 w-3.5 fill-white" /> PERFIL CIDEE</Button>
+                    <Button type="button" variant="outline" size="sm" className="font-black uppercase text-[10px] h-9 bg-transparent border-white/20 text-white hover:bg-white/10" onClick={() => handleApplyCIDEEProfile(true)}><Zap className="h-3.5 w-3.5 fill-white" /> PERFIL CIDEE</Button>
                 </div>
               </DialogHeader>
               <ScrollArea className="flex-1">
