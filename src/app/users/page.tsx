@@ -42,7 +42,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
-import { collection, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, deleteDoc, writeBatch, getDocs, query, limit } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -457,13 +457,24 @@ export default function UsersPage() {
   };
 
   const handleApplyJefeProfile = (isEditing = false) => {
+    // Lista exacta de módulos de la imagen (13 módulos)
     const jefeModules = [
-      'calendario-capacitaciones', 'anexo-i', 'lista-anexo-i', 'solicitud-capacitacion',
-      'agenda-anexo-i', 'agenda-anexo-v', 'control-movimiento-maquinas', 'denuncia-lacres',
-      'informe-movimientos-denuncias', 'informe-divulgador', 'galeria-capacitaciones', 
-      'informe-semanal-puntos-fijos', 'lista-anexo-iv', 'archivo-capacitaciones', 
-      'divulgadores', 'estadisticas-capacitacion', 'encuesta-satisfaccion', 'documentacion'
+      'calendario-capacitaciones', 
+      'anexo-i', 
+      'lista-anexo-i', 
+      'solicitud-capacitacion',
+      'agenda-anexo-i', 
+      'agenda-anexo-v', 
+      'control-movimiento-maquinas', 
+      'denuncia-lacres',
+      'informe-divulgador',
+      'informe-semanal-puntos-fijos', 
+      'lista-anexo-iv', 
+      'encuesta-satisfaccion',
+      'archivo-capacitaciones'
     ];
+    
+    // Permisos exactos de la imagen: VER (view), GUARDAR (add), PDF (pdf)
     const actions = ['view', 'add', 'pdf'];
     const newPerms = new Set<string>();
     const newModules = new Set<string>(jefeModules);
@@ -471,6 +482,8 @@ export default function UsersPage() {
     jefeModules.forEach(m => {
       actions.forEach(a => newPerms.add(`${m}:${a}`));
     });
+    
+    // Mantener filtros obligatorios para que el Jefe opere en su zona
     newPerms.add('district_filter');
     newPerms.add('assign_staff');
 
@@ -486,7 +499,7 @@ export default function UsersPage() {
       setSelectedModules(newModules);
       setSelectedPerms(newPerms);
     }
-    toast({ title: "Perfil Jefe de Oficina Aplicado" });
+    toast({ title: "Perfil Jefe Aplicado (Matriz Imagen)" });
   };
 
   const handleSyncAllJefes = async () => {
@@ -495,12 +508,21 @@ export default function UsersPage() {
     setIsSubmitting(true);
     const batch = writeBatch(firestore);
     
+    // Configuración exacta según la imagen solicitada
     const jefeModules = [
-      'calendario-capacitaciones', 'anexo-i', 'lista-anexo-i', 'solicitud-capacitacion',
-      'agenda-anexo-i', 'agenda-anexo-v', 'control-movimiento-maquinas', 'denuncia-lacres',
-      'informe-movimientos-denuncias', 'informe-divulgador', 'galeria-capacitaciones', 
-      'informe-semanal-puntos-fijos', 'lista-anexo-iv', 'archivo-capacitaciones', 
-      'divulgadores', 'estadisticas-capacitacion', 'encuesta-satisfaccion', 'documentacion'
+      'calendario-capacitaciones', 
+      'anexo-i', 
+      'lista-anexo-i', 
+      'solicitud-capacitacion',
+      'agenda-anexo-i', 
+      'agenda-anexo-v', 
+      'control-movimiento-maquinas', 
+      'denuncia-lacres',
+      'informe-divulgador',
+      'informe-semanal-puntos-fijos', 
+      'lista-anexo-iv', 
+      'encuesta-satisfaccion',
+      'archivo-capacitaciones'
     ];
     
     const actions = ['view', 'add', 'pdf'];
@@ -513,6 +535,7 @@ export default function UsersPage() {
 
     let count = 0;
     users.forEach(u => {
+      // Sincronizar solo jefes activos, excluyendo al administrador maestro
       if (u.role === 'jefe' && u.active !== false && u.email !== 'edubtz11@gmail.com') {
         const docRef = doc(firestore, 'users', u.id);
         batch.update(docRef, {
@@ -531,7 +554,7 @@ export default function UsersPage() {
 
     try {
       await batch.commit();
-      toast({ title: "Sincronización Completada", description: `Se han actualizado ${count} perfiles de Jefes.` });
+      toast({ title: "Sincronización Completada", description: `Se han actualizado ${count} perfiles de Jefes con la matriz de la imagen.` });
     } catch (e) {
       toast({ variant: 'destructive', title: "Error al sincronizar" });
     } finally {
