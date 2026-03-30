@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -34,7 +35,8 @@ import {
   AlertTriangle,
   Clock,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  Cpu
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -99,6 +101,7 @@ const MODULE_STRUCTURE = [
       { id: 'solicitud-capacitacion', label: 'ANEXO V - SOLICITUDES' },
       { id: 'agenda-anexo-i', label: 'AGENDA ANEXO I' },
       { id: 'agenda-anexo-v', label: 'AGENDA ANEXO V' },
+      { id: 'maquinas', label: 'INVENTARIO DE MÁQUINAS' },
       { id: 'control-movimiento-maquinas', label: 'MOVIMIENTO DE MÁQUINAS' },
       { id: 'denuncia-lacres', label: 'DENUNCIA DE LACRES' },
       { id: 'informe-movimientos-denuncias', label: 'TRAZABILIDAD LOGÍSTICA' },
@@ -473,6 +476,7 @@ function UsersContent() {
       'solicitud-capacitacion',
       'agenda-anexo-i', 
       'agenda-anexo-v', 
+      'maquinas',
       'control-movimiento-maquinas', 
       'denuncia-lacres',
       'informe-divulgador',
@@ -521,6 +525,7 @@ function UsersContent() {
       'solicitud-capacitacion',
       'agenda-anexo-i', 
       'agenda-anexo-v', 
+      'maquinas',
       'control-movimiento-maquinas', 
       'denuncia-lacres',
       'informe-divulgador',

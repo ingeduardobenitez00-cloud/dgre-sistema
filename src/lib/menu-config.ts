@@ -1,5 +1,5 @@
 
-import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText, ClipboardList, CalendarCog, Archive, MapPin, Calendar } from 'lucide-react';
+import { FileText, BarChart3, Users, Settings, FileArchive, UploadCloud, ImageIcon, FileUp, Vote, CalendarDays, ClipboardCheck, MessageSquareHeart, UserCheck, PieChart, TableProperties, ArrowLeftRight, Flag, ShieldAlert, BookOpen, UserCircle, History, Images, Activity, ScrollText, ClipboardList, CalendarCog, Archive, MapPin, Calendar, Cpu } from 'lucide-react';
 
 export const dashboardMenuItems = [
   {
@@ -37,6 +37,12 @@ export const dashboardMenuItems = [
     label: 'Agenda Anexo V',
     icon: CalendarDays,
     description: 'Calendario exclusivo de pedidos de partidos y organizaciones.',
+  },
+  {
+    href: '/maquinas',
+    label: 'Inventario de Máquinas',
+    icon: Cpu,
+    description: 'Gestión del stock de equipos de votación por distrito.',
   },
   {
     href: '/control-movimiento-maquinas',

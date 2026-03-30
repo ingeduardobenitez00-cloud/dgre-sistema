@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -17,8 +18,8 @@ import {
 const MODULE_GROUPS = [
   {
     label: "CIDEE - CAPACITACIONES",
-    description: "Gestión de solicitudes, agendas separadas, movimientos de equipos, denuncias de lacres e informes de capacitación nacional.",
-    modules: ['calendario-capacitaciones', 'anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 'agenda-anexo-v', 'divulgadores', 'control-movimiento-maquinas', 'denuncia-lacres', 'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'lista-anexo-iv', 'archivo-capacitaciones', 'estadisticas-capacitacion']
+    description: "Gestión de solicitudes, agendas separadas, inventario de equipos, movimientos, denuncias de lacres e informes nacionales.",
+    modules: ['calendario-capacitaciones', 'anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 'agenda-anexo-v', 'maquinas', 'divulgadores', 'control-movimiento-maquinas', 'denuncia-lacres', 'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'lista-anexo-iv', 'archivo-capacitaciones', 'estadisticas-capacitacion']
   },
   {
     label: "Registros Electorales",
@@ -41,7 +42,7 @@ const MODULE_GROUPS = [
     modules: ['importar-reportes', 'importar-locales', 'importar-partidos']
   },
   {
-    label: "Sistema",
+    label: "SISTEMA",
     description: "Administración de usuarios, monitoreo de conexiones en tiempo real, auditoría técnica y configuración.",
     modules: ['users', 'settings', 'documentacion', 'auditoria']
   },

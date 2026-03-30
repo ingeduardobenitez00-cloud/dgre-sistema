@@ -44,7 +44,8 @@ import {
   Archive,
   Settings,
   MapPin,
-  Calendar
+  Calendar,
+  Cpu
 } from "lucide-react";
 import { useUser } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -71,6 +72,7 @@ export default function AppSidebar() {
         { href: "/solicitud-capacitacion", label: "Anexo V - Solicitudes", icon: ClipboardCheck },
         { href: "/agenda-anexo-i", label: "Agenda Anexo I", icon: CalendarDays },
         { href: "/agenda-anexo-v", label: "Agenda Anexo V", icon: CalendarDays },
+        { href: "/maquinas", label: "Inventario de Máquinas", icon: Cpu },
         { href: "/control-movimiento-maquinas", label: "Movimiento de Máquinas", icon: ArrowLeftRight },
         { href: "/denuncia-lacres", label: "Denuncia de Lacres", icon: ShieldAlert },
         { href: "/informe-movimientos-denuncias", label: "Trazabilidad Logística", icon: ArrowLeftRight },
