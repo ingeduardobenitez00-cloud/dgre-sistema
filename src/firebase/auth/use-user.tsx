@@ -47,7 +47,6 @@ export const useUser = (): UserHookResult => {
     const isAdmin = isOwner || profileData?.role === 'admin';
 
     // PERFIL SINTÉTICO DE EMERGENCIA PARA EL PROPIETARIO
-    // Se fuerza el estado ACTIVO y todos los permisos para el administrador maestro.
     let finalProfile = profileData;
     
     if (isOwner) {
@@ -55,11 +54,11 @@ export const useUser = (): UserHookResult => {
         ...profileData,
         username: profileData?.username || 'ADMINISTRADOR MAESTRO',
         role: 'admin',
-        active: true, // Forzar activo visual y funcionalmente
+        active: true, 
         departamento: profileData?.departamento || 'SEDE CENTRAL',
         distrito: profileData?.distrito || 'ASUNCIÓN',
         modules: profileData?.modules || [
-          'anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 
+          'calendario-capacitaciones', 'anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 
           'agenda-anexo-v', 'control-movimiento-maquinas', 'denuncia-lacres', 
           'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 
           'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'lista-anexo-iv', 
@@ -71,6 +70,9 @@ export const useUser = (): UserHookResult => {
         ],
         permissions: profileData?.permissions || ['admin_filter', 'department_filter', 'district_filter', 'assign_staff', 'generar_pdf']
       };
+    } else if (finalProfile && finalProfile.active === undefined) {
+        // Por defecto, los usuarios creados son activos a menos que se indique lo contrario
+        finalProfile.active = true;
     }
     
     return {

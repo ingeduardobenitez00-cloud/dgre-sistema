@@ -10,6 +10,7 @@ import AppSidebar from '@/components/app-sidebar';
 import { Button } from './ui/button';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Loading from '@/app/loading';
+import { cn } from '@/lib/utils';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading, userError, isProfileLoading } = useUser();
@@ -91,9 +92,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return <Loading />;
   }
 
-  // VALIDACIÓN DE USUARIO ACTIVO CON PANTALLA DE "PENDIENTE DE APROBACIÓN"
+  // VALIDACIÓN DE USUARIO ACTIVO REFORZADA
+  // Un usuario está restringido SOLO si su campo 'active' es explícitamente 'false'.
   const isOwner = user?.email === 'edubtz11@gmail.com';
-  const isRestricted = !isOwner && user && !isPublicRoute && (user.profile?.active === false || !user.profile);
+  const isRestricted = !isOwner && user && !isPublicRoute && user.profile?.active === false;
 
   if (isRestricted) {
     const isPending = user.profile?.registration_method === 'auto_registro_jefe';

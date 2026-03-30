@@ -496,7 +496,7 @@ export default function UsersPage() {
       setSelectedModules(newModules);
       setSelectedPerms(newPerms);
     }
-    toast({ title: "Perfil Jefe Aplicado (Matriz Imagen)" });
+    toast({ title: "Perfil Jefe Aplicado" });
   };
 
   const handleSyncAllJefes = async () => {
@@ -535,7 +535,8 @@ export default function UsersPage() {
         const docRef = doc(firestore, 'users', u.id);
         batch.update(docRef, {
           modules: jefeModules,
-          permissions: standardPerms
+          permissions: standardPerms,
+          active: true // Aseguramos que durante la sincronización queden activos
         });
         count++;
       }
@@ -549,7 +550,7 @@ export default function UsersPage() {
 
     try {
       await batch.commit();
-      toast({ title: "Sincronización Completada", description: `Se han actualizado ${count} perfiles de Jefes con la matriz de la imagen.` });
+      toast({ title: "Sincronización Completada", description: `Se han actualizado ${count} perfiles de Jefes exitosamente.` });
     } catch (e) {
       toast({ variant: 'destructive', title: "Error al sincronizar" });
     } finally {
@@ -570,7 +571,6 @@ export default function UsersPage() {
   const handleDeleteUser = async (user: UserProfile) => {
     if (!firestore || user.email === 'edubtz11@gmail.com') return;
     
-    // SINCRONIZACIÓN DE ELIMINACIÓN: Borramos perfil y rastro de conexión
     const batch = writeBatch(firestore);
     batch.delete(doc(firestore, 'users', user.id));
     batch.delete(doc(firestore, 'presencia', user.id));
@@ -804,7 +804,7 @@ export default function UsersPage() {
                                                                 <TableBody>
                                                                     {dist.users.map(u => {
                                                                         const isUserOwner = u.email === 'edubtz11@gmail.com';
-                                                                        const isActive = u.active === true || isUserOwner;
+                                                                        const isActive = u.active !== false || isUserOwner;
                                                                         
                                                                         return (
                                                                             <TableRow key={u.id} className="hover:bg-primary/5">
