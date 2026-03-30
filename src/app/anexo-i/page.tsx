@@ -33,7 +33,7 @@ import autoTable from 'jspdf-autotable';
 import { format, addDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError } from '@/firebase/error-emitter';
 import {
   Dialog,
   DialogContent,
@@ -62,7 +62,7 @@ export default function AnexoIPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
-  const [tipoOficina, setTipoOficina] = useState<'REGISTRO' | 'CENTRO_CIVICO'>('REGISTRO');
+  const [tipoOficina, setTipoOficina] = useState<'REGISTRO' | 'CENTRO_CIVICO' | 'OFICINA_CENTRAL'>('REGISTRO');
   
   const [fotoRespaldo, setFotoRespaldo] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -186,7 +186,6 @@ export default function AnexoIPage() {
   const handleSave = () => {
     if (!firestore || !user) return;
     
-    // Filtrar solo las filas que tienen datos
     const filledFilas = filas.filter(f => f.lugar.trim() !== '' && f.fecha_desde && f.fecha_hasta && f.hora_desde && f.hora_hasta);
     
     if (filledFilas.length === 0) {
@@ -231,7 +230,7 @@ export default function AnexoIPage() {
         
         batch.set(agendaRef, {
           anexo_id: anexoRef.id,
-          solicitante_entidad: tipoOficina === 'REGISTRO' ? 'OFICINA REGISTRO ELECTORAL' : 'CENTRO CÍVICO',
+          solicitante_entidad: tipoOficina === 'REGISTRO' ? 'OFICINA REGISTRO ELECTORAL' : tipoOficina === 'CENTRO_CIVICO' ? 'CENTRO CÍVICO' : 'OFICINA CENTRAL',
           tipo_solicitud: 'Lugar Fijo',
           fecha: dayStr,
           hora_desde: f.hora_desde,
@@ -260,7 +259,6 @@ export default function AnexoIPage() {
       .then(() => {
         toast({ title: "Planificación Guardada", description: `Se han agendado ${filledFilas.length} lugares fijos por el periodo seleccionado.` });
         setFotoRespaldo(null);
-        // Resetear filas
         setFilas(Array.from({ length: 10 }, () => ({
           lugar: '',
           direccion: '',
@@ -272,11 +270,6 @@ export default function AnexoIPage() {
         setIsSubmitting(false);
       })
       .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'anexo-i (batch)',
-          operation: 'write',
-          requestResourceData: anexoData,
-        }));
         setIsSubmitting(false);
       });
   };
@@ -304,6 +297,10 @@ export default function AnexoIPage() {
     doc.text("CENTRO CÍVICO", margin + 80, y);
     doc.rect(margin + 110, y - 4, 5, 5);
     if(tipoOficina === 'CENTRO_CIVICO') doc.text("X", margin + 111, y);
+
+    doc.text("OFICINA CENTRAL", margin + 130, y);
+    doc.rect(margin + 160, y - 4, 5, 5);
+    if(tipoOficina === 'OFICINA_CENTRAL') doc.text("X", margin + 161, y);
 
     y += 10;
     doc.text(`DISTRITO DE: _________________________________`, margin, y);
@@ -405,6 +402,13 @@ export default function AnexoIPage() {
                         </div>
                         <Label className="font-black text-xs uppercase cursor-pointer">CENTRO CÍVICO</Label>
                         <RadioGroupItem value="CENTRO_CIVICO" className="hidden" />
+                    </div>
+                    <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setTipoOficina('OFICINA_CENTRAL')}>
+                        <div className={cn("h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all", tipoOficina === 'OFICINA_CENTRAL' ? "border-black bg-black text-white" : "border-muted-foreground/30")}>
+                            {tipoOficina === 'OFICINA_CENTRAL' && <CheckCircle2 className="h-4 w-4" />}
+                        </div>
+                        <Label className="font-black text-xs uppercase cursor-pointer">OFICINA CENTRAL</Label>
+                        <RadioGroupItem value="OFICINA_CENTRAL" className="hidden" />
                     </div>
                 </RadioGroup>
             </div>

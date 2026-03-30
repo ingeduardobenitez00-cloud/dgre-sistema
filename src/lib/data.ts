@@ -1,3 +1,4 @@
+
 export interface ImageData {
   id: string;
   src: string;
@@ -95,7 +96,7 @@ export type AnexoIFila = {
 
 export type AnexoI = {
   id: string;
-  tipo_oficina: 'REGISTRO' | 'CENTRO_CIVICO';
+  tipo_oficina: 'REGISTRO' | 'CENTRO_CIVICO' | 'OFICINA_CENTRAL';
   departamento: string;
   distrito: string;
   filas: AnexoIFila[];
