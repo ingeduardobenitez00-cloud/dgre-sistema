@@ -20,6 +20,7 @@ import {
   Building2, 
   Landmark, 
   X,
+  FileText,
   Camera
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -40,18 +41,19 @@ export default function GaleriaCapacitacionesPage() {
   const informesRef = useMemoFirebase(() => (firestore ? collection(firestore, 'informes-divulgador') : null), [firestore]);
   const { data: informes, isLoading } = useCollection<InformeDivulgador>(informesRef);
 
-  // Agrupación Jerárquica: Dept -> Dist -> Informes con Fotos
+  // Agrupación Jerárquica: Dept -> Dist -> Informes con Fotos o Respaldo
   const groupedInformes = useMemo(() => {
     if (!informes) return [];
 
     const term = searchTerm.toLowerCase().trim();
     
-    // Filtrar informes que tengan fotos (en campo 'fotos' o 'foto_evidencia')
+    // Filtrar informes que tengan fotos o el documento firmado (respaldo)
     const filtered = informes.filter(inf => {
         const reportPhotos = inf.fotos || (inf as any).foto_evidencia || [];
         const hasPhotos = Array.isArray(reportPhotos) && reportPhotos.length > 0;
+        const hasRespaldo = !!inf.foto_respaldo_documental;
         
-        if (!hasPhotos) return false;
+        if (!hasPhotos && !hasRespaldo) return false;
 
         if (!term) return true;
 
@@ -100,7 +102,7 @@ export default function GaleriaCapacitacionesPage() {
             <div>
                 <h1 className="text-3xl font-black tracking-tight text-primary uppercase leading-none">Galería de Capacitaciones</h1>
                 <p className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-2 mt-2 tracking-widest">
-                    <Images className="h-3.5 w-3.5" /> Evidencias fotográficas de la colección de informes
+                    <Images className="h-3.5 w-3.5" /> Evidencias fotográficas y respaldos documentales (Anexo III)
                 </p>
             </div>
             <div className="relative w-full md:w-80">
@@ -156,6 +158,8 @@ export default function GaleriaCapacitacionesPage() {
                                         <AccordionContent className="pt-6 space-y-8 px-2">
                                             {dist.items.map((inf) => {
                                                 const reportPhotos = inf.fotos || (inf as any).foto_evidencia || [];
+                                                const hasRespaldo = !!inf.foto_respaldo_documental;
+                                                
                                                 return (
                                                     <Card key={inf.id} className="border-none shadow-lg rounded-[2rem] overflow-hidden bg-white group/card">
                                                         <div className="p-6 md:p-8 border-b bg-muted/5">
@@ -196,6 +200,28 @@ export default function GaleriaCapacitacionesPage() {
 
                                                         <CardContent className="p-6 md:p-8">
                                                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                                                {/* MOSTRAR PRIMERO EL RESPALDO DOCUMENTAL (EL QUE VEMOS EN EL SCREENSHOT) */}
+                                                                {hasRespaldo && (
+                                                                    <div 
+                                                                        className="relative aspect-video rounded-xl overflow-hidden border-4 border-primary/20 shadow-md group/photo cursor-pointer transition-transform hover:scale-[1.05]"
+                                                                        onClick={() => setSelectedPhoto(inf.foto_respaldo_documental)}
+                                                                    >
+                                                                        <Image 
+                                                                            src={inf.foto_respaldo_documental} 
+                                                                            alt="Respaldo Documental" 
+                                                                            fill 
+                                                                            className="object-cover" 
+                                                                            sizes="200px"
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity">
+                                                                            <FileText className="text-white h-6 w-6 mb-1" />
+                                                                            <span className="text-[8px] font-black text-white uppercase tracking-widest">VER RESPALDO</span>
+                                                                        </div>
+                                                                        <div className="absolute top-2 left-2 bg-primary text-white text-[6px] font-black px-1.5 py-0.5 rounded-sm shadow-lg">DOCUMENTO FIRMADO</div>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* MOSTRAR FOTOS DE CAMPO ADICIONALES */}
                                                                 {reportPhotos.map((photo: string, pIdx: number) => (
                                                                     <div 
                                                                         key={pIdx} 
