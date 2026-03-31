@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -36,7 +37,7 @@ import {
   Calendar,
   RefreshCw,
   Cpu
-} from 'lucide-center';
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
