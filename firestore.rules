@@ -10,9 +10,9 @@ service cloud.firestore {
       return request.auth != null && 
              (
                request.auth.token.email == 'edubtz11@gmail.com' || 
+               request.auth.token.email == 'ing.eduardobenitez00@gmail.com' ||
                request.auth.token.email == 'eduardobritz1@gmail.com' || 
-               request.auth.token.email == 'eduardobritz11@gmail.com' ||
-               request.auth.token.email == 'ing.eduardobenitez00@gmail.com'
+               request.auth.token.email == 'eduardobritz11@gmail.com'
              );
     }
 
@@ -24,7 +24,7 @@ service cloud.firestore {
     }
 
     // ======================================================
-    // 2. REGLA DE ORO (BYPASS ABSOLUTO)
+    // 2. REGLA DE ORO (BYPASS ABSOLUTO PARA MASTER)
     // ======================================================
 
     match /{document=**} {
@@ -36,11 +36,12 @@ service cloud.firestore {
     // ======================================================
 
     match /users/{userId} {
-      // Lectura: Propia o por Administrador
+      // Lectura: Propia, por Admin o por Master
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
       
       // Escritura: Solo Administradores o Maestros
-      allow create, update: if isAdmin() || isMaster();
+      // Nota: isMaster() no usa get(), evitando bloqueos circulares en la creación
+      allow create, update: if isMaster() || isAdmin();
       
       // Borrado: Reservado para el Master
       allow delete: if isMaster();
