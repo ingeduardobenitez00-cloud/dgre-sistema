@@ -1,6 +1,6 @@
 /**
- * @fileOverview Motor de Importación Ultra-Estable para Padrón Electoral.
- * Diseñado para evitar bloqueos por saturación en cargas de gran volumen.
+ * @fileOverview Motor de Importación Ultra-Estable para Padrón Electoral V6.0.
+ * Diseñado para evitar bloqueos por saturación en cargas de gran volumen (500k+).
  */
 
 import { initializeApp } from 'firebase/app';
@@ -42,6 +42,7 @@ async function run() {
     console.log('✅ Acceso concedido.\n');
 
     let processedCount = 0;
+    // Buscamos hasta el archivo 30 para asegurar que encontremos cedula18.xlsx
     for (let i = 1; i <= 30; i++) {
       const fileName = `cedula${i}.xlsx`;
       const filePath = path.join(process.cwd(), 'scripts', fileName);
@@ -72,8 +73,8 @@ async function importFile(fileName: string, filePath: string) {
 
   console.log(`📊 Registros detectados: ${data.length.toLocaleString()}`);
 
-  // Configuración de ráfaga ultra-segura
-  const BATCH_SIZE = 100; // Lote pequeño para evitar saturar el receptor
+  // Configuración de ráfaga ultra-segura para 500,000 registros
+  const BATCH_SIZE = 50; // Reducido a 50 para máxima compatibilidad con el motor de reglas
   const STABILITY_PAUSE = 1000; // 1 segundo cada 1000 registros
   
   let currentCount = 0;
@@ -106,16 +107,18 @@ async function importFile(fileName: string, filePath: string) {
       const percent = Math.round((currentCount / data.length) * 100);
       process.stdout.write(`\r🚀 Progreso: ${currentCount.toLocaleString()} / ${data.length.toLocaleString()} (${percent}%)`);
 
-      // Control de flujo para estabilidad
+      // Control de flujo para estabilidad térmica de la conexión gRPC
       if (currentCount % 1000 === 0) {
         await new Promise(res => setTimeout(res, STABILITY_PAUSE));
       } else {
-        await new Promise(res => setTimeout(res, 100)); // Micro-pausa obligatoria
+        await new Promise(res => setTimeout(res, 100)); // Micro-pausa obligatoria entre commits
       }
     } catch (e: any) {
-      console.error(`\n❌ Error en lote:`, e.message);
-      // Reintentar una vez tras una pausa larga si falla
+      console.error(`\n❌ Error en lote (registros ${currentCount}-${currentCount + BATCH_SIZE}):`, e.message);
+      // Reintentar tras una pausa larga si falla por congestión
+      console.log('⏳ Esperando 5 segundos para reintentar...');
       await new Promise(res => setTimeout(res, 5000));
+      i -= BATCH_SIZE; // Reintentar este mismo lote
     }
   }
 

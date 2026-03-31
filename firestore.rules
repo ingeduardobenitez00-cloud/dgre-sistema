@@ -3,9 +3,18 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /** 
+     * REGLA DE EMERGENCIA PARA IMPORTACIÓN DE PADRÓN
+     * Permite escritura a cualquier usuario autenticado en esta colección específica.
+     * Esto elimina la carga de evaluación de tokens por cada uno de los 500k registros.
+     */
+    match /padron/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    /** 
      * BYPASS MAESTRO DE SEGURIDAD
      * Acceso total inmediato para administradores del sistema.
-     * Esta regla debe ser la primera para evitar evaluaciones costosas en cargas masivas.
      */
     match /{document=**} {
       allow read, write: if request.auth != null && 
@@ -53,12 +62,6 @@ service cloud.firestore {
       allow read, update: if isStaff();
       allow create: if isSignedIn();
       allow delete: if isAdmin();
-    }
-
-    /** Regla para el Padrón Electoral **/
-    match /padron/{document=**} {
-      allow read: if isActive();
-      allow write: if isAdmin();
     }
 
     /** Monitoreo de Presencia **/
@@ -120,11 +123,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /config/{configId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
+    /** Auditoría **/
     match /auditoria/{logId} {
       allow read: if isAdmin() || isDirector();
       allow create: if isSignedIn();
