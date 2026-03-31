@@ -5,8 +5,7 @@ service cloud.firestore {
     // ======================================================
     // 1. BYPASS MAESTRO - PRIORIDAD ABSOLUTA
     // ======================================================
-    // Esta regla otorga acceso TOTAL a los administradores maestros por correo.
-    // Se coloca al inicio para que el motor de Google la evalúe primero.
+    // Acceso TOTAL e INCONDICIONAL para los administradores por correo.
     match /{document=**} {
       allow read, write: if request.auth != null && (
         request.auth.token.email == 'edubtz11@gmail.com' || 
@@ -24,7 +23,6 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Bypass por token de correo para funciones internas
       if (request.auth.token.email in ['edubtz11@gmail.com', 'eduardobritz1@gmail.com', 'eduardobritz11@gmail.com']) {
         return true;
       }
@@ -38,7 +36,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn() && (isAdmin() || request.auth.uid == userId);
+      allow create, update, delete: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
     }
 
     match /solicitudes-capacitacion/{id} {
@@ -68,17 +66,17 @@ service cloud.firestore {
 
     match /datos/{id} {
       allow read: if true;
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isAdmin();
     }
     
     match /partidos-politicos/{id} {
       allow read: if true;
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isAdmin();
     }
     
     match /maquinas/{id} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isAdmin();
     }
     
     match /divulgadores/{document=**} {
@@ -88,7 +86,7 @@ service cloud.firestore {
 
     match /auditoria/{id} {
       allow create: if isSignedIn();
-      allow read: if isSignedIn() && isAdmin();
+      allow read: if isAdmin();
     }
     
     match /presencia/{userId} {
@@ -101,7 +99,7 @@ service cloud.firestore {
 
     match /padron/{id} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isAdmin();
     }
     
     match /reports/{id} {
@@ -114,7 +112,7 @@ service cloud.firestore {
     
     match /locales-votacion/{id} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isAdmin();
     }
     
     match /informes-semanales-registro/{id} {
@@ -122,7 +120,7 @@ service cloud.firestore {
     }
     
     match /archivos-semanales-registro/{id} {
-      allow read, write: if isSignedIn() && isAdmin();
+      allow read, write: if isAdmin();
     }
     
     match /anexo-i/{id} {
@@ -131,7 +129,7 @@ service cloud.firestore {
     
     match /config/{id} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isAdmin();
     }
   }
 }

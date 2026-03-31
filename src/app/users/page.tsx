@@ -628,10 +628,7 @@ function UsersContent() {
           newUid = userCredential.user.uid;
       } catch (authErr: any) {
           if (authErr.code === 'auth/email-already-in-use') {
-              // Intentar buscar el UID del usuario existente para reparar su perfil en Firestore
               toast({ title: "Cuenta ya existe en Auth", description: "Intentando sincronizar perfil en base de datos..." });
-              // Si no tenemos el UID, no podemos anidarlo fácilmente desde el cliente sin Admin SDK.
-              // Pero en este entorno, asumiremos que si falla aquí, el Admin debe intentar actualizar el perfil si aparece en la lista.
               setIsSubmitting(false);
               return;
           }
@@ -641,7 +638,6 @@ function UsersContent() {
       if (newUid) {
           const userRef = doc(firestore, 'users', newUid);
           
-          // PATRÓN NO BLOQUEANTE PARA ESCRITURA EN FIRESTORE
           setDoc(userRef, newUserProfile)
             .then(() => {
                 recordAuditLog(firestore, {
@@ -691,7 +687,6 @@ function UsersContent() {
     };
     const docRef = doc(firestore, 'users', editingUser.id);
     
-    // PATRÓN NO BLOQUEANTE
     updateDoc(docRef, updateData)
       .then(() => { 
           toast({ title: 'Perfil Actualizado' }); 
