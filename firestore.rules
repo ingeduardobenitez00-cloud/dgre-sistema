@@ -3,16 +3,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ======================================================
-    // 1. FUNCIONES DE APOYO CRÍTICAS
+    // 1. REGLA DE ORO: BYPASS ABSOLUTO PARA ADMINISTRADORES MAESTROS
     // ======================================================
+    // Esta regla se evalúa primero y otorga acceso total e incondicional
+    // a los correos autorizados, ignorando cualquier bloqueo posterior.
     
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Validación directa por correo para evitar latencias de base de datos
-    function isMasterAdmin() {
-      return isSignedIn() && (
+    match /{document=**} {
+      allow read, write: if request.auth != null && (
         request.auth.token.email.lower() == 'edubtz11@gmail.com' || 
         request.auth.token.email.lower() == 'eduardobritz1@gmail.com' || 
         request.auth.token.email.lower() == 'eduardobritz11@gmail.com'
@@ -20,123 +17,106 @@ service cloud.firestore {
     }
 
     // ======================================================
-    // 2. REGLAS POR COLECCIÓN (ORDEN DE PRIORIDAD)
+    // 2. FUNCIONES DE APOYO PARA OTROS ROLES
+    // ======================================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ======================================================
+    // 3. REGLAS POR COLECCIÓN (PARA USUARIOS NO MAESTROS)
     // ======================================================
 
     match /users/{userId} {
-      // Prioridad absoluta al Administrador Maestro
-      allow read, write: if isMasterAdmin();
-      
-      // Reglas para usuarios normales
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create, update: if isSignedIn() && request.auth.uid == userId;
     }
 
     match /solicitudes-capacitacion/{id} {
-      allow read, write: if isMasterAdmin();
       allow read, write: if isSignedIn();
     }
     
     match /informes-divulgador/{id} {
-      allow read, write: if isMasterAdmin();
       allow read, write: if isSignedIn();
     }
     
     match /informes-semanales-anexo-iv/{id} {
-      allow read, write: if isMasterAdmin();
       allow read, write: if isSignedIn();
     }
     
     match /movimientos-maquinas/{id} {
-      allow read, write: if isMasterAdmin();
-      allow read, write: if isSignedIn();
-    }
-    
-    match /denuncias-lacres/{id} {
-      allow read, write: if isMasterAdmin();
       allow read, write: if isSignedIn();
     }
     
     match /encuestas-satisfaccion/{id} {
-      allow read: if isMasterAdmin() || isSignedIn();
+      allow read: if isSignedIn();
       allow create: if true; 
     }
 
     match /datos/{id} {
       allow read: if true;
-      allow write: if isMasterAdmin();
+      allow write: if isSignedIn();
     }
     
     match /partidos-politicos/{id} {
       allow read: if true;
-      allow write: if isMasterAdmin();
+      allow write: if isSignedIn();
     }
     
     match /maquinas/{id} {
       allow read: if isSignedIn();
-      allow write: if isMasterAdmin();
+      allow write: if isSignedIn();
     }
     
     match /divulgadores/{id} {
-      allow read, write: if isMasterAdmin();
       allow read, write: if isSignedIn();
     }
 
     match /auditoria/{id} {
       allow create: if isSignedIn();
-      allow read: if isMasterAdmin();
+      allow read: if isSignedIn();
     }
     
     match /presencia/{userId} {
-      allow read, write: if isMasterAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
     
     match /notificaciones/{id} {
-      allow read, write: if isMasterAdmin();
+      allow read, write: if isSignedIn();
       allow create: if isSignedIn();
     }
 
     match /padron/{id} {
       allow read: if isSignedIn();
-      allow write: if isMasterAdmin();
+      allow write: if isSignedIn();
     }
     
     match /reports/{id} {
-      allow read, write: if isMasterAdmin() || isSignedIn();
+      allow read, write: if isSignedIn();
     }
     
     match /imagenes/{id} {
-      allow read, write: if isMasterAdmin() || isSignedIn();
+      allow read, write: if isSignedIn();
     }
     
     match /locales-votacion/{id} {
       allow read: if isSignedIn();
-      allow write: if isMasterAdmin();
+      allow write: if isSignedIn();
     }
     
     match /informes-semanales-registro/{id} {
-      allow read, write: if isMasterAdmin();
       allow read, write: if isSignedIn();
     }
     
-    match /archivos-semanales-registro/{id} {
-      allow read, write: if isMasterAdmin();
-    }
-    
     match /anexo-i/{id} {
-      allow read, write: if isMasterAdmin();
       allow read, write: if isSignedIn();
     }
     
     match /config/{id} {
       allow read: if isSignedIn();
-      allow write: if isMasterAdmin();
-    }
-
-    // Respaldo global recursivo (Bypass Maestro Final)
-    match /{document=**} {
-      allow read, write: if isMasterAdmin();
+      allow write: if isSignedIn();
     }
   }
 }

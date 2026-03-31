@@ -35,7 +35,9 @@ import {
   Clock,
   Calendar,
   RefreshCw,
-  Cpu
+  Cpu,
+  Mail,
+  ShieldQuestion
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -260,16 +262,18 @@ const PermissionMatrix = ({
 
 function UsersContent() {
   const { toast } = useToast();
-  const { firestore } = useFirebase();
+  const { auth, firestore } = useFirebase();
   const { user: currentUser, isUserLoading: isAuthLoading } = useUser();
   const searchParams = useSearchParams();
 
-  const isAdminView = useMemo(() => {
+  const isMasterAdmin = useMemo(() => {
     const email = currentUser?.email?.toLowerCase() || '';
-    const isOwner = email === 'edubtz11@gmail.com' || email === 'eduardobritz1@gmail.com' || email === 'eduardobritz11@gmail.com';
-    if (isOwner) return true;
-    return currentUser?.profile?.role === 'admin';
+    return email === 'edubtz11@gmail.com' || email === 'eduardobritz1@gmail.com' || email === 'eduardobritz11@gmail.com';
   }, [currentUser]);
+
+  const isAdminView = useMemo(() => {
+    return isMasterAdmin || currentUser?.profile?.role === 'admin';
+  }, [currentUser, isMasterAdmin]);
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || !isAdminView) return null;
@@ -573,7 +577,7 @@ function UsersContent() {
     const newStatus = !currentStatus;
     const docRef = doc(firestore, 'users', user.id);
     updateDoc(docRef, { active: newStatus })
-      .then(() => toast({ title: newStatus ? 'Usuario Habilitado' : 'Usuario Desactivado' }))
+      .then(() => toast({ title: currentStatus ? 'Acceso Revocado' : 'Acceso Restaurado' }))
       .catch((error) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })));
   };
 
@@ -581,15 +585,25 @@ function UsersContent() {
     const isOwner = user.email === 'edubtz11@gmail.com' || user.email === 'eduardobritz1@gmail.com' || user.email === 'eduardobritz11@gmail.com';
     if (!firestore || isOwner) return;
     
+    setIsSubmitting(true);
     const batch = writeBatch(firestore);
-    batch.delete(doc(firestore, 'users', user.id));
+    
+    // Al ser un entorno cliente, no podemos borrar de Authentication.
+    // Marcamos como inactivo permanentemente en Firestore para bloquear su acceso.
+    batch.update(doc(firestore, 'users', user.id), { 
+        active: false, 
+        deleted_at: new Date().toISOString(),
+        username: `(ELIMINADO) ${user.username}`
+    });
     batch.delete(doc(firestore, 'presencia', user.id));
 
     try {
         await batch.commit();
-        toast({ title: 'Usuario Eliminado y Rastro Limpiado' });
+        toast({ title: 'Acceso Inhabilitado Permanentemente', description: 'El rastro de conexión ha sido limpiado.' });
     } catch (error: any) {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${user.id}`, operation: 'delete' }));
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -628,10 +642,10 @@ function UsersContent() {
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       const newUid = userCredential.user.uid;
 
-      // 3. Crear Perfil en Firestore usando el UID generado (Usamos el firestore del admin)
+      // 3. Crear Perfil en Firestore usando el UID generado
       const userRef = doc(firestore, 'users', newUid);
       
-      // BLOQUE CRÍTICO: Esperamos el guardado para asegurar la vinculación
+      // BLOQUE CRÍTICO: El Admin Maestro tiene Bypass en las reglas para escribir aquí
       await setDoc(userRef, newUserProfile);
 
       // 4. Registro de Auditoría
@@ -645,41 +659,26 @@ function UsersContent() {
           detalles: `Registro de nuevo personal: ${email} (${username})`
       });
 
-      toast({ title: 'Usuario Creado con Éxito' });
+      toast({ title: 'Usuario Creado con Éxito', description: 'El perfil ha sido anidado a la cuenta de acceso.' });
       form.reset(); 
       setSelectedModules(new Set()); 
       setSelectedPerms(new Set());
       
-      // Cerrar sesión en la app temporal
       await signOut(tempAuth);
 
     } catch (error: any) {
-      console.error("Error en registro:", error);
-      
       if (error.code === 'auth/email-already-in-use') {
-          toast({ 
-            variant: 'destructive',
-            title: 'Correo en uso', 
-            description: 'Esta dirección ya existe en la base de datos de autenticación.' 
-          });
-      } else if (error.code === 'permission-denied' || error.message?.includes('permissions')) {
-          toast({
-            variant: 'destructive',
-            title: 'Error de Escritura',
-            description: 'No se pudo crear el perfil en Firestore por falta de permisos.'
-          });
+          toast({ variant: 'destructive', title: 'Cuenta existente', description: 'El correo ya tiene un acceso creado. Intente recuperarlo.' });
+      } else {
+          toast({ variant: 'destructive', title: 'Error de Seguridad', description: error.message });
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: `users/NEW_USER`,
             operation: 'create',
             requestResourceData: newUserProfile
           }));
-      } else {
-          toast({ variant: 'destructive', title: 'Error Crítico', description: error.message }); 
       }
     } finally { 
-        if (tempApp) {
-            try { await deleteApp(tempApp); } catch (e) {}
-        }
+        if (tempApp) { try { await deleteApp(tempApp); } catch (e) {} }
         setIsSubmitting(false); 
     }
   };
@@ -693,7 +692,7 @@ function UsersContent() {
         role: editingUser.role, 
         modules: editingUser.modules || [], 
         permissions: editingUser.permissions || [], 
-        departamento: editingUser.departamento || 'ALCIONAL', 
+        departamento: editingUser.departamento || 'ALCANCE NACIONAL', 
         distrito: editingUser.distrito || 'TODOS LOS DISTRITOS' 
     };
     const docRef = doc(firestore, 'users', editingUser.id);
@@ -712,10 +711,22 @@ function UsersContent() {
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/5">
-      <Header title="Administración de Accesos" />
+    <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
+      <Header title="Administración de Matriz" />
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8">
         
+        {/* ALERTA DE SEGURIDAD PARA ADMIN TRAS CAMBIO CLAVE */}
+        <div className="p-6 bg-red-50 border-4 border-dashed border-red-200 rounded-[2.5rem] flex items-start gap-6 animate-pulse">
+            <ShieldAlert className="h-12 w-12 text-red-600 shrink-0" />
+            <div>
+                <p className="font-black uppercase text-sm text-red-800">Protocolo de Sincronización de Sesión</p>
+                <p className="text-[10px] font-bold uppercase text-red-700 leading-relaxed mt-1">
+                    Si ha cambiado su contraseña recientemente o recibe errores de permisos, es OBLIGATORIO **CERRAR SESIÓN Y VOLVER A ENTRAR**. 
+                    Firestore requiere un token fresco para validar su identidad de Administrador Maestro en las operaciones de escritura.
+                </p>
+            </div>
+        </div>
+
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
             <div>
                 <h1 className="text-3xl font-black tracking-tight uppercase text-primary leading-none">Matriz de Personal</h1>
@@ -723,18 +734,18 @@ function UsersContent() {
                     <ShieldCheck className="h-3 w-3" /> Control de identidades y validación de roles
                 </p>
             </div>
-            <div className="flex flex-col md:flex-row items-end gap-4">
+            <div className="flex gap-4">
                 <Card className="bg-white border-2 border-primary/10 p-4 rounded-2xl flex items-center gap-4 min-w-[180px] shadow-sm">
                     <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>
                     <div>
-                        <p className="text-[8px] font-black uppercase text-muted-foreground leading-none mb-1">COBERTURA NACIONAL</p>
+                        <p className="text-[8px] font-black uppercase text-muted-foreground leading-none mb-1">COBERTURA</p>
                         <p className="text-2xl font-black text-primary">{stats.coverage}%</p>
                     </div>
                 </Card>
                 <Card className="bg-black text-white p-4 rounded-2xl flex items-center gap-4 min-w-[180px] shadow-xl">
                     <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center"><Users className="h-5 w-5" /></div>
                     <div>
-                        <p className="text-[8px] font-black uppercase opacity-60 tracking-widest leading-none mb-1">PERSONAL REGISTRADO</p>
+                        <p className="text-[8px] font-black uppercase opacity-60 tracking-widest leading-none mb-1">REGISTRADOS</p>
                         <p className="text-2xl font-black">{stats.total}</p>
                     </div>
                 </Card>
@@ -745,7 +756,7 @@ function UsersContent() {
           <form onSubmit={handleSubmit}>
             <CardHeader className="border-b py-6 bg-muted/10">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <CardTitle className="uppercase font-black text-xs flex items-center gap-2 tracking-widest text-primary"><UserPlus className="h-4 w-4" /> Registrar Funcionario</CardTitle>
+                <CardTitle className="uppercase font-black text-xs flex items-center gap-2 tracking-widest text-primary"><UserPlus className="h-4 w-4" /> Registrar Nuevo Acceso</CardTitle>
                 <div className="flex items-center gap-2">
                     <Button type="button" variant="outline" size="sm" className="font-black uppercase text-[10px] gap-2 h-9" onClick={() => handleApplyJefeProfile(false)}><UserCircle className="h-3.5 w-3.5" /> PERFIL JEFE</Button>
                     <Button type="button" variant="outline" size="sm" className="font-black uppercase text-[10px] gap-2 h-9" onClick={() => handleApplyCIDEEProfile(false)}><Zap className="h-3.5 w-3.5 fill-primary" /> PERFIL CIDEE</Button>
@@ -756,7 +767,7 @@ function UsersContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Nombre y Apellido</Label><Input name="username" placeholder="Nombre y Apellido" required className="font-bold h-11 border-2 uppercase" /></div>
                 <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Correo Institucional</Label><Input name="email" type="email" placeholder="usuario@tsje.gov.py" required className="font-bold h-11 border-2" /></div>
-                <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Contraseña</Label><Input name="password" type="password" required className="font-bold h-11 border-2" /></div>
+                <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Contraseña Temporal</Label><Input name="password" type="password" required className="font-bold h-11 border-2" /></div>
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase">Rol Institucional</Label>
                     <select 
@@ -794,7 +805,12 @@ function UsersContent() {
               <Separator />
               <PermissionMatrix selectedPerms={selectedPerms} selectedModules={selectedModules} onTogglePerm={handleTogglePerm} onToggleModuleAction={handleToggleModuleAction} onToggleColumn={handleToggleColumn} />
             </CardContent>
-            <CardFooter className="bg-muted/30 border-t p-6"><Button type="submit" className="w-full h-16 font-black uppercase shadow-xl text-lg" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin mr-3" /> : "REGISTRAR ACCESO CENTRAL"}</Button></CardFooter>
+            <CardFooter className="bg-muted/30 border-t p-6">
+                <Button type="submit" className="w-full h-16 font-black uppercase shadow-xl text-lg bg-black hover:bg-black/90" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <UserPlus className="mr-3 h-6 w-6" />}
+                    REGISTRAR Y ANIDAR PERFIL
+                </Button>
+            </CardFooter>
           </form>
         </Card>
 
@@ -804,23 +820,13 @@ function UsersContent() {
                     <Users className="h-6 w-6 text-white opacity-50" />
                     <div>
                         <h2 className="text-white font-black uppercase text-sm">Directorio de Usuarios</h2>
-                        <p className="text-white/60 font-bold uppercase text-[9px]">Gestión jerárquica de permisos y estados</p>
+                        <p className="text-white/60 font-bold uppercase text-[9px]">Gestión de perfiles vinculados</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4 w-full md:w-auto">
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-black uppercase text-[10px] gap-2 h-10 px-4 rounded-xl shadow-lg"
-                        onClick={handleSyncAllJefes}
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} 
-                        Sincronizar todos los Jefes
-                    </Button>
                     <div className="relative flex-1 md:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
-                        <Input placeholder="Buscar por nombre, distrito o dpto..." className="h-10 pl-10 text-[10px] font-bold bg-white/10 border-white/20 text-white rounded-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        <Input placeholder="Filtrar matriz..." className="h-10 pl-10 text-[10px] font-bold bg-white/10 border-white/20 text-white rounded-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     </div>
                 </div>
             </div>
@@ -841,9 +847,7 @@ function UsersContent() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="bg-muted text-muted-foreground text-[8px] font-black uppercase">{dept.totalCount} TOTAL</Badge>
                                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[8px] font-black uppercase">{dept.activeCount} CUBIERTOS</Badge>
-                                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[8px] font-black uppercase">{dept.missingCount} FALTANTES</Badge>
                                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase">{dept.districts.reduce((acc, d) => acc + d.users.length, 0)} PERSONAL</Badge>
                                     </div>
                                 </div>
@@ -859,10 +863,8 @@ function UsersContent() {
                                                             <Building2 className={cn("h-4 w-4", dist.users.length > 0 ? "text-primary" : "text-muted-foreground/30")} />
                                                             <span className={cn("font-black uppercase text-xs", dist.users.length === 0 && "text-muted-foreground/60")}>{dist.name}</span>
                                                         </div>
-                                                        {dist.users.length > 0 ? (
+                                                        {dist.users.length > 0 && (
                                                             <Badge className="bg-black text-white text-[8px] font-black">{dist.users.length} PERSONAL</Badge>
-                                                        ) : (
-                                                            <Badge variant="outline" className="border-dashed border-primary/20 text-primary/40 text-[7px] font-black uppercase">PENDIENTE DE REGISTRO</Badge>
                                                         )}
                                                     </div>
                                                 </AccordionTrigger>
@@ -882,13 +884,13 @@ function UsersContent() {
                                                                 <TableBody>
                                                                     {dist.users.map(u => {
                                                                         const isUserOwner = u.email === 'edubtz11@gmail.com' || u.email === 'eduardobritz1@gmail.com' || u.email === 'eduardobritz11@gmail.com';
-                                                                        const isActive = u.active !== false || isUserOwner;
+                                                                        const isActive = u.active !== false;
                                                                         
                                                                         return (
-                                                                            <TableRow key={u.id} className="hover:bg-primary/5">
+                                                                            <TableRow key={u.id} className={cn("hover:bg-primary/5", !isActive && "bg-red-50/30")}>
                                                                                 <TableCell className="px-6 py-3">
                                                                                     <div className="flex flex-col">
-                                                                                        <span className="font-black text-[11px] uppercase text-primary leading-none">{u.username}</span>
+                                                                                        <span className={cn("font-black text-[11px] uppercase leading-none", isActive ? "text-primary" : "text-red-400")}>{u.username}</span>
                                                                                         <span className="text-[9px] font-bold text-muted-foreground mt-1">{u.email}</span>
                                                                                     </div>
                                                                                 </TableCell>
@@ -900,11 +902,7 @@ function UsersContent() {
                                                                                             {(() => {
                                                                                                 const presence = presenceData?.find(p => p.usuario_id === u.id);
                                                                                                 if (!presence?.ultima_actividad) return 'SIN REGISTRO';
-                                                                                                try {
-                                                                                                    return format(presence.ultima_actividad.toDate(), "dd/MM/yy HH:mm", { locale: es });
-                                                                                                } catch (e) {
-                                                                                                    return 'SIN REGISTRO';
-                                                                                                }
+                                                                                                try { return format(presence.ultima_actividad.toDate(), "dd/MM/yy HH:mm", { locale: es }); } catch (e) { return 'SIN REGISTRO'; }
                                                                                             })()}
                                                                                         </span>
                                                                                     </div>
@@ -912,17 +910,15 @@ function UsersContent() {
                                                                                 <TableCell>
                                                                                     {isActive ? (
                                                                                         <Badge className="bg-green-600 text-white text-[7px] font-black uppercase">ACTIVO</Badge>
-                                                                                    ) : u.registration_method === 'auto_registro_jefe' ? (
-                                                                                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[7px] font-black uppercase">PENDIENTE</Badge>
                                                                                     ) : (
-                                                                                        <Badge variant="destructive" className="text-[7px] font-black uppercase">INACTIVO</Badge>
+                                                                                        <Badge variant="destructive" className="text-[7px] font-black uppercase">ELIMINADO / INACTIVO</Badge>
                                                                                     )}
                                                                                 </TableCell>
                                                                                 <TableCell className="text-right px-6">
                                                                                     <div className="flex justify-end gap-2">
                                                                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingUser({...u}); setEditModalOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                                                                                        <Button variant="ghost" size="icon" className={cn("h-8 w-8", isActive ? "text-amber-600" : "text-green-600")} title={isActive ? "Deshabilitar Acceso" : "Habilitar Acceso"} onClick={() => toggleUserStatus(u)} disabled={isUserOwner}>
-                                                                                            {isActive ? <ShieldAlert className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                                                                                        <Button variant="ghost" size="icon" className={cn("h-8 w-8", isActive ? "text-amber-600" : "text-green-600")} title={isActive ? "Deshabilitar" : "Restaurar"} onClick={() => toggleUserStatus(u)} disabled={isUserOwner}>
+                                                                                            {isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                                                                                         </Button>
                                                                                         <AlertDialog>
                                                                                             <AlertDialogTrigger asChild>
@@ -930,16 +926,19 @@ function UsersContent() {
                                                                                                     <Trash2 className="h-4 w-4" />
                                                                                                 </Button>
                                                                                             </AlertDialogTrigger>
-                                                                                            <AlertDialogContent className="rounded-[2rem]">
-                                                                                                <AlertDialogHeader>
-                                                                                                    <AlertDialogTitle className="font-black uppercase">¿ELIMINAR ACCESO?</AlertDialogTitle>
-                                                                                                    <AlertDialogDescription className="text-xs font-medium uppercase">
-                                                                                                        Esta acción es permanente. Se borrará el perfil de {u.username} del sistema central y su rastro de conexión.
+                                                                                            <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl p-8">
+                                                                                                <AlertDialogHeader className="space-y-4">
+                                                                                                    <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto border-4 border-destructive/20">
+                                                                                                        <ShieldAlert className="h-8 w-8 text-destructive" />
+                                                                                                    </div>
+                                                                                                    <AlertDialogTitle className="font-black uppercase text-center text-xl tracking-tight">ELIMINAR ACCESO PERMANENTE</AlertDialogTitle>
+                                                                                                    <AlertDialogDescription className="text-xs font-medium uppercase leading-relaxed text-muted-foreground text-center">
+                                                                                                        Esta acción desactiva la anidación en la base de datos y borra el rastro de conexión. Por seguridad, el acceso de Authentication debe revocarse manualmente si se requiere eliminar el correo del motor de Google.
                                                                                                     </AlertDialogDescription>
                                                                                                 </AlertDialogHeader>
-                                                                                                <AlertDialogFooter className="pt-6">
-                                                                                                    <AlertDialogCancel className="rounded-xl text-[10px] font-black">CANCELAR</AlertDialogCancel>
-                                                                                                    <AlertDialogAction onClick={() => handleDeleteUser(u)} className="bg-destructive text-white rounded-xl text-[10px] font-black">ELIMINAR DEFINITIVAMENTE</AlertDialogAction>
+                                                                                                <AlertDialogFooter className="mt-8 gap-4">
+                                                                                                    <AlertDialogCancel className="h-12 rounded-xl text-[10px] font-black border-2">CANCELAR</AlertDialogCancel>
+                                                                                                    <AlertDialogAction onClick={() => handleDeleteUser(u)} className="h-12 bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px]">INHABILITAR PERMANENTE</AlertDialogAction>
                                                                                                 </AlertDialogFooter>
                                                                                             </AlertDialogContent>
                                                                                         </AlertDialog>
@@ -953,7 +952,7 @@ function UsersContent() {
                                                     ) : (
                                                         <div className="py-10 text-center space-y-2 opacity-30">
                                                             <UserCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-                                                            <p className="text-[10px] font-black uppercase">Oficina pendiente de asignación</p>
+                                                            <p className="text-[10px] font-black uppercase">Sin personal vinculado</p>
                                                         </div>
                                                     )}
                                                 </AccordionContent>
@@ -977,7 +976,7 @@ function UsersContent() {
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-4">
                         <div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center"><Settings className="h-6 w-6" /></div>
-                        <div><DialogTitle className="text-2xl font-black uppercase">Editar Perfil</DialogTitle><DialogDescription className="text-white/60 font-bold uppercase text-[9px]">ID: {editingUser.id}</DialogDescription></div>
+                        <div><DialogTitle className="text-2xl font-black uppercase">Editar Perfil</DialogTitle><DialogDescription className="text-white/60 font-bold uppercase text-[9px]">UID: {editingUser.id}</DialogDescription></div>
                     </div>
                     <div className="flex items-center gap-2">
                         <Button type="button" variant="outline" size="sm" className="font-black uppercase text-[10px] h-9 bg-transparent border-white/20 text-white hover:bg-white/10" onClick={() => handleApplyJefeProfile(true)}><UserCircle className="h-3.5 w-3.5" /> PERFIL JEFE</Button>
