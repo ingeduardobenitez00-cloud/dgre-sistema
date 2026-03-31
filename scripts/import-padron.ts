@@ -45,7 +45,7 @@ async function run() {
     await signInWithEmailAndPassword(auth, email, password);
     console.log('✅ Acceso concedido.\n');
 
-    // Procesar archivos del 1 al 9 si existen
+    // Procesar archivos del 1 al 18 si existen
     let filesFound = 0;
     for (let i = 1; i <= 18; i++) {
       const success = await importFile(i);
