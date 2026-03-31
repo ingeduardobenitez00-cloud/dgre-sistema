@@ -22,26 +22,22 @@ import {
   Zap, 
   Power, 
   PowerOff, 
-  UserCircle,
-  Mail,
   ShieldAlert,
-  ChevronRight,
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle,
   RefreshCw,
   UserCheck,
-  Shield
+  Shield,
+  AlertTriangle,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
-import { collection, doc, setDoc, updateDoc, writeBatch, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, writeBatch, query, where, getDocs, limit } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import {
@@ -74,7 +70,6 @@ type UserProfile = {
   departamento?: string;
   distrito?: string;
   active?: boolean;
-  registration_method?: string;
 };
 
 const ACTION_LABELS = [
@@ -465,20 +460,26 @@ function UsersContent() {
       .then(() => toast({ title: currentStatus ? 'Acceso Revocado' : 'Acceso Restaurado' }));
   };
 
-  const handleDeleteUser = async (user: UserProfile) => {
+  const handleDeleteUser = (user: UserProfile) => {
     if (!firestore || user.email === currentUser?.email) return;
     setIsSubmitting(true);
+    const userRef = doc(firestore, 'users', user.id);
+    const presRef = doc(firestore, 'presencia', user.id);
+
+    // Eliminación no bloqueante sincronizada
     const batch = writeBatch(firestore);
-    batch.delete(doc(firestore, 'users', user.id));
-    batch.delete(doc(firestore, 'presencia', user.id));
-    try {
-        await batch.commit();
-        toast({ title: 'Usuario eliminado del directorio' });
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error al eliminar' });
-    } finally {
-        setIsSubmitting(false);
-    }
+    batch.delete(userRef);
+    batch.delete(presRef);
+    
+    batch.commit()
+        .then(() => {
+            toast({ title: 'Usuario eliminado del directorio' });
+            setIsSubmitting(false);
+        })
+        .catch(async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'users/batch-delete', operation: 'delete' }));
+            setIsSubmitting(false);
+        });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -515,33 +516,40 @@ function UsersContent() {
 
       const userDocRef = doc(firestore, 'users', newUid);
       
-      // GUARDADO ATÓMICO: Primero Auth, luego Firestore
-      await setDoc(userDocRef, {
+      // PATRÓN NO BLOQUEANTE CON EMISOR DE ERROR
+      setDoc(userDocRef, {
         ...newUserProfile,
         id: newUid,
         fecha_creacion: new Date().toISOString()
+      }).then(() => {
+          toast({ title: 'Usuario registrado con éxito' });
+          form.reset(); 
+          setSelectedModules(new Set()); 
+          setSelectedPerms(new Set());
+          setIsSubmitting(false);
+      }).catch(async (error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+            path: userDocRef.path, 
+            operation: 'create',
+            requestResourceData: newUserProfile
+          }));
+          setIsSubmitting(false);
       });
-      
-      toast({ title: 'Usuario registrado con éxito' });
-      form.reset(); 
-      setSelectedModules(new Set()); 
-      setSelectedPerms(new Set());
 
       await signOut(tempAuth);
     } catch (error: any) {
-      console.error("Error en registro:", error);
       toast({ 
         variant: 'destructive', 
-        title: 'Fallo al registrar usuario', 
-        description: error.message || 'Error de permisos o red.' 
+        title: 'Error de Autenticación', 
+        description: error.message || 'No se pudo crear la cuenta de acceso.' 
       });
+      setIsSubmitting(false);
     } finally { 
         if (tempApp) await deleteApp(tempApp).catch(() => {});
-        setIsSubmitting(false); 
     }
   };
 
-  const handleUpdateUser = async (e: React.FormEvent) => {
+  const handleUpdateUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!firestore || !editingUser) return;
     setIsSubmitting(true);
@@ -557,15 +565,20 @@ function UsersContent() {
         distrito: editingUser.distrito || 'TODOS LOS DISTRITOS'
     };
 
-    try {
-        await setDoc(userDocRef, updateData, { merge: true });
-        toast({ title: "Perfil Actualizado" });
-        setEditModalOpen(false);
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error al actualizar' });
-    } finally {
-        setIsSubmitting(false);
-    }
+    updateDoc(userDocRef, updateData)
+        .then(() => {
+            toast({ title: "Perfil Actualizado" });
+            setEditModalOpen(false);
+            setIsSubmitting(false);
+        })
+        .catch(async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+                path: userDocRef.path, 
+                operation: 'update',
+                requestResourceData: updateData
+            }));
+            setIsSubmitting(false);
+        });
   };
 
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
@@ -583,8 +596,7 @@ function UsersContent() {
                 </p>
             </div>
             
-            {/* DIAGNÓSTICO MAESTRO */}
-            {isMasterAdmin && (
+            {isAdminView && (
                 <div className="bg-green-600 text-white px-6 py-3 rounded-2xl flex items-center gap-3 shadow-xl animate-in zoom-in duration-500">
                     <Shield className="h-5 w-5 text-white" />
                     <div>
