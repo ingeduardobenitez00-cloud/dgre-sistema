@@ -3,21 +3,16 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ======================================================
-    // BYPASS MAESTRO - ACCESO TOTAL PARA EL PROPIETARIO
+    // BYPASS ABSOLUTO - ADMINISTRADOR MAESTRO
     // ======================================================
-    // Esta regla es la más importante. Si el correo coincide,
-    // se otorga acceso total de lectura y escritura.
-    function isMasterAdmin() {
-      return request.auth != null && (
+    // Si el usuario logueado es el dueño, tiene acceso total a TODO.
+    // Esta regla es prioritaria y anula cualquier otra restricción.
+    match /{document=**} {
+      allow read, write: if request.auth != null && (
         request.auth.token.email == 'edubtz11@gmail.com' || 
         request.auth.token.email == 'eduardobritz1@gmail.com' || 
         request.auth.token.email == 'eduardobritz11@gmail.com'
       );
-    }
-
-    // Regla global de bypass
-    match /{document=**} {
-      allow read, write: if isMasterAdmin();
     }
 
     // ======================================================
@@ -34,16 +29,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isMasterAdmin() || (getUserData() != null && getUserData().role == 'admin');
+      let data = getUserData();
+      return data != null && data.role == 'admin';
     }
 
     /** Gestión de Usuarios **/
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isSignedIn() && (isMasterAdmin() || isAdmin());
-      allow create: if isSignedIn() && (isMasterAdmin() || isAdmin());
-      allow update: if isSignedIn() && (request.auth.uid == userId || isMasterAdmin() || isAdmin());
-      allow delete: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow list: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin();
     }
 
     /** CIDEE - Colecciones **/
@@ -70,15 +64,15 @@ service cloud.firestore {
     /** Configuración y Geografía **/
     match /datos/{id} {
       allow read: if true;
-      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow write: if isSignedIn() && isAdmin();
     }
     match /partidos-politicos/{id} {
       allow read: if true;
-      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow write: if isSignedIn() && isAdmin();
     }
     match /maquinas/{id} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow write: if isSignedIn() && isAdmin();
     }
     match /divulgadores/{document=**} {
       allow read: if isSignedIn();
@@ -88,7 +82,7 @@ service cloud.firestore {
     /** Auditoría y Presencia **/
     match /auditoria/{id} {
       allow create: if isSignedIn();
-      allow read: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow read: if isSignedIn() && isAdmin();
     }
     match /presencia/{userId} {
       allow read, write: if isSignedIn();
@@ -100,7 +94,7 @@ service cloud.firestore {
     /** Padrón **/
     match /padron/{id} {
       allow read: if isSignedIn();
-      allow write: if isMasterAdmin();
+      allow write: if isSignedIn() && isAdmin();
     }
     
     /** Registros Edilicios **/
@@ -112,13 +106,13 @@ service cloud.firestore {
     }
     match /locales-votacion/{id} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow write: if isSignedIn() && isAdmin();
     }
     match /informes-semanales-registro/{id} {
       allow read, write: if isSignedIn();
     }
     match /archivos-semanales-registro/{id} {
-      allow read, write: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow read, write: if isSignedIn() && isAdmin();
     }
   }
 }

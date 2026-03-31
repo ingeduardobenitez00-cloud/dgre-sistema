@@ -57,7 +57,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { type Dato } from '@/lib/data';
 import { initializeApp, deleteApp, type FirebaseApp } from 'firebase/app';
@@ -637,6 +636,7 @@ function UsersContent() {
       const newUid = userCredential.user.uid;
 
       // REGLA CRÍTICA: Escribimos en Firestore usando la sesión actual del administrador logueado
+      // Corregimos la ruta para asegurar que se guarde en la colección 'users'
       await setDoc(doc(firestore, 'users', newUid), newUserProfile);
       
       await signOut(tempAuth);
@@ -644,7 +644,7 @@ function UsersContent() {
       form.reset(); setSelectedModules(new Set()); setSelectedPerms(new Set());
     } catch (error: any) { 
         console.error("Error creating user:", error);
-        if (error.code === 'permission-denied') {
+        if (error.code === 'permission-denied' || error.message.includes('permission')) {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: 'users',
                 operation: 'create',
