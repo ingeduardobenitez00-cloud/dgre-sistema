@@ -3,10 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ======================================================
-    // 1. BYPASS ABSOLUTO - ADMINISTRADOR MAESTRO
+    // 1. BYPASS MAESTRO - PRIORIDAD ABSOLUTA
     // ======================================================
-    // Si el correo del usuario logueado es uno de los dueños, tiene acceso total a TODO.
-    // Esta regla es la prioridad número 1 y anula cualquier otra restricción posterior.
+    // Estos correos tienen acceso TOTAL a cualquier documento.
+    // Se coloca al inicio para garantizar que no sea bloqueado por reglas posteriores.
     match /{document=**} {
       allow read, write: if request.auth != null && (
         request.auth.token.email.lower() == 'edubtz11@gmail.com' || 
@@ -16,109 +16,112 @@ service cloud.firestore {
     }
 
     // ======================================================
-    // 2. FUNCIONES DE AYUDA (Sincronizadas con Bypass)
+    // 2. FUNCIONES DE AYUDA
     // ======================================================
     
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
-    }
-
     function isAdmin() {
-      // Si el correo es maestro, siempre es admin (independientemente de si tiene documento o no)
+      // Prioridad por email (bypass rápido)
       if (request.auth.token.email.lower() in ['edubtz11@gmail.com', 'eduardobritz1@gmail.com', 'eduardobritz11@gmail.com']) {
         return true;
       }
-      let data = getUserData();
-      return data != null && data.role == 'admin';
+      // Respaldo por documento
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) && get(path).data.role == 'admin';
     }
 
     // ======================================================
-    // 3. REGLAS POR COLECCIÓN
+    // 3. REGLAS POR COLECCIÓN (Para usuarios no-maestros)
     // ======================================================
 
-    /** Gestión de Usuarios **/
     match /users/{userId} {
-      // Permiso especial para que el dueño pueda crear su primer documento o gestionar otros
       allow get, list: if isSignedIn();
       allow create, update, delete: if isSignedIn() && (isAdmin() || request.auth.uid == userId);
     }
 
-    /** CIDEE - Colecciones **/
     match /solicitudes-capacitacion/{id} {
       allow read, write: if isSignedIn();
     }
+    
     match /informes-divulgador/{id} {
       allow read, write: if isSignedIn();
     }
+    
     match /informes-semanales-anexo-iv/{id} {
       allow read, write: if isSignedIn();
     }
+    
     match /movimientos-maquinas/{id} {
       allow read, write: if isSignedIn();
     }
+    
     match /denuncias-lacres/{id} {
       allow read, write: if isSignedIn();
     }
+    
     match /encuestas-satisfaccion/{id} {
       allow read: if isSignedIn();
       allow create: if true;
     }
 
-    /** Configuración y Geografía **/
     match /datos/{id} {
       allow read: if true;
       allow write: if isSignedIn() && isAdmin();
     }
+    
     match /partidos-politicos/{id} {
       allow read: if true;
       allow write: if isSignedIn() && isAdmin();
     }
+    
     match /maquinas/{id} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && isAdmin();
     }
+    
     match /divulgadores/{document=**} {
       allow read: if isSignedIn();
       allow write: if isSignedIn();
     }
 
-    /** Auditoría y Presencia **/
     match /auditoria/{id} {
       allow create: if isSignedIn();
       allow read: if isSignedIn() && isAdmin();
     }
+    
     match /presencia/{userId} {
       allow read, write: if isSignedIn();
     }
+    
     match /notificaciones/{id} {
       allow read, write: if isSignedIn();
     }
 
-    /** Padrón **/
     match /padron/{id} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && isAdmin();
     }
     
-    /** Registros Edilicios **/
     match /reports/{id} {
       allow read, write: if isSignedIn();
     }
+    
     match /imagenes/{id} {
       allow read, write: if isSignedIn();
     }
+    
     match /locales-votacion/{id} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && isAdmin();
     }
+    
     match /informes-semanales-registro/{id} {
       allow read, write: if isSignedIn();
     }
+    
     match /archivos-semanales-registro/{id} {
       allow read, write: if isSignedIn() && isAdmin();
     }

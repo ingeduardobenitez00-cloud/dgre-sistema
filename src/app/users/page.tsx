@@ -322,8 +322,8 @@ function UsersContent() {
         }
     });
 
-    const totalDistricts = datosData.filter(d => d.departamento !== 'SEDE CENTRAL').length;
-    const coverage = totalDistricts > 0 ? Math.round((userDistricts.size / totalDistricts) * 100) : 0;
+    const totalDistritos = datosData.filter(d => d.departamento !== 'SEDE CENTRAL').length;
+    const coverage = totalDistritos > 0 ? Math.round((userDistricts.size / totalDistritos) * 100) : 0;
 
     return {
         total: users.length,
