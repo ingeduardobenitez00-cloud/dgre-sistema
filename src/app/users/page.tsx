@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -101,7 +100,7 @@ const MODULE_STRUCTURE = [
       { id: 'solicitud-capacitacion', label: 'ANEXO V - SOLICITUDES' },
       { id: 'agenda-anexo-i', label: 'AGENDA ANEXO I' },
       { id: 'agenda-anexo-v', label: 'AGENDA ANEXO V' },
-      { id: 'maquinas', label: 'INVENTARIO DE MÁQUINAS' },
+      { id: 'maquinas', label: 'INVENTARIO DE MÁQUIS' },
       { id: 'control-movimiento-maquinas', label: 'MOVIMIENTO DE MÁQUINAS' },
       { id: 'denuncia-lacres', label: 'DENUNCIA DE LACRES' },
       { id: 'informe-movimientos-denuncias', label: 'TRAZABILIDAD LOGÍSTICA' },
@@ -265,8 +264,10 @@ function UsersContent() {
   const searchParams = useSearchParams();
 
   const isAdminView = useMemo(() => {
+    // OPTIMIZACIÓN: Si el correo es el del Administrador Maestro, habilitar vista inmediatamente
+    if (currentUser?.email?.toLowerCase() === 'edubtz11@gmail.com') return true;
     if (isProfileLoading || !currentUser?.profile) return false;
-    return currentUser.profile.role === 'admin' || currentUser.email === 'edubtz11@gmail.com';
+    return currentUser.profile.role === 'admin';
   }, [currentUser, isProfileLoading]);
 
   const usersQuery = useMemoFirebase(() => {
@@ -599,25 +600,15 @@ function UsersContent() {
     const password = formData.get('password') as string;
     const username = (formData.get('username') as string || '').toUpperCase();
     
-    // VALIDACIÓN: Evitar que el admin intente crear su propio correo
     if (email === currentUser.email?.toLowerCase()) {
-        toast({ 
-            variant: 'destructive', 
-            title: 'Operación no permitida', 
-            description: 'Usted ya está autenticado con este correo. Use la opción de Editar en su perfil si necesita cambios.' 
-        });
+        toast({ variant: 'destructive', title: 'Operación no permitida', description: 'No puede re-crear su propia cuenta.' });
         setIsSubmitting(false);
         return;
     }
 
-    // VALIDACIÓN: Verificar si el correo ya existe en la lista de perfiles local
     const exists = users?.some(u => u.email.toLowerCase() === email);
     if (exists) {
-        toast({ 
-            variant: 'destructive', 
-            title: 'Perfil existente', 
-            description: 'Este correo ya tiene un perfil registrado en la base de datos. Por favor, búsquelo en la lista inferior y use Editar.' 
-        });
+        toast({ variant: 'destructive', title: 'Perfil existente', description: 'Este correo ya tiene un perfil. Use la opción Editar.' });
         setIsSubmitting(false);
         return;
     }
@@ -647,7 +638,7 @@ function UsersContent() {
     } catch (error: any) { 
         let errorDesc = error.message;
         if (error.code === 'auth/email-already-in-use') {
-            errorDesc = "Este correo ya está registrado en la Autenticación de Firebase. Si no aparece en la lista de abajo, es un registro huérfano que debe ser eliminado desde la consola de Firebase antes de volver a crearlo aquí.";
+            errorDesc = "El correo ya está en uso en el sistema de autenticación.";
         }
         toast({ variant: 'destructive', title: 'Error de Firebase', description: errorDesc }); 
     }

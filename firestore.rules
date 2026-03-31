@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /** 
      * BYPASS MAESTRO DE SEGURIDAD
-     * Acceso total inmediato para administradores del sistema basándose en el token.
+     * Acceso total inmediato para administradores del sistema.
      */
     function isOwner() {
       return request.auth != null && 
@@ -19,7 +19,7 @@ service cloud.firestore {
     }
 
     /** 
-     * REGLA ESPECÍFICA PARA PADRÓN
+     * REGLA ESPECÍFICA PARA PADRÓN (ALTA DISPONIBILIDAD)
      */
     match /padron/{document=**} {
       allow read: if request.auth != null;
@@ -54,10 +54,10 @@ service cloud.firestore {
     /** Gestión de Usuarios **/
     match /users/{userId} {
       allow get: if isSignedIn() || isOwner();
-      allow list: if isAdmin() || isDirector() || isOwner();
-      allow create: if isSignedIn() || isOwner(); 
-      allow update: if (request.auth.uid == userId) || isAdmin() || isOwner();
-      allow delete: if isAdmin() || isOwner();
+      allow list: if isOwner() || isAdmin() || isDirector();
+      allow create: if isOwner() || isAdmin(); 
+      allow update: if isOwner() || (request.auth.uid == userId) || isAdmin();
+      allow delete: if isOwner() || isAdmin();
     }
 
     /** Notificaciones de Sistema **/
