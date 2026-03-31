@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
@@ -54,6 +53,28 @@ function InformeContent() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Helper de compresión robusto para evitar exceder 1MB de Firestore
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; // Reducido para asegurar que quepan varias fotos en 1MB
+          const scaleSize = Math.min(1, MAX_WIDTH / img.width);
+          canvas.width = img.width * scaleSize;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.6)); // Calidad reducida para optimizar espacio
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
 
   const informesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'informes-divulgador') : null), [firestore]);
   const { data: submittedInformes } = useCollection<InformeDivulgador>(informesQuery);
@@ -155,7 +176,8 @@ function InformeContent() {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0);
-        const dataUri = canvas.toDataURL('image/jpeg', 0.7);
+        // Usamos compresión directa al capturar
+        const dataUri = canvas.toDataURL('image/jpeg', 0.6);
         if (activeCameraTarget === 'respaldo') {
             setRespaldoPhoto(dataUri);
         } else {
@@ -171,15 +193,21 @@ function InformeContent() {
     if (files) {
         if (target === 'respaldo') {
             const file = files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => setRespaldoPhoto(reader.result as string);
-            reader.readAsDataURL(file);
+            try {
+                const compressed = await compressImage(file);
+                setRespaldoPhoto(compressed);
+            } catch (err) {
+                toast({ variant: 'destructive', title: "Error al procesar archivo" });
+            }
         } else {
             const selection = Array.from(files).slice(0, 5 - evidencePhotos.length);
             for (const file of selection) {
-                const reader = new FileReader();
-                reader.onloadend = () => setEvidencePhotos(prev => [...prev, reader.result as string].slice(0, 5));
-                reader.readAsDataURL(file);
+                try {
+                    const compressed = await compressImage(file);
+                    setEvidencePhotos(prev => [...prev, compressed].slice(0, 5));
+                } catch (err) {
+                    toast({ variant: 'destructive', title: "Error al procesar evidencia" });
+                }
             }
         }
     }
@@ -193,7 +221,7 @@ function InformeContent() {
     }
 
     if (!respaldoPhoto) {
-        toast({ variant: 'destructive', title: 'Falta Respaldo', description: 'Debe adjuntar la foto del Anexo III firmado.' });
+        toast({ variant: 'destructive', title: 'Faltan documentos', description: 'Debe adjuntar la foto del Anexo III firmado.' });
         return;
     }
 
@@ -217,7 +245,7 @@ function InformeContent() {
       marcaciones: Array.from(markedCells),
       observaciones: (formData.get('observaciones') as string || '').toUpperCase(),
       foto_respaldo_documental: respaldoPhoto,
-      fotos: evidencePhotos, // ESTE CAMPO ALIMENTA LA GALERÍA
+      fotos: evidencePhotos,
       fecha_creacion: new Date().toISOString(),
       usuario_id: user.uid
     };
@@ -239,8 +267,14 @@ function InformeContent() {
         setIsSubmitting(false);
       }, 2000);
 
-    } catch (error) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'informes-divulgador', operation: 'create' }));
+    } catch (error: any) {
+      // Manejo de errores de permisos o tamaño excedido
+      const isSizeError = error.message?.includes('too large') || error.code === 'out-of-range';
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+        path: 'informes-divulgador', 
+        operation: 'create',
+        requestResourceData: isSizeError ? { error: "El informe excede el tamaño máximo permitido por Firestore (1MB). Intente con fotos más ligeras." } : undefined
+      }));
       setIsSubmitting(false);
     }
   };
@@ -384,11 +418,11 @@ function InformeContent() {
                     </div>
                 </div>
 
-                {/* NUEVA SECCIÓN: EVIDENCIAS DE CAMPO (ALIMENTA LA GALERÍA) */}
+                {/* EVIDENCIAS DE CAMPO */}
                 <div className="space-y-2 pt-2 border-t-2 border-dashed">
                     <div className="flex items-center gap-2">
                         <Images className="h-3.5 w-3.5 text-primary" />
-                        <Label className="font-black uppercase text-[8px]">Evidencias de Campo (Galería)</Label>
+                        <Label className="font-black uppercase text-[8px]">Evidencias de Campo (Máx 5)</Label>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2">
@@ -404,7 +438,7 @@ function InformeContent() {
                             </label>
                         </div>
                         <div className="p-2 bg-muted/20 rounded-lg flex items-center justify-center border border-dashed">
-                            <p className="text-[7px] font-bold text-muted-foreground uppercase leading-tight italic text-center">Capture fotos de la actividad para alimentar la Galería Nacional.</p>
+                            <p className="text-[7px] font-bold text-muted-foreground uppercase leading-tight italic text-center">Capture fotos de la actividad. Se comprimirán automáticamente.</p>
                         </div>
                     </div>
 
@@ -432,7 +466,7 @@ function InformeContent() {
                         {respaldoPhoto ? (
                             <div className="relative aspect-video rounded-lg overflow-hidden border border-muted shadow-md group">
                                 <Image src={respaldoPhoto} alt="Respaldo" fill className="object-cover" />
-                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setRespaldoPhoto(null)}>
+                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setRespaldoPhoto(null)}>
                                     <Trash2 className="h-3 w-3" />
                                 </Button>
                             </div>
@@ -447,7 +481,7 @@ function InformeContent() {
                                 </div>
                                 <label className="flex flex-col items-center justify-center h-16 border border-dashed rounded-lg cursor-pointer hover:bg-muted transition-all bg-white text-muted-foreground">
                                     <ImageIcon className="h-5 w-5 mb-0.5" />
-                                    <span className="font-black uppercase text-[7px] text-muted-foreground">GALERÍA / PDF</span>
+                                    <span className="font-black uppercase text-[7px] text-muted-foreground">ARCHIVO / PDF</span>
                                     <Input type="file" accept="image/*,.pdf" className="hidden" onChange={e => handleFileUpload(e, 'respaldo')} />
                                 </label>
                             </div>
@@ -527,7 +561,6 @@ function InformeContent() {
   );
 }
 
-// Exportación con Suspense para evitar errores de build con useSearchParams
 export default function AnexoIII() {
   return (
     <Suspense fallback={
