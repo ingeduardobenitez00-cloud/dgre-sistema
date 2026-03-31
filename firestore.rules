@@ -44,8 +44,16 @@ service cloud.firestore {
       // Un usuario lee su perfil, o un admin lee todos
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
       
-      // Permitir creación y edición a administradores
-      allow create, update: if isAdmin();
+      // Permitir actualización a administradores
+      allow update: if isAdmin();
+      
+      // Permitir creación a admins, o permitir auto-registro como jefe deshabilitado
+      allow create: if isAdmin() || (
+        request.auth != null && 
+        request.auth.uid == userId && 
+        request.resource.data.role == 'jefe' && 
+        request.resource.data.active == false
+      );
       
       // Solo el Súper Admin puede borrar perfiles
       allow delete: if isMasterAdmin();

@@ -31,9 +31,10 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { deleteUserFromAuth } from '@/app/actions/auth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirebase, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, signOut, setPersistence, inMemoryPersistence } from 'firebase/auth';
 import { collection, doc, setDoc, updateDoc, writeBatch, query, where, getDocs, limit } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -466,6 +467,9 @@ function UsersContent() {
     const userRef = doc(firestore, 'users', user.id);
     const presRef = doc(firestore, 'presencia', user.id);
 
+    // Eliminación en Firebase Auth vía Server Action
+    deleteUserFromAuth(user.id).catch(err => console.error("Error con Server Action:", err));
+
     // Eliminación no bloqueante sincronizada
     const batch = writeBatch(firestore);
     batch.delete(userRef);
@@ -511,6 +515,7 @@ function UsersContent() {
     try {
       tempApp = initializeApp(firebaseConfig, tempAppName);
       const tempAuth = getAuth(tempApp);
+      await setPersistence(tempAuth, inMemoryPersistence);
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       const newUid = userCredential.user.uid;
 
