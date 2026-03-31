@@ -3,21 +3,25 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ======================================================
-    // BYPASS MAESTRO - ACCESO TOTAL PARA ADMINISTRADORES
+    // BYPASS MAESTRO - ACCESO TOTAL PARA EL PROPIETARIO
     // ======================================================
     // Esta regla es la más importante. Si el correo coincide,
-    // se ignora cualquier otra restricción posterior.
+    // se otorga acceso total de lectura y escritura.
     function isMasterAdmin() {
-      return request.auth != null && request.auth.token.email == 'edubtz11@gmail.com';
+      return request.auth != null && (
+        request.auth.token.email == 'edubtz11@gmail.com' || 
+        request.auth.token.email == 'eduardobritz1@gmail.com' || 
+        request.auth.token.email == 'eduardobritz11@gmail.com'
+      );
     }
 
-    // Aplicar acceso total inmediato a TODA la base de datos para Master Admins
+    // Regla global de bypass
     match /{document=**} {
       allow read, write: if isMasterAdmin();
     }
 
     // ======================================================
-    // REGLAS PARA OTROS USUARIOS (SE EVALÚAN SI NO ERES ADMIN)
+    // REGLAS PARA OTROS USUARIOS
     // ======================================================
     
     function isSignedIn() {
@@ -30,17 +34,16 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      let data = getUserData();
-      return isMasterAdmin() || (data != null && data.role == 'admin');
+      return isMasterAdmin() || (getUserData() != null && getUserData().role == 'admin');
     }
 
     /** Gestión de Usuarios **/
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isSignedIn() && isAdmin();
-      allow create: if isSignedIn() && isAdmin();
-      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isSignedIn() && isAdmin();
+      allow list: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow create: if isSignedIn() && (isMasterAdmin() || isAdmin());
+      allow update: if isSignedIn() && (request.auth.uid == userId || isMasterAdmin() || isAdmin());
+      allow delete: if isSignedIn() && (isMasterAdmin() || isAdmin());
     }
 
     /** CIDEE - Colecciones **/
@@ -67,15 +70,15 @@ service cloud.firestore {
     /** Configuración y Geografía **/
     match /datos/{id} {
       allow read: if true;
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin());
     }
     match /partidos-politicos/{id} {
       allow read: if true;
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin());
     }
     match /maquinas/{id} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin());
     }
     match /divulgadores/{document=**} {
       allow read: if isSignedIn();
@@ -85,7 +88,7 @@ service cloud.firestore {
     /** Auditoría y Presencia **/
     match /auditoria/{id} {
       allow create: if isSignedIn();
-      allow read: if isSignedIn() && isAdmin();
+      allow read: if isSignedIn() && (isMasterAdmin() || isAdmin());
     }
     match /presencia/{userId} {
       allow read, write: if isSignedIn();
@@ -94,7 +97,7 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
-    /** Padrón (Acceso Público para lectura, escritura protegida) **/
+    /** Padrón **/
     match /padron/{id} {
       allow read: if isSignedIn();
       allow write: if isMasterAdmin();
@@ -109,13 +112,13 @@ service cloud.firestore {
     }
     match /locales-votacion/{id} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin());
     }
     match /informes-semanales-registro/{id} {
       allow read, write: if isSignedIn();
     }
     match /archivos-semanales-registro/{id} {
-      allow read, write: if isSignedIn() && isAdmin();
+      allow read, write: if isSignedIn() && (isMasterAdmin() || isAdmin());
     }
   }
 }
