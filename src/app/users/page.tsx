@@ -610,12 +610,7 @@ function UsersContent() {
         return;
     }
 
-    const exists = users?.some(u => u.email.toLowerCase() === email);
-    if (exists) {
-        toast({ variant: 'destructive', title: 'Perfil existente', description: 'Este correo ya tiene un perfil. Use la opción Editar.' });
-        setIsSubmitting(false);
-        return;
-    }
+    const exists = users?.find(u => u.email.toLowerCase() === email);
     
     const newUserProfile = { 
       username, 
@@ -629,30 +624,64 @@ function UsersContent() {
       registration_method: 'creado_por_admin'
     };
 
+    if (exists) {
+        // El usuario ya existe en Firestore, intentar actualizar perfil
+        const userRef = doc(firestore, 'users', exists.id);
+        setDoc(userRef, newUserProfile, { merge: true })
+            .then(() => {
+                toast({ title: "Perfil Vinculado", description: "El correo ya existía en Auth, se ha actualizado su perfil en Firestore." });
+                form.reset();
+                setSelectedModules(new Set());
+                setSelectedPerms(new Set());
+            })
+            .catch(err => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update' }));
+            })
+            .finally(() => setIsSubmitting(false));
+        return;
+    }
+
     const tempAppName = 'temp-creation-' + Math.random().toString(36).substring(7);
     let tempApp: FirebaseApp | undefined = undefined;
     try {
       tempApp = initializeApp(firebaseConfig, tempAppName);
       const tempAuth = getAuth(tempApp);
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
-      const newUid = userCredential.user.uid;
-
-      const userRef = doc(firestore, 'users', newUid);
-      await setDoc(userRef, newUserProfile);
       
-      recordAuditLog(firestore, {
-          usuario_id: currentUser.uid,
-          usuario_nombre: currentUser.profile?.username || currentUser.email || 'Admin',
-          usuario_rol: 'admin',
-          accion: 'CREAR',
-          modulo: 'seguridad',
-          documento_id: newUid,
-          detalles: `Creación administrativa de usuario: ${email}`
-      });
+      let newUid: string | null = null;
+      try {
+          const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
+          newUid = userCredential.user.uid;
+      } catch (authErr: any) {
+          if (authErr.code === 'auth/email-already-in-use') {
+              toast({ variant: 'destructive', title: 'Cuenta existente', description: 'El correo ya tiene acceso. Se intentará reparar el perfil en Firestore.' });
+              // Si ya existe en Auth pero no lo encontramos en la lista local de `users`, 
+              // el administrador tendrá que borrarlo desde la consola de Firebase o buscarlo por ID.
+              setIsSubmitting(false);
+              return;
+          }
+          throw authErr;
+      }
 
-      await signOut(tempAuth);
-      toast({ title: 'Usuario Creado con Éxito' });
-      form.reset(); setSelectedModules(new Set()); setSelectedPerms(new Set());
+      if (newUid) {
+          const userRef = doc(firestore, 'users', newUid);
+          await setDoc(userRef, newUserProfile);
+          
+          recordAuditLog(firestore, {
+              usuario_id: currentUser.uid,
+              usuario_nombre: currentUser.profile?.username || currentUser.email || 'Admin',
+              usuario_rol: 'admin',
+              accion: 'CREAR',
+              modulo: 'seguridad',
+              documento_id: newUid,
+              detalles: `Creación administrativa de usuario: ${email}`
+          });
+
+          await signOut(tempAuth);
+          toast({ title: 'Usuario Creado con Éxito' });
+          form.reset(); 
+          setSelectedModules(new Set()); 
+          setSelectedPerms(new Set());
+      }
     } catch (error: any) { 
         console.error("Error creating user:", error);
         if (error.code === 'permission-denied' || error.message.includes('permission')) {
@@ -662,10 +691,13 @@ function UsersContent() {
                 requestResourceData: newUserProfile
             }));
         } else {
-            toast({ variant: 'destructive', title: 'Error de Firebase', description: error.message }); 
+            toast({ variant: 'destructive', title: 'Error del Sistema', description: error.message }); 
         }
     }
-    finally { if (tempApp) await deleteApp(tempApp); setIsSubmitting(false); }
+    finally { 
+        if (tempApp) await deleteApp(tempApp); 
+        setIsSubmitting(false); 
+    }
   };
 
   const handleUpdateUser = (event: React.FormEvent<HTMLFormElement>) => {
@@ -733,12 +765,20 @@ function UsersContent() {
                 <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Contraseña</Label><Input name="password" type="password" required className="font-bold h-11 border-2" /></div>
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase">Rol Institucional</Label>
-                    <Select onValueChange={(v: any) => setRegRole(v)} value={regRole}>
-                        <SelectTrigger className="font-black h-11 border-2 uppercase text-[10px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="admin">ADMINISTRADOR</SelectItem><SelectItem value="director">DIRECTOR</SelectItem><SelectItem value="coordinador">COORDINADOR CIDEE</SelectItem><SelectItem value="jefe">JEFE DE OFICINA</SelectItem><SelectItem value="funcionario">FUNCIONARIO</SelectItem><SelectItem value="viewer">SOLO LECTURA</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <select 
+                        name="role" 
+                        required 
+                        value={regRole} 
+                        onChange={(e) => setRegRole(e.target.value as any)}
+                        className="w-full h-11 border-2 rounded-md font-black uppercase text-[10px] px-3 bg-white"
+                    >
+                        <option value="admin">ADMINISTRADOR</option>
+                        <option value="director">DIRECTOR</option>
+                        <option value="coordinador">COORDINADOR CIDEE</option>
+                        <option value="jefe">JEFE DE OFICINA</option>
+                        <option value="funcionario">FUNCIONARIO</option>
+                        <option value="viewer">SOLO LECTURA</option>
+                    </select>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -955,7 +995,20 @@ function UsersContent() {
                 <div className="p-8 space-y-10">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="space-y-3"><Label className="text-[10px] font-black uppercase">Nombre</Label><Input value={editingUser.username} onChange={(e) => setEditingUser({...editingUser, username: e.target.value})} className="font-bold h-12 border-2 uppercase" /></div>
-                        <div className="space-y-3"><Label className="text-[10px] font-black uppercase">Rol</Label><Select onValueChange={(v: any) => setEditingUser({...editingUser, role: v})} value={editingUser.role}><SelectTrigger className="font-black h-12 border-2 text-[10px] uppercase"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">ADMIN</SelectItem><SelectItem value="director">DIRECTOR</SelectItem><SelectItem value="coordinador">COORDINADOR</SelectItem><SelectItem value="jefe">JEFE</SelectItem><SelectItem value="funcionario">FUNCIONARIO</SelectItem><SelectItem value="viewer">VIEWER</SelectItem></SelectContent></Select></div>
+                        <div className="space-y-3"><Label className="text-[10px] font-black uppercase">Rol</Label>
+                            <select 
+                                value={editingUser.role} 
+                                onChange={(e) => setEditingUser({...editingUser, role: e.target.value as any})}
+                                className="w-full h-12 border-2 rounded-md font-black uppercase text-[10px] px-3 bg-white"
+                            >
+                                <option value="admin">ADMIN</option>
+                                <option value="director">DIRECTOR</option>
+                                <option value="coordinador">COORDINADOR</option>
+                                <option value="jefe">JEFE</option>
+                                <option value="funcionario">FUNCIONARIO</option>
+                                <option value="viewer">VIEWER</option>
+                            </select>
+                        </div>
                         <div className="space-y-3"><Label className="text-[10px] font-black uppercase">Dpto</Label><Select onValueChange={(v) => setEditingUser({...editingUser, departamento: v, distrito: ''})} value={editingUser.departamento || 'N/A'}><SelectTrigger className="font-black h-12 border-2 text-[10px] uppercase"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="N/A">NACIONAL</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div>
                         <div className="space-y-3"><Label className="text-[10px] font-black uppercase">Distrito</Label><Select onValueChange={(v) => setEditingUser({...editingUser, distrito: v})} value={editingUser.distrito || 'N/A'} disabled={!editingUser.departamento || editingUser.departamento === 'N/A'}><SelectTrigger className="font-black h-12 border-2 text-[10px] uppercase"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="N/A">TODOS</SelectItem>{datosData?.filter(d => d.departamento === editingUser.departamento).map(d => <SelectItem key={d.distrito} value={d.distrito}>{d.distrito}</SelectItem>)}</SelectContent></Select></div>
                     </div>
