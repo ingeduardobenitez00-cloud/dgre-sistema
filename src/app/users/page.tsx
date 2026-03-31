@@ -369,13 +369,13 @@ function UsersContent() {
       .map(dept => {
         const districtsArray = Object.values(dept.districts);
         const activeDistrictsCount = districtsArray.filter(d => d.users.length > 0).length;
-        const totalDistrictsCount = districtsArray.length;
+        const totalDistritosCount = districtsArray.length;
         
         return {
           ...dept,
           activeCount: activeDistrictsCount,
-          totalCount: totalDistrictsCount,
-          missingCount: totalDistrictsCount - activeDistrictsCount,
+          totalCount: totalDistritosCount,
+          missingCount: totalDistritosCount - activeDistrictsCount,
           districts: districtsArray.sort((a, b) => a.name.localeCompare(b.name))
         };
       })
@@ -682,7 +682,7 @@ function UsersContent() {
         role: editingUser.role, 
         modules: editingUser.modules || [], 
         permissions: editingUser.permissions || [], 
-        departamento: editingUser.departamento || 'ALCANCE NACIONAL', 
+        departamento: editingUser.departamento || 'ALCIONAL', 
         distrito: editingUser.distrito || 'TODOS LOS DISTRITOS' 
     };
     const docRef = doc(firestore, 'users', editingUser.id);

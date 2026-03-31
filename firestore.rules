@@ -6,6 +6,7 @@ service cloud.firestore {
     // 1. BYPASS MAESTRO - PRIORIDAD ABSOLUTA
     // ======================================================
     // Acceso TOTAL e INCONDICIONAL para los administradores por correo.
+    // Esto garantiza que edubtz11@gmail.com siempre pueda leer y escribir.
     match /{document=**} {
       allow read, write: if request.auth != null && (
         request.auth.token.email == 'edubtz11@gmail.com' || 
@@ -22,8 +23,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isMasterAdmin() {
+      return request.auth.token.email in ['edubtz11@gmail.com', 'eduardobritz1@gmail.com', 'eduardobritz11@gmail.com'];
+    }
+
     function isAdmin() {
-      if (request.auth.token.email in ['edubtz11@gmail.com', 'eduardobritz1@gmail.com', 'eduardobritz11@gmail.com']) {
+      if (isMasterAdmin()) {
         return true;
       }
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
@@ -35,6 +40,10 @@ service cloud.firestore {
     // ======================================================
 
     match /users/{userId} {
+      // Un admin maestro SIEMPRE puede crear, borrar o editar cualquier usuario.
+      allow read, write: if isMasterAdmin();
+      
+      // Reglas estándar para otros usuarios
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
     }
