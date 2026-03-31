@@ -3,10 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ======================================================
-    // 1. BYPASS MAESTRO: ACCESO TOTAL PARA ADMINISTRADORES
+    // 1. FUNCIONES DE AUTORIZACIÓN (JERARQUÍA)
     // ======================================================
-    // Si el usuario es uno de los administradores maestros, tiene permiso total.
-    
+
+    // Super Administradores: Acceso total por lista blanca de correos
     function isMasterAdmin() {
       return request.auth != null && 
              request.auth.token != null && 
@@ -19,36 +19,66 @@ service cloud.firestore {
              );
     }
 
-    // Regla de Oro: Paso libre para administradores en cualquier colección
+    // Administradores: Usuarios registrados con rol == 'admin' en Firestore
+    function isRegularAdmin() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Función Combinada: Cualquiera de los dos niveles de administración
+    function isAnyAdmin() {
+      return isMasterAdmin() || isRegularAdmin();
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ======================================================
+    // 2. REGLAS GLOBALES Y BYPASS
+    // ======================================================
+
+    // Regla de Oro: Super Administradores tienen permiso total en toda la base de datos
     match /{document=**} {
       allow read, write: if isMasterAdmin();
     }
 
     // ======================================================
-    // 2. REGLAS PARA USUARIOS REGULARES
+    // 3. REGLAS ESPECÍFICAS POR COLECCIÓN
     // ======================================================
-    
-    function isSignedIn() {
-      return request.auth != null;
-    }
 
-    // Acceso a perfiles: Los usuarios pueden leer su propio perfil
+    // Gestión de Usuarios: Crucial para permitir creación y edición
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isMasterAdmin(); // Solo el admin crea/edita otros usuarios
+      // Lectura: Propia o por parte de cualquier administrador
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAnyAdmin());
+      // Escritura (Crear/Editar): Permitido para Super Admins y Admins con rol
+      allow write: if isAnyAdmin();
     }
 
-    // Reglas por defecto para el resto de colecciones operativas
+    // Colecciones Operativas (Capacitaciones, Movimientos, Inventario)
     match /solicitudes-capacitacion/{id} { allow read, write: if isSignedIn(); }
     match /informes-divulgador/{id} { allow read, write: if isSignedIn(); }
     match /informes-semanales-anexo-iv/{id} { allow read, write: if isSignedIn(); }
     match /movimientos-maquinas/{id} { allow read, write: if isSignedIn(); }
     match /divulgadores/{id} { allow read, write: if isSignedIn(); }
     match /maquinas/{id} { allow read, write: if isSignedIn(); }
-    match /datos/{id} { allow read: if true; allow write: if isMasterAdmin(); }
-    match /partidos-politicos/{id} { allow read: if true; allow write: if isMasterAdmin(); }
+    
+    // Colecciones Maestras (Solo editables por Admins)
+    match /datos/{id} { 
+      allow read: if true; 
+      allow write: if isAnyAdmin(); 
+    }
+    match /partidos-politicos/{id} { 
+      allow read: if true; 
+      allow write: if isAnyAdmin(); 
+    }
+    
+    // Encuestas y Notificaciones
     match /encuestas-satisfaccion/{id} { allow read: if isSignedIn(); allow create: if true; }
     match /notificaciones/{id} { allow read, write, create: if isSignedIn(); }
+    
+    // Otros módulos técnicos
     match /padron/{id} { allow read, write: if isSignedIn(); }
     match /reports/{id} { allow read, write: if isSignedIn(); }
     match /imagenes/{id} { allow read, write: if isSignedIn(); }
@@ -58,5 +88,6 @@ service cloud.firestore {
     match /config/{id} { allow read, write: if isSignedIn(); }
     match /auditoria/{id} { allow create, read: if isSignedIn(); }
     match /presencia/{userId} { allow read, write: if isSignedIn() && request.auth.uid == userId; }
+    match /archivos-semanales-registro/{id} { allow read, write: if isAnyAdmin(); }
   }
 }
