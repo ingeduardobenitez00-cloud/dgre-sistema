@@ -5,8 +5,8 @@ service cloud.firestore {
     // ======================================================
     // 1. BYPASS MAESTRO - PRIORIDAD ABSOLUTA
     // ======================================================
-    // Si el usuario es el administrador maestro, tiene acceso TOTAL inmediato.
-    // Se coloca al inicio para evitar que cualquier otra regla bloquee la operación.
+    // Esta regla otorga acceso TOTAL a los administradores maestros por correo.
+    // Se coloca al inicio para que el motor de Google la evalúe primero.
     match /{document=**} {
       allow read, write: if request.auth != null && (
         request.auth.token.email == 'edubtz11@gmail.com' || 
@@ -16,7 +16,7 @@ service cloud.firestore {
     }
 
     // ======================================================
-    // 2. REGLAS GENERALES (Para el resto del personal)
+    // 2. FUNCIONES DE APOYO
     // ======================================================
     
     function isSignedIn() {
@@ -24,13 +24,17 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Prioridad por email (bypass rápido en funciones)
+      // Bypass por token de correo para funciones internas
       if (request.auth.token.email in ['edubtz11@gmail.com', 'eduardobritz1@gmail.com', 'eduardobritz11@gmail.com']) {
         return true;
       }
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       return exists(path) && get(path).data.role == 'admin';
     }
+
+    // ======================================================
+    // 3. REGLAS POR COLECCIÓN
+    // ======================================================
 
     match /users/{userId} {
       allow get, list: if isSignedIn();

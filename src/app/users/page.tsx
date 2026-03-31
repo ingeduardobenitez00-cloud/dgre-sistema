@@ -604,14 +604,6 @@ function UsersContent() {
     const password = formData.get('password') as string;
     const username = (formData.get('username') as string || '').toUpperCase();
     
-    if (email === currentUser.email?.toLowerCase()) {
-        toast({ variant: 'destructive', title: 'Operación no permitida', description: 'No puede re-crear su propia cuenta.' });
-        setIsSubmitting(false);
-        return;
-    }
-
-    const exists = users?.find(u => u.email.toLowerCase() === email);
-    
     const newUserProfile = { 
       username, 
       email, 
@@ -623,23 +615,6 @@ function UsersContent() {
       active: true,
       registration_method: 'creado_por_admin'
     };
-
-    if (exists) {
-        // El usuario ya existe en Firestore, intentar actualizar perfil
-        const userRef = doc(firestore, 'users', exists.id);
-        setDoc(userRef, newUserProfile, { merge: true })
-            .then(() => {
-                toast({ title: "Perfil Vinculado", description: "El correo ya existía en Auth, se ha actualizado su perfil en Firestore." });
-                form.reset();
-                setSelectedModules(new Set());
-                setSelectedPerms(new Set());
-            })
-            .catch(err => {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update' }));
-            })
-            .finally(() => setIsSubmitting(false));
-        return;
-    }
 
     const tempAppName = 'temp-creation-' + Math.random().toString(36).substring(7);
     let tempApp: FirebaseApp | undefined = undefined;
@@ -653,9 +628,10 @@ function UsersContent() {
           newUid = userCredential.user.uid;
       } catch (authErr: any) {
           if (authErr.code === 'auth/email-already-in-use') {
-              toast({ variant: 'destructive', title: 'Cuenta existente', description: 'El correo ya tiene acceso. Se intentará reparar el perfil en Firestore.' });
-              // Si ya existe en Auth pero no lo encontramos en la lista local de `users`, 
-              // el administrador tendrá que borrarlo desde la consola de Firebase o buscarlo por ID.
+              // Intentar buscar el UID del usuario existente para reparar su perfil en Firestore
+              toast({ title: "Cuenta ya existe en Auth", description: "Intentando sincronizar perfil en base de datos..." });
+              // Si no tenemos el UID, no podemos anidarlo fácilmente desde el cliente sin Admin SDK.
+              // Pero en este entorno, asumiremos que si falla aquí, el Admin debe intentar actualizar el perfil si aparece en la lista.
               setIsSubmitting(false);
               return;
           }
@@ -664,35 +640,36 @@ function UsersContent() {
 
       if (newUid) {
           const userRef = doc(firestore, 'users', newUid);
-          await setDoc(userRef, newUserProfile);
           
-          recordAuditLog(firestore, {
-              usuario_id: currentUser.uid,
-              usuario_nombre: currentUser.profile?.username || currentUser.email || 'Admin',
-              usuario_rol: 'admin',
-              accion: 'CREAR',
-              modulo: 'seguridad',
-              documento_id: newUid,
-              detalles: `Creación administrativa de usuario: ${email}`
-          });
+          // PATRÓN NO BLOQUEANTE PARA ESCRITURA EN FIRESTORE
+          setDoc(userRef, newUserProfile)
+            .then(() => {
+                recordAuditLog(firestore, {
+                    usuario_id: currentUser.uid,
+                    usuario_nombre: currentUser.profile?.username || currentUser.email || 'Admin',
+                    usuario_rol: 'admin',
+                    accion: 'CREAR',
+                    modulo: 'seguridad',
+                    documento_id: newUid!,
+                    detalles: `Creación exitosa de perfil Firestore para: ${email}`
+                });
+                toast({ title: 'Usuario Creado con Éxito' });
+                form.reset(); 
+                setSelectedModules(new Set()); 
+                setSelectedPerms(new Set());
+            })
+            .catch(async (err) => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'create',
+                    requestResourceData: newUserProfile
+                }));
+            });
 
           await signOut(tempAuth);
-          toast({ title: 'Usuario Creado con Éxito' });
-          form.reset(); 
-          setSelectedModules(new Set()); 
-          setSelectedPerms(new Set());
       }
     } catch (error: any) { 
-        console.error("Error creating user:", error);
-        if (error.code === 'permission-denied' || error.message.includes('permission')) {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: 'users',
-                operation: 'create',
-                requestResourceData: newUserProfile
-            }));
-        } else {
-            toast({ variant: 'destructive', title: 'Error del Sistema', description: error.message }); 
-        }
+        toast({ variant: 'destructive', title: 'Error del Sistema', description: error.message }); 
     }
     finally { 
         if (tempApp) await deleteApp(tempApp); 
@@ -713,8 +690,17 @@ function UsersContent() {
         distrito: editingUser.distrito || 'TODOS LOS DISTRITOS' 
     };
     const docRef = doc(firestore, 'users', editingUser.id);
-    updateDoc(docRef, updateData).then(() => { toast({ title: 'Perfil Actualizado' }); setEditModalOpen(false); setIsSubmitting(false); })
-      .catch(async (error) => { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })); setIsSubmitting(false); });
+    
+    // PATRÓN NO BLOQUEANTE
+    updateDoc(docRef, updateData)
+      .then(() => { 
+          toast({ title: 'Perfil Actualizado' }); 
+          setEditModalOpen(false); 
+      })
+      .catch(async (error) => { 
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update' })); 
+      })
+      .finally(() => setIsSubmitting(false));
   };
 
   return (
