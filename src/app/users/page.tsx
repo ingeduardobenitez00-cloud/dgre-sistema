@@ -36,7 +36,7 @@ import {
   Calendar,
   RefreshCw,
   Cpu
-} from 'lucide-react';
+} from 'lucide-center';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';

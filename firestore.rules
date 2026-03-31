@@ -6,7 +6,7 @@ service cloud.firestore {
     // REGLA MAESTRA DE ADMINISTRACIÓN (BYPASS ABSOLUTO)
     // ======================================================
     // Esta regla otorga acceso total e inmediato a los correos autorizados.
-    // NO requiere consultar la base de datos, lo que evita errores de permisos.
+    // Se coloca al inicio para que tenga prioridad absoluta sobre cualquier otra regla.
     function isMasterAdmin() {
       return request.auth != null && (
         request.auth.token.email == 'edubtz11@gmail.com' || 
