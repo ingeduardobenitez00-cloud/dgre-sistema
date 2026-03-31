@@ -451,6 +451,7 @@ function UsersContent() {
     const password = formData.get('password') as string;
     const username = (formData.get('username') as string || '').toUpperCase();
     
+    // El objeto del perfil DEBE ser idéntico al esquema de backend.json
     const newUserProfile = { 
       username, 
       email, 
@@ -467,23 +468,36 @@ function UsersContent() {
     let tempApp: FirebaseApp | undefined = undefined;
     
     try {
+      // 1. Crear el usuario en Authentication usando una app temporal para no cerrar la sesión del admin
       tempApp = initializeApp(firebaseConfig, tempAppName);
       const tempAuth = getAuth(tempApp);
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       const newUid = userCredential.user.uid;
 
-      // GUARDADO CRÍTICO EN FIRESTORE
+      // 2. Crear el perfil en Firestore vinculado al UID generado
+      // USAMOS EL FIRESTORE DEL ADMIN QUE TIENE PERMISOS MAESTROS
       const userDocRef = doc(firestore, 'users', newUid);
-      await setDoc(userDocRef, newUserProfile);
       
-      toast({ title: 'Usuario creado con éxito' });
+      // ESPERAMOS LA CONFIRMACIÓN DE FIRESTORE ANTES DE CUALQUIER OTRA COSA
+      await setDoc(userDocRef, {
+        ...newUserProfile,
+        id: newUid,
+        fecha_creacion: new Date().toISOString()
+      });
+      
+      toast({ title: 'Usuario y Perfil creados con éxito' });
       form.reset(); 
       setSelectedModules(new Set()); 
       setSelectedPerms(new Set());
 
       await signOut(tempAuth);
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Fallo al registrar usuario', description: error.message });
+      console.error("Error en registro:", error);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Fallo al registrar usuario', 
+        description: error.message || 'Error desconocido' 
+      });
     } finally { 
         if (tempApp) await deleteApp(tempApp).catch(() => {});
         setIsSubmitting(false); 
