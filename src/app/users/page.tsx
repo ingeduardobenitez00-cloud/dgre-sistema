@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -69,6 +68,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { format } from 'date-fns';
 import { es } from "date-fns/locale";
 import { useSearchParams } from 'next/navigation';
+import { recordAuditLog } from '@/lib/audit';
 
 type UserProfile = {
   id: string;
@@ -638,8 +638,19 @@ function UsersContent() {
       const newUid = userCredential.user.uid;
 
       // REGLA CRÍTICA: Escribimos en Firestore usando la sesión actual del administrador logueado
-      await setDoc(doc(firestore, 'users', newUid), newUserProfile);
+      const userRef = doc(firestore, 'users', newUid);
+      await setDoc(userRef, newUserProfile);
       
+      recordAuditLog(firestore, {
+          usuario_id: currentUser.uid,
+          usuario_nombre: currentUser.profile?.username || currentUser.email || 'Admin',
+          usuario_rol: 'admin',
+          accion: 'CREAR',
+          modulo: 'seguridad',
+          documento_id: newUid,
+          detalles: `Creación administrativa de usuario: ${email}`
+      });
+
       await signOut(tempAuth);
       toast({ title: 'Usuario Creado con Éxito' });
       form.reset(); setSelectedModules(new Set()); setSelectedPerms(new Set());

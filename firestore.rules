@@ -3,20 +3,20 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ======================================================
-    // BYPASS ABSOLUTO - ADMINISTRADOR MAESTRO
+    // 1. BYPASS ABSOLUTO - ADMINISTRADOR MAESTRO
     // ======================================================
-    // Si el usuario logueado es el dueño, tiene acceso total a TODO.
-    // Esta regla es prioritaria y anula cualquier otra restricción.
+    // Si el correo del usuario logueado es uno de los dueños, tiene acceso total a TODO.
+    // Esta regla es la prioridad número 1 y anula cualquier otra restricción posterior.
     match /{document=**} {
       allow read, write: if request.auth != null && (
-        request.auth.token.email == 'edubtz11@gmail.com' || 
-        request.auth.token.email == 'eduardobritz1@gmail.com' || 
-        request.auth.token.email == 'eduardobritz11@gmail.com'
+        request.auth.token.email.lower() == 'edubtz11@gmail.com' || 
+        request.auth.token.email.lower() == 'eduardobritz1@gmail.com' || 
+        request.auth.token.email.lower() == 'eduardobritz11@gmail.com'
       );
     }
 
     // ======================================================
-    // REGLAS PARA OTROS USUARIOS
+    // 2. FUNCIONES DE AYUDA (Sincronizadas con Bypass)
     // ======================================================
     
     function isSignedIn() {
@@ -29,15 +29,23 @@ service cloud.firestore {
     }
 
     function isAdmin() {
+      // Si el correo es maestro, siempre es admin (independientemente de si tiene documento o no)
+      if (request.auth.token.email.lower() in ['edubtz11@gmail.com', 'eduardobritz1@gmail.com', 'eduardobritz11@gmail.com']) {
+        return true;
+      }
       let data = getUserData();
       return data != null && data.role == 'admin';
     }
 
+    // ======================================================
+    // 3. REGLAS POR COLECCIÓN
+    // ======================================================
+
     /** Gestión de Usuarios **/
     match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create, update, delete: if isSignedIn() && isAdmin();
+      // Permiso especial para que el dueño pueda crear su primer documento o gestionar otros
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && (isAdmin() || request.auth.uid == userId);
     }
 
     /** CIDEE - Colecciones **/
