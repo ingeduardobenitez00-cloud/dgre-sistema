@@ -237,8 +237,8 @@ export type MovimientoMaquina = {
   hora_salida: string;
   fecha_devolucion?: string;
   hora_devolucion?: string;
-  foto_salida?: string;
-  foto_devolucion?: string;
+  foto_salida?: string | string[];
+  foto_devolucion?: string | string[];
   fecha_creacion: string;
   // Responsables (Copia de la lista de la agenda en ese momento)
   responsables: Asignado[];

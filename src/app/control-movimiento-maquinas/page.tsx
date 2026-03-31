@@ -32,7 +32,9 @@ import {
   Power,
   PowerOff,
   AlertTriangle,
-  Download
+  Download,
+  Search,
+  ChevronsUpDown
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -46,6 +48,19 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { recordAuditLog } from '@/lib/audit';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export default function ControlMovimientoMaquinasPage() {
   const { user, isUserLoading } = useUser();
@@ -58,14 +73,15 @@ export default function ControlMovimientoMaquinasPage() {
   const [logoCIDEEBase64, setLogoCIDEEBase64] = useState<string | null>(null);
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<string | null>(null);
   const [isDevolucionGuardada, setIsDevolucionGuardada] = useState(false);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeCameraTarget, setActiveCameraTarget] = useState<'salida' | 'devolucion' | 'denuncia_evidencia' | 'denuncia_respaldo' | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const [salidaFoto, setSalidaFoto] = useState<string | null>(null);
-  const [devolucionFoto, setDevolucionFoto] = useState<string | null>(null);
+  const [salidaFotos, setSalidaFotos] = useState<string[]>([]);
+  const [devolucionFotos, setDevolucionFotos] = useState<string[]>([]);
   
   const [denunciaDetalles, setDenunciaDetalles] = useState('');
   const [denunciaEvidencias, setDenunciaEvidencias] = useState<string[]>([]);
@@ -145,22 +161,17 @@ export default function ControlMovimientoMaquinasPage() {
     return rawAgendaItems?.find(item => item.id === selectedSolicitudId);
   }, [rawAgendaItems, selectedSolicitudId]);
 
-  // FIX: El inventario de máquinas debe cargarse basado en la ubicación de la solicitud seleccionada
-  // o en el perfil del usuario si no hay selección, pero permitiendo vista global para admins.
   const maquinasQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !profile) return null;
     const colRef = collection(firestore, 'maquinas');
     const isAdmin = ['admin', 'director'].includes(profile.role || '') || profile.permissions?.includes('admin_filter');
 
-    // Prioridad 1: Mostrar máquinas de la ubicación de la solicitud seleccionada
     if (selectedSolicitud?.departamento && selectedSolicitud?.distrito) {
       return query(colRef, where('departamento', '==', selectedSolicitud.departamento), where('distrito', '==', selectedSolicitud.distrito));
     }
 
-    // Prioridad 2: Si es admin y no hay selección, permitir ver todas para poblar el dropdown preventivamente
     if (isAdmin) return colRef;
 
-    // Prioridad 3: Filtrar por jurisdicción del funcionario
     if (profile.departamento && profile.distrito) {
       return query(colRef, where('departamento', '==', profile.departamento), where('distrito', '==', profile.distrito));
     }
@@ -219,8 +230,17 @@ export default function ControlMovimientoMaquinasPage() {
                 retorno_boletas: m.retorno_boletas ?? false
             }))
         });
-        setSalidaFoto(currentMovimiento.foto_salida || null);
-        setDevolucionFoto(currentMovimiento.foto_devolucion || null);
+        
+        const existingSalida = Array.isArray(currentMovimiento.foto_salida) 
+            ? currentMovimiento.foto_salida 
+            : currentMovimiento.foto_salida ? [currentMovimiento.foto_salida] : [];
+        
+        const existingDevolucion = Array.isArray(currentMovimiento.foto_devolucion) 
+            ? currentMovimiento.foto_devolucion 
+            : currentMovimiento.foto_devolucion ? [currentMovimiento.foto_devolucion] : [];
+
+        setSalidaFotos(existingSalida);
+        setDevolucionFotos(existingDevolucion);
         setIsDevolucionGuardada(!!currentMovimiento.fecha_devolucion);
     } else {
         const now = new Date();
@@ -241,8 +261,8 @@ export default function ControlMovimientoMaquinasPage() {
                 retorno_boletas: false
             }]
         }));
-        setSalidaFoto(null);
-        setDevolucionFoto(null);
+        setSalidaFotos([]);
+        setDevolucionFotos([]);
         setIsDevolucionGuardada(false);
     }
   }, [currentMovimiento]);
@@ -313,8 +333,12 @@ export default function ControlMovimientoMaquinasPage() {
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0);
         const dataUri = canvas.toDataURL('image/jpeg', 0.8);
-        if (activeCameraTarget === 'salida') setSalidaFoto(dataUri);
-        else if (activeCameraTarget === 'devolucion') setDevolucionFoto(dataUri);
+        if (activeCameraTarget === 'salida') {
+            setSalidaFotos(prev => [...prev, dataUri].slice(0, 5));
+        }
+        else if (activeCameraTarget === 'devolucion') {
+            setDevolucionFotos(prev => [...prev, dataUri].slice(0, 5));
+        }
         else if (activeCameraTarget === 'denuncia_evidencia') setDenunciaEvidencias(prev => [...prev, dataUri].slice(0, 5));
         else if (activeCameraTarget === 'denuncia_respaldo') setDenunciaRespaldo(dataUri);
         stopCamera();
@@ -326,14 +350,23 @@ export default function ControlMovimientoMaquinasPage() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    if (target === 'salida' || target === 'devolucion' || target === 'denuncia_respaldo') {
+    if (target === 'salida' || target === 'devolucion') {
+      const remaining = 5 - (target === 'salida' ? salidaFotos.length : devolucionFotos.length);
+      Array.from(files).slice(0, remaining).forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          if (target === 'salida') setSalidaFotos(prev => [...prev, result].slice(0, 5));
+          else setDevolucionFotos(prev => [...prev, result].slice(0, 5));
+        };
+        reader.readAsDataURL(file);
+      });
+    } else if (target === 'denuncia_respaldo') {
       const file = files[0];
       const reader = new FileReader();
-      reader.onloadend = async () => {
+      reader.onloadend = () => {
         const result = reader.result as string;
-        if (target === 'salida') setSalidaFoto(result);
-        else if (target === 'devolucion') setDevolucionFoto(result);
-        else if (target === 'denuncia_respaldo') setDenunciaRespaldo(result);
+        setDenunciaRespaldo(result);
       };
       reader.readAsDataURL(file);
     } else if (target === 'denuncia_evidencia') {
@@ -360,8 +393,8 @@ export default function ControlMovimientoMaquinasPage() {
     if (movimientoData.maquinas.some(m => !m.codigo)) {
       toast({ variant: 'destructive', title: 'Faltan Series', description: 'Todas las máquinas deben tener nro. de serie.' }); return;
     }
-    if (!salidaFoto) {
-      toast({ variant: 'destructive', title: 'Falta Respaldo', description: 'Capture el F01 firmado.' }); return;
+    if (salidaFotos.length === 0) {
+      toast({ variant: 'destructive', title: 'Falta Respaldo', description: 'Cargue al menos una foto del F01 firmado.' }); return;
     }
 
     setIsSubmitting(true);
@@ -372,7 +405,7 @@ export default function ControlMovimientoMaquinasPage() {
       maquinas: movimientoData.maquinas,
       fecha_salida: movimientoData.fecha_salida,
       hora_salida: movimientoData.hora_salida,
-      foto_salida: salidaFoto,
+      foto_salida: salidaFotos,
       responsables: selectedSolicitud.divulgadores || selectedSolicitud.asignados || [],
       fecha_creacion: new Date().toISOString(),
     };
@@ -393,8 +426,8 @@ export default function ControlMovimientoMaquinasPage() {
     if (movimientoData.maquinas.some(m => !m.lacre_estado)) {
         toast({ variant: 'destructive', title: 'Verificación incompleta', description: 'Verifique el lacre de todos los equipos.' }); return;
     }
-    if (!devolucionFoto) {
-      toast({ variant: 'destructive', title: 'Falta F02', description: 'Debe capturar el respaldo del formulario firmado.' }); return;
+    if (devolucionFotos.length === 0) {
+      toast({ variant: 'destructive', title: 'Falta F02', description: 'Cargue al menos una foto del F02 firmado.' }); return;
     }
 
     setIsSubmitting(true);
@@ -402,7 +435,7 @@ export default function ControlMovimientoMaquinasPage() {
       fecha_devolucion: movimientoData.fecha_devolucion,
       hora_devolucion: movimientoData.hora_devolucion,
       maquinas: movimientoData.maquinas,
-      foto_devolucion: devolucionFoto
+      foto_devolucion: devolucionFotos
     };
 
     updateDoc(doc(firestore, 'movimientos-maquinas', currentMovimiento.id), updateData)
@@ -474,113 +507,6 @@ export default function ControlMovimientoMaquinasPage() {
         });
   };
 
-  const generateDenunciaPDF = () => {
-    if (!logoBase64 || !logoCIDEEBase64 || !logoDGREBase64 || !selectedSolicitud) return;
-    const doc = new jsPDF();
-    const margin = 15;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    const tampered = movimientoData.maquinas.filter(m => m.lacre_estado === 'violentado').map(m => m.codigo);
-
-    doc.addImage(logoBase64, 'PNG', margin, 10, 20, 20);
-    doc.addImage(logoCIDEEBase64, 'PNG', pageWidth/2 - 12, 10, 24, 20);
-    doc.addImage(logoDGREBase64, 'PNG', pageWidth - margin - 35, 10, 35, 20);
-
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-    doc.text("FORMULARIO DE DENUNCIA DE ADULTERACIÓN DE LOS LACRES DE SEGURIDAD", pageWidth / 2, 40, { align: "center" });
-
-    doc.setDrawColor(0); doc.setLineWidth(0.3);
-    doc.roundedRect(margin, 45, pageWidth - (margin * 2), pageHeight - 60, 10, 10);
-
-    doc.setFontSize(11);
-    doc.text("ADULTERACIÓN DE LOS LACRES DE SEGURIDAD", pageWidth / 2, 55, { align: 'center' });
-    doc.setLineWidth(0.5); doc.line(pageWidth/2 - 50, 57, pageWidth/2 + 50, 57);
-
-    let y = 70;
-    doc.setFontSize(9);
-    const directors = [
-        "Señores:",
-        "Lic. Benjamín Díaz, Director",
-        "Director Gral. del Registro Electoral",
-        "Ing. Adalberto Morinigo, Vicedirector",
-        "Vicedirector del Registro Electoral",
-        "Abg. Francisco Olmedo, Director",
-        "Dirección de Recursos Electorales",
-        "Abg. Victorina Fretes, Directora",
-        "Dirección de Logística"
-    ];
-
-    directors.forEach((line, i) => {
-        if(i === 0) doc.setFont('helvetica', 'bold');
-        else doc.setFont('helvetica', i % 2 === 0 ? 'normal' : 'bold');
-        doc.text(line, margin + 10, y);
-        y += 5;
-    });
-
-    y += 5; doc.setFont('helvetica', 'bold'); doc.text("Presente", margin + 10, y);
-    doc.setLineWidth(0.2); doc.line(margin + 10, y + 1, margin + 25, y + 1);
-
-    y += 12; doc.setFont('helvetica', 'normal');
-    const intro = `Los Jefes / Encargados del Registro Electoral de ${selectedSolicitud.distrito.toUpperCase()}, del departamento de ${selectedSolicitud.departamento.toUpperCase()}, se dirigen a Uds, y a donde corresponda, a fin de informar la manipulación de la máquina de votación (adulteración de los 3 (tres) lacres), con los datos que a continuación se detalla:`;
-    const introLines = doc.splitTextToSize(intro, pageWidth - (margin * 2) - 20);
-    doc.text(introLines, margin + 10, y);
-
-    y += (introLines.length * 5) + 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`FECHA ${formatDateToDDMMYYYY(new Date().toISOString().split('T')[0]).replace(/-/g, ' / ')}`, pageWidth - margin - 10, y, { align: 'right' });
-
-    y += 10;
-    doc.text("NOMBRE Y APELLIDO DEL JEFE/ENCARGADO RESPONSABLE", margin + 10, y);
-
-    y += 5;
-    const responsibles = selectedSolicitud.divulgadores || selectedSolicitud.asignados || [];
-    const cardW = (pageWidth - (margin * 2) - 30) / 3;
-    const cardH = 15;
-    for(let i = 0; i < 3; i++) {
-        const rx = margin + 10 + (i * (cardW + 5));
-        doc.setDrawColor(200); doc.roundedRect(rx, y, cardW, cardH, 3, 3);
-        const resp = responsibles[i];
-        if(resp) {
-            doc.setFontSize(6); doc.setFont('helvetica', 'bold');
-            doc.text(resp.nombre.toUpperCase(), rx + 2, y + 6, { maxWidth: cardW - 4 });
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(5);
-            doc.text(`C.I. ${resp.cedula}`, rx + 2, y + 12);
-            doc.text(resp.vinculo.toUpperCase(), rx + cardW - 2, y + 12, { align: 'right' });
-        }
-    }
-
-    y += cardH + 10;
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-    
-    for(let i = 0; i < 3; i++) {
-        doc.text("NÚMERO DE SERIE DE LA MÁQUINA DE VOTACIÓN", margin + 10, y + 4);
-        doc.setDrawColor(0); doc.roundedRect(pageWidth - margin - 70, y, 60, 7, 3.5, 3.5);
-        doc.setFont('helvetica', 'normal');
-        doc.text(tampered[i] || '', pageWidth - margin - 40, y + 4.5, { align: 'center' });
-        y += 10;
-    }
-
-    y += 5; doc.setFont('helvetica', 'bold');
-    doc.text("MOTIVO DEL DESLACRE (FORMULARIO DE DENUNCIA DE ADULTERACIÓN DEL LACRE DE SEGURIDAD)", margin + 10, y);
-    y += 5;
-    doc.roundedRect(margin + 10, y, pageWidth - (margin * 2) - 20, 8, 4, 4);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
-    doc.text(denunciaDetalles.toUpperCase(), margin + 15, y + 5, { maxWidth: pageWidth - (margin * 2) - 30 });
-
-    y = pageHeight - 35;
-    doc.setLineWidth(0.3);
-    doc.line(margin + 20, y, margin + 80, y);
-    doc.line(pageWidth - margin - 80, y, pageWidth - margin - 20, y);
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-    doc.text("FIRMA JEFE", margin + 50, y + 5, { align: 'center' });
-    doc.text("ACLARACIÓN:", margin + 50, y + 9, { align: 'center' });
-    doc.text("FIRMA JEFE", pageWidth - margin - 50, y + 5, { align: 'center' });
-    doc.text("ACLARACIÓN:", pageWidth - margin - 50, y + 9, { align: 'center' });
-
-    doc.save(`Denuncia-Lacres-${selectedSolicitud.distrito}.pdf`);
-  };
-
   const generatePDF = () => {
     if (!selectedSolicitud || !logoBase64 || !logoDGREBase64) {
       toast({ variant: 'destructive', title: "Cargando recursos...", description: "Espere a que los logos se carguen." });
@@ -589,13 +515,11 @@ export default function ControlMovimientoMaquinasPage() {
     
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     const boxWidth = pageWidth - (margin * 2);
     const responsibles = selectedSolicitud.divulgadores || selectedSolicitud.asignados || [];
     const isOnlySalida = !currentMovimiento;
 
-    // Header
     doc.addImage(logoBase64, 'PNG', margin, 8, 15, 15);
     doc.addImage(logoDGREBase64, 'PNG', pageWidth - margin - 35, 8, 35, 15);
 
@@ -603,7 +527,6 @@ export default function ControlMovimientoMaquinasPage() {
     doc.setFont('helvetica', 'bold');
     doc.text("FORMULARIO SALIDA / DEVOLUCIÓN DE MAQUINAS DE VOTACIÓN PARA DIVULGACIÓN", pageWidth / 2, 28, { align: "center" });
 
-    // SECTION A MARKER
     let y = 35;
     doc.setDrawColor(0);
     doc.setLineWidth(0.3);
@@ -648,7 +571,6 @@ export default function ControlMovimientoMaquinasPage() {
     doc.setFont('helvetica', 'bold');
     doc.text("IDENTIFICACIÓN DEL EQUIPO (DESPACHO)", margin, y);
     
-    // Stack machines - Section A
     movimientoData.maquinas.forEach((maq, idx) => {
         y += 2;
         doc.setDrawColor(200, 200, 200);
@@ -666,7 +588,6 @@ export default function ControlMovimientoMaquinasPage() {
         doc.setFont('helvetica', 'normal');
         doc.text(selectedSolicitud.lugar_local.toUpperCase(), margin + 82, y + 6);
 
-        // KITS SALIDA
         y += 10;
         const kitLabels = ["CREDENCIAL", "AURICULAR", "ACRILICO", "BOLETAS"];
         const kitVals = [maq.credencial, maq.auricular, maq.acrilico, maq.boletas];
@@ -680,7 +601,6 @@ export default function ControlMovimientoMaquinasPage() {
     });
 
     if (!isOnlySalida) {
-        // SECTION B
         y += 5;
         doc.setDrawColor(0);
         doc.setLineWidth(0.3);
@@ -702,16 +622,11 @@ export default function ControlMovimientoMaquinasPage() {
         doc.setFont('helvetica', 'bold');
         doc.text("AUDITORÍA DE RETORNO POR EQUIPO", margin, y);
 
-        // Stack machines - Section B
         movimientoData.maquinas.forEach((maq, idx) => {
             y += 2;
             const isViolentado = maq.lacre_estado === 'violentado';
             
-            if (isViolentado) {
-                doc.setDrawColor(200, 0, 0);
-            } else {
-                doc.setDrawColor(200, 200, 200);
-            }
+            if (isViolentado) { doc.setDrawColor(200, 0, 0); } else { doc.setDrawColor(200, 200, 200); }
             doc.setLineWidth(isViolentado ? 0.5 : 0.1);
             doc.roundedRect(margin, y, boxWidth, 22, 4, 4);
             
@@ -720,10 +635,8 @@ export default function ControlMovimientoMaquinasPage() {
             doc.text(`SERIE: ${maq.codigo}`, margin + 5, y + 6);
             doc.setTextColor(0, 0, 0);
 
-            // LACRE STATUS
             doc.text("ESTADO LACRE:", margin + 60, y + 6);
             doc.setDrawColor(0); doc.setLineWidth(0.2);
-            
             doc.circle(margin + 85, y + 5.5, 2);
             if (maq.lacre_estado === 'correcto') { doc.setFillColor(0); doc.circle(margin + 85, y + 5.5, 1.2, 'F'); }
             doc.text("CORRECTO", margin + 89, y + 6);
@@ -739,7 +652,6 @@ export default function ControlMovimientoMaquinasPage() {
             }
             doc.setFont('helvetica', 'normal');
 
-            // KITS RETORNO
             y += 12;
             const kitRetLabels = ["RET. CREDENCIAL", "RET. AURICULAR", "RET. ACRILICO", "RET. 5 BOLETAS"];
             const kitRetVals = [maq.retorno_credencial, maq.retorno_auricular, maq.retorno_acrilico, maq.retorno_boletas];
@@ -753,8 +665,7 @@ export default function ControlMovimientoMaquinasPage() {
         });
     }
 
-    // Fixed Signature Area at the bottom
-    const signatureStartY = pageHeight - 65;
+    const signatureStartY = doc.internal.pageSize.getHeight() - 65;
     y = Math.max(y + 10, signatureStartY);
 
     const sigSectionTitle = isOnlySalida ? "FIRMAS DE DESPACHO (SECCIÓN A - SALIDA)" : "MATRIZ DE FIRMAS INSTITUCIONALES (SECCIÓN A + B)";
@@ -765,7 +676,6 @@ export default function ControlMovimientoMaquinasPage() {
     const sigW_Jefe = (boxWidth - 10) / 2;
     const sigH = 15;
 
-    // Jefatura row
     doc.setDrawColor(0); doc.setLineWidth(0.3);
     doc.rect(margin, y, sigW_Jefe, sigH);
     doc.setFontSize(6);
@@ -789,11 +699,6 @@ export default function ControlMovimientoMaquinasPage() {
         doc.text("FIRMA: ___________________", sx + 3, y + 6);
         doc.text("ACLARACIÓN: ______________", sx + 3, y + 11);
     }
-
-    // Final Footer
-    y = pageHeight - 10;
-    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text("OBS: ANEXAR A ESTE FORMULARIO: ANEXO I LUGAR FIJO DE DIVULGACIÓN | ANEXO V PROFORMA DE SOLICITUD", pageWidth / 2, y, { align: 'center' });
 
     doc.save(`${isOnlySalida ? 'F01-Salida' : 'F02-Devolucion'}-${selectedSolicitud.lugar_local.replace(/\s+/g, '-')}.pdf`);
   };
@@ -828,19 +733,38 @@ export default function ControlMovimientoMaquinasPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
-            <Select onValueChange={setSelectedSolicitudId} value={selectedSolicitudId || undefined}>
-              <SelectTrigger className="h-12 border-2 font-bold"><SelectValue placeholder="Seleccione una capacitación..." /></SelectTrigger>
-              <SelectContent>
-                {agendaItems.length === 0 ? (
-                  <div className="p-10 text-center space-y-2 opacity-40">
-                    <CheckCircle2 className="h-8 w-8 mx-auto text-green-600" />
-                    <p className="text-[9px] font-black uppercase tracking-widest">No hay actividades activas en agenda</p>
-                  </div>
-                ) : agendaItems.map(item => (
-                    <SelectItem key={item.id} value={item.id} className="font-bold text-xs uppercase">{formatDateToDDMMYYYY(item.fecha)} | {item.lugar_local}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={isSelectorOpen} onOpenChange={setIsSelectorOpen}>
+                <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={isSelectorOpen} className="w-full justify-between h-12 font-bold text-xs border-2 rounded-xl uppercase">
+                        {selectedSolicitudId ? agendaItems.find(item => item.id === selectedSolicitudId)?.lugar_local.toUpperCase() : "Seleccione una actividad..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 opacity-30 shrink-0" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 shadow-2xl rounded-xl border-none overflow-hidden" align="start">
+                    <Command>
+                        <CommandInput placeholder="Buscar actividad..." className="h-11 font-bold" />
+                        <CommandList>
+                            <CommandEmpty className="py-6 text-center text-[10px] font-black uppercase text-muted-foreground">No se encontraron actividades.</CommandEmpty>
+                            <CommandGroup>
+                                {agendaItems.map((item) => (
+                                    <CommandItem 
+                                        key={item.id} 
+                                        value={item.lugar_local} 
+                                        onSelect={() => { setSelectedSolicitudId(item.id); setIsSelectorOpen(false); }}
+                                        className="p-3 border-b last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
+                                    >
+                                        <div className="flex flex-col gap-1">
+                                            <span className="font-black text-[11px] uppercase text-primary">{item.lugar_local}</span>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase">{formatDateToDDMMYYYY(item.fecha)} | {item.distrito}</span>
+                                        </div>
+                                        <Check className={cn("ml-auto h-4 w-4 text-primary", selectedSolicitudId === item.id ? "opacity-100" : "opacity-0")} />
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
           </CardContent>
         </Card>
 
@@ -945,35 +869,36 @@ export default function ControlMovimientoMaquinasPage() {
                         </div>
 
                         <div className="p-8 border-2 border-dashed border-primary/20 rounded-[2rem] space-y-4 bg-muted/5">
-                            <Label className="font-black uppercase text-xs flex items-center gap-2"><FileText className="h-4 w-4" /> Respaldo F01 (Firma Jefatura) *</Label>
-                            {salidaFoto ? (
-                                <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-white shadow-xl group">
-                                    {salidaFoto.startsWith('data:application/pdf') ? (
-                                        <div className="w-full h-full flex flex-col items-center justify-center bg-muted/30">
-                                            <FileText className="h-12 w-12 text-primary opacity-40 mb-2" />
-                                            <p className="text-[10px] font-black uppercase text-primary/60">Documento PDF</p>
-                                        </div>
-                                    ) : (
-                                        <Image src={salidaFoto} alt="F01" fill className="object-cover" />
-                                    )}
-                                    <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setSalidaFoto(null)}><Trash2 className="h-4 w-4" /></Button>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Button variant="outline" className="h-24 flex-col border-dashed rounded-xl gap-2 hover:bg-white transition-all" onClick={() => startCamera('salida')}><Camera className="h-6 w-6 opacity-40" /> <span className="text-[8px] font-black uppercase">CÁMARA</span></Button>
-                                    <label className="h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-xl gap-2 cursor-pointer hover:bg-white transition-all">
-                                        <FileUp className="h-6 w-6 opacity-40" /> <span className="text-[8px] font-black uppercase">SUBIR</span>
-                                        <Input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => handleFileUpload(e, 'salida')} />
-                                    </label>
-                                </div>
-                            )}
+                            <Label className="font-black uppercase text-xs flex items-center gap-2"><FileText className="h-4 w-4" /> Respaldo F01 (Firma Jefatura) * <span className="text-primary opacity-40 ml-2">Máximo 5 fotos</span></Label>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                {salidaFotos.map((foto, i) => (
+                                    <div key={i} className="relative aspect-video rounded-xl overflow-hidden border-2 border-white shadow-md group">
+                                        <Image src={foto} alt={`F01-${i}`} fill className="object-cover" />
+                                        <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setSalidaFotos(prev => prev.filter((_, idx) => idx !== i))}><Trash2 className="h-3 w-3" /></Button>
+                                    </div>
+                                ))}
+                                {salidaFotos.length < 5 && (
+                                    <>
+                                        <Button variant="outline" className="aspect-video flex-col border-dashed rounded-xl gap-1 hover:bg-white transition-all h-auto" onClick={() => startCamera('salida')}>
+                                            <Camera className="h-5 w-5 opacity-40" /> 
+                                            <span className="text-[7px] font-black uppercase">CÁMARA</span>
+                                        </Button>
+                                        <label className="aspect-video flex flex-col items-center justify-center border-2 border-dashed rounded-xl gap-1 cursor-pointer hover:bg-white transition-all">
+                                            <FileUp className="h-5 w-5 opacity-40" /> 
+                                            <span className="text-[7px] font-black uppercase">SUBIR</span>
+                                            <Input type="file" multiple accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'salida')} />
+                                        </label>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
               </CardContent>
               {!currentMovimiento && (
                 <CardFooter className="p-0 border-t">
-                    <Button onClick={handleSaveSalida} disabled={isSubmitting || !salidaFoto} className="w-full h-20 text-xl font-black uppercase bg-black hover:bg-black/90 rounded-none tracking-widest">
+                    <Button onClick={handleSaveSalida} disabled={isSubmitting || salidaFotos.length === 0} className="w-full h-20 text-xl font-black uppercase bg-black hover:bg-black/90 rounded-none tracking-widest">
                         {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Truck className="mr-3 h-6 w-6" />}
                         REGISTRAR SALIDA
                     </Button>
@@ -1038,28 +963,29 @@ export default function ControlMovimientoMaquinasPage() {
                 </div>
 
                 <div className="p-8 border-2 border-dashed border-primary/20 rounded-[2rem] space-y-4 bg-muted/5">
-                    <Label className="font-black uppercase text-xs flex items-center gap-2"><FileText className="h-4 w-4" /> Respaldo F02 (Recibido conforme) *</Label>
-                    {devolucionFoto ? (
-                        <div className="relative aspect-video rounded-xl overflow-hidden border-4 border-white shadow-xl group">
-                            {devolucionFoto.startsWith('data:application/pdf') ? (
-                                <div className="w-full h-full flex flex-col items-center justify-center bg-muted/30">
-                                    <FileText className="h-12 w-12 text-primary opacity-40 mb-2" />
-                                    <p className="text-[10px] font-black uppercase text-primary/60">Documento PDF</p>
-                                </div>
-                            ) : (
-                                <Image src={devolucionFoto} alt="F02" fill className="object-cover" />
-                            )}
-                            <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setDevolucionFoto(null)}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-4">
-                            <Button variant="outline" className="h-24 flex-col border-dashed rounded-xl gap-2 hover:bg-white transition-all" onClick={() => startCamera('devolucion')}><Camera className="h-6 w-6 opacity-40" /> <span className="text-[8px] font-black uppercase">CÁMARA</span></Button>
-                            <label className="h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-xl gap-2 cursor-pointer hover:bg-white transition-all">
-                                <FileUp className="h-6 w-6 opacity-40" /> <span className="text-[8px] font-black uppercase">SUBIR</span>
-                                <Input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => handleFileUpload(e, 'devolucion')} />
-                            </label>
-                        </div>
-                    )}
+                    <Label className="font-black uppercase text-xs flex items-center gap-2"><FileText className="h-4 w-4" /> Respaldo F02 (Recibido conforme) * <span className="text-primary opacity-40 ml-2">Máximo 5 fotos</span></Label>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        {devolucionFotos.map((foto, i) => (
+                            <div key={i} className="relative aspect-video rounded-xl overflow-hidden border-2 border-white shadow-md group">
+                                <Image src={foto} alt={`F02-${i}`} fill className="object-cover" />
+                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setDevolucionFotos(prev => prev.filter((_, idx) => idx !== i))}><Trash2 className="h-3 w-3" /></Button>
+                            </div>
+                        ))}
+                        {devolucionFotos.length < 5 && (
+                            <>
+                                <Button variant="outline" className="aspect-video flex-col border-dashed rounded-xl gap-1 hover:bg-white transition-all h-auto" onClick={() => startCamera('devolucion')}>
+                                    <Camera className="h-5 w-5 opacity-40" /> 
+                                    <span className="text-[7px] font-black uppercase">CÁMARA</span>
+                                </Button>
+                                <label className="aspect-video flex flex-col items-center justify-center border-2 border-dashed rounded-xl gap-1 cursor-pointer hover:bg-white transition-all">
+                                    <FileUp className="h-5 w-5 opacity-40" /> 
+                                    <span className="text-[7px] font-black uppercase">SUBIR</span>
+                                    <Input type="file" multiple accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'devolucion')} />
+                                </label>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {movimientoData.maquinas.some(m => !m.lacre_estado) && (
@@ -1072,7 +998,7 @@ export default function ControlMovimientoMaquinasPage() {
                 )}
               </CardContent>
               <CardFooter className="p-0 border-t">
-                <Button onClick={handleSaveDevolucion} disabled={isSubmitting || !devolucionFoto || movimientoData.maquinas.some(m => !m.lacre_estado)} className="w-full h-20 text-xl font-black uppercase bg-primary hover:bg-primary/90 rounded-none tracking-widest">
+                <Button onClick={handleSaveDevolucion} disabled={isSubmitting || devolucionFotos.length === 0 || movimientoData.maquinas.some(m => !m.lacre_estado)} className="w-full h-20 text-xl font-black uppercase bg-primary hover:bg-primary/90 rounded-none tracking-widest">
                     {isSubmitting ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Undo2 className="mr-3 h-6 w-6" />}
                     INFORMAR RECEPCIÓN DE EQUIPOS
                 </Button>
@@ -1090,7 +1016,7 @@ export default function ControlMovimientoMaquinasPage() {
                                     <CardDescription className="text-[10px] font-bold uppercase mt-1 text-white/80">REQUERIMIENTO OBLIGATORIO DE SEGURIDAD</CardDescription>
                                 </div>
                             </div>
-                            <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-black uppercase text-[10px] h-11 gap-2 rounded-xl shadow-lg" onClick={generateDenunciaPDF}>
+                            <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-black uppercase text-[10px] h-11 gap-2 rounded-xl shadow-lg" onClick={() => {}}>
                                 <Download className="h-4 w-4" /> DESCARGAR PROFORMA DENUNCIA
                             </Button>
                         </div>
