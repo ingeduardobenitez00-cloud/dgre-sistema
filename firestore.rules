@@ -2,20 +2,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // REGLA MAESTRA: Acceso total absoluto para los propietarios por correo.
-    // Esta regla tiene prioridad sobre todas las demás y evita bloqueos por falta de perfil.
-    function isOwner() {
-      return request.auth != null && 
-        (request.auth.token.email.lower() == 'edubtz11@gmail.com' || 
-         request.auth.token.email.lower() == 'eduardobritz1@gmail.com' ||
-         request.auth.token.email.lower() == 'eduardobritz11@gmail.com');
+    // ======================================================
+    // REGLA MAESTRA DE ADMINISTRACIÓN (BYPASS ABSOLUTO)
+    // ======================================================
+    // Esta regla otorga acceso total e inmediato a los correos autorizados.
+    // NO requiere consultar la base de datos, lo que evita errores de permisos.
+    function isMasterAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'edubtz11@gmail.com' || 
+        request.auth.token.email == 'eduardobritz1@gmail.com' ||
+        request.auth.token.email == 'eduardobritz11@gmail.com'
+      );
     }
 
+    // Aplicar acceso total a todas las colecciones para Master Admins
     match /{document=**} {
-      allow read, write: if isOwner();
+      allow read, write: if isMasterAdmin();
     }
 
-    // Funciones auxiliares para usuarios regulares
+    // ======================================================
+    // REGLAS PARA USUARIOS REGULARES
+    // ======================================================
+    
     function isSignedIn() {
       return request.auth != null;
     }
@@ -27,7 +35,7 @@ service cloud.firestore {
 
     function isAdmin() {
       let data = getUserData();
-      return isOwner() || (data != null && data.role == 'admin');
+      return isMasterAdmin() || (data != null && data.role == 'admin');
     }
 
     /** Gestión de Usuarios **/
@@ -93,7 +101,7 @@ service cloud.firestore {
     /** Padrón (Acceso Público para lectura, escritura protegida) **/
     match /padron/{id} {
       allow read: if isSignedIn();
-      allow write: if isOwner();
+      allow write: if isMasterAdmin();
     }
     
     /** Registros Edilicios **/

@@ -263,7 +263,6 @@ function UsersContent() {
   const { user: currentUser, isUserLoading: isAuthLoading } = useUser();
   const searchParams = useSearchParams();
 
-  // PRIORIDAD MÁXIMA: Si es el dueño, no esperar a Firestore.
   const isAdminView = useMemo(() => {
     const email = currentUser?.email?.toLowerCase() || '';
     const isOwner = email === 'edubtz11@gmail.com' || email === 'eduardobritz1@gmail.com' || email === 'eduardobritz11@gmail.com';
@@ -635,16 +634,25 @@ function UsersContent() {
       tempApp = initializeApp(firebaseConfig, tempAppName);
       const tempAuth = getAuth(tempApp);
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
-      await setDoc(doc(firestore, 'users', userCredential.user.uid), newUserProfile);
+      const newUid = userCredential.user.uid;
+
+      // REGLA CRÍTICA: Escribimos en Firestore usando la sesión actual del administrador logueado
+      await setDoc(doc(firestore, 'users', newUid), newUserProfile);
+      
       await signOut(tempAuth);
       toast({ title: 'Usuario Creado con Éxito' });
       form.reset(); setSelectedModules(new Set()); setSelectedPerms(new Set());
     } catch (error: any) { 
-        let errorDesc = error.message;
-        if (error.code === 'auth/email-already-in-use') {
-            errorDesc = "El correo ya está en uso en el sistema de autenticación.";
+        console.error("Error creating user:", error);
+        if (error.code === 'permission-denied') {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: 'users',
+                operation: 'create',
+                requestResourceData: newUserProfile
+            }));
+        } else {
+            toast({ variant: 'destructive', title: 'Error de Firebase', description: error.message }); 
         }
-        toast({ variant: 'destructive', title: 'Error de Firebase', description: errorDesc }); 
     }
     finally { if (tempApp) await deleteApp(tempApp); setIsSubmitting(false); }
   };
