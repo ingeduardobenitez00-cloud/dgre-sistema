@@ -6,7 +6,7 @@ service cloud.firestore {
     // 1. FUNCIONES DE AUTORIZACIÓN (PODER ABSOLUTO)
     // ======================================================
 
-    // Bypass por Email: Acceso total garantizado sin consultar la base de datos
+    // Bypass por Email: Acceso total garantizado para los administradores maestros
     function isMaster() {
       return request.auth != null && 
              (

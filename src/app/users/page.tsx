@@ -472,27 +472,18 @@ function UsersContent() {
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       const newUid = userCredential.user.uid;
 
-      // GUARDADO CRÍTICO EN FIRESTORE CON PATRÓN NO BLOQUEANTE REQUERIDO
+      // GUARDADO CRÍTICO EN FIRESTORE
       const userDocRef = doc(firestore, 'users', newUid);
-      setDoc(userDocRef, newUserProfile)
-        .then(() => {
-            toast({ title: 'Usuario creado con éxito' });
-            form.reset(); 
-            setSelectedModules(new Set()); 
-            setSelectedPerms(new Set());
-        })
-        .catch(async (error) => {
-            const contextualError = new FirestorePermissionError({
-                path: userDocRef.path,
-                operation: 'create',
-                requestResourceData: newUserProfile
-            });
-            errorEmitter.emit('permission-error', contextualError);
-        });
+      await setDoc(userDocRef, newUserProfile);
+      
+      toast({ title: 'Usuario creado con éxito' });
+      form.reset(); 
+      setSelectedModules(new Set()); 
+      setSelectedPerms(new Set());
 
       await signOut(tempAuth);
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Fallo al crear credenciales', description: error.message });
+      toast({ variant: 'destructive', title: 'Fallo al registrar usuario', description: error.message });
     } finally { 
         if (tempApp) await deleteApp(tempApp).catch(() => {});
         setIsSubmitting(false); 
@@ -512,21 +503,15 @@ function UsersContent() {
         active: editingUser.active ?? true
     };
 
-    updateDoc(userDocRef, updateData)
-        .then(() => {
-            toast({ title: "Perfil Actualizado" });
-            setEditModalOpen(false);
-            setIsSubmitting(false);
-        })
-        .catch(async (error) => {
-            const contextualError = new FirestorePermissionError({
-                path: userDocRef.path,
-                operation: 'update',
-                requestResourceData: updateData
-            });
-            errorEmitter.emit('permission-error', contextualError);
-            setIsSubmitting(false);
-        });
+    try {
+        await updateDoc(userDocRef, updateData);
+        toast({ title: "Perfil Actualizado" });
+        setEditModalOpen(false);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error al actualizar' });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
@@ -668,11 +653,7 @@ function UsersContent() {
                                                         </div>
                                                     </AccordionTrigger>
                                                     <AccordionContent className="pt-4 px-2">
-                                                        {isPending ? (
-                                                            <div className="py-6 text-center bg-muted/10 rounded-xl border border-dashed border-muted">
-                                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Sin personal registrado en esta oficina</p>
-                                                            </div>
-                                                        ) : (
+                                                        {!isPending && (
                                                             <div className="overflow-x-auto border rounded-xl bg-white shadow-inner">
                                                                 <Table>
                                                                     <TableHeader className="bg-muted/30">
