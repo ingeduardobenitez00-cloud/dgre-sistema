@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -24,7 +25,10 @@ import {
   PowerOff, 
   UserCircle,
   Mail,
-  ShieldAlert
+  ShieldAlert,
+  ChevronRight,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -288,15 +292,55 @@ function UsersContent() {
     return [...new Set(datosData.filter(d => d.departamento === regDepartamento).map(d => d.distrito))].sort();
   }, [datosData, regDepartamento]);
 
-  const filteredUsers = useMemo(() => {
-    if (!users) return [];
+  // AGRUPACIÓN JERÁRQUICA PARA EL LISTADO
+  const hierarchy = useMemo(() => {
+    if (!datosData) return [];
+    
     const term = searchTerm.toLowerCase().trim();
-    return users.filter(u => 
-      u.username.toLowerCase().includes(term) || 
-      u.email.toLowerCase().includes(term) || 
-      u.role.toLowerCase().includes(term)
-    ).sort((a,b) => a.username.localeCompare(b.username));
-  }, [users, searchTerm]);
+    const activeUsers = users || [];
+
+    const depts: Record<string, { name: string, districts: Record<string, { name: string, users: UserProfile[] }> }> = {};
+
+    // 1. Inicializar estructura desde geografía oficial
+    datosData.forEach(d => {
+      if (!depts[d.departamento]) depts[d.departamento] = { name: d.departamento, districts: {} };
+      if (!depts[d.departamento].districts[d.distrito]) {
+        depts[d.departamento].districts[d.distrito] = { name: d.distrito, users: [] };
+      }
+    });
+
+    // 2. Asignar usuarios a sus ubicaciones
+    activeUsers.forEach(u => {
+      const dept = u.departamento || 'ALCANCE NACIONAL';
+      const dist = u.distrito || 'TODOS LOS DISTRITOS';
+      
+      if (dept === 'ALCANCE NACIONAL') {
+          if (!depts[dept]) depts[dept] = { name: dept, districts: {} };
+          if (!depts[dept].districts[dist]) depts[dept].districts[dist] = { name: dist, users: [] };
+          depts[dept].districts[dist].users.push(u);
+      } else if (depts[dept]?.districts[dist]) {
+          depts[dept].districts[dist].users.push(u);
+      }
+    });
+
+    // 3. Convertir a array y filtrar por búsqueda
+    return Object.values(depts)
+      .map(dept => ({
+        ...dept,
+        districts: Object.values(dept.districts)
+          .filter(dist => {
+            const matchesLocation = dist.name.toLowerCase().includes(term) || dept.name.toLowerCase().includes(term);
+            const matchesUser = dist.users.some(u => 
+                u.username.toLowerCase().includes(term) || 
+                u.email.toLowerCase().includes(term)
+            );
+            return matchesLocation || matchesUser;
+          })
+          .sort((a, b) => a.name.localeCompare(b.name))
+      }))
+      .filter(dept => dept.districts.length > 0)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [datosData, users, searchTerm]);
 
   const handleTogglePerm = (permId: string, isEditing = false) => {
     if (isEditing && editingUser) {
@@ -447,6 +491,27 @@ function UsersContent() {
     }
   };
 
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore || !editingUser) return;
+    setIsSubmitting(true);
+    try {
+        await updateDoc(doc(firestore, 'users', editingUser.id), {
+            username: editingUser.username.toUpperCase(),
+            role: editingUser.role,
+            modules: editingUser.modules,
+            permissions: editingUser.permissions,
+            active: editingUser.active ?? true
+        });
+        toast({ title: "Perfil Actualizado" });
+        setEditModalOpen(false);
+    } catch (e) {
+        toast({ variant: 'destructive', title: "Error al actualizar" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
@@ -475,7 +540,7 @@ function UsersContent() {
                 <div className="space-y-2"><Label className="text-[9px] font-black uppercase">Contraseña</Label><Input name="password" type="password" required className="font-bold h-11 border-2" /></div>
                 <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase">Rol</Label>
-                    <select name="role" required value={regRole} onChange={(e) => setRegRole(e.target.value as any)} className="w-full h-11 border-2 rounded-md font-black uppercase text-[10px] px-3">
+                    <select name="role" required value={regRole} onChange={(e) => setRegRole(e.target.value as any)} className="w-full h-11 border-2 rounded-md font-black uppercase text-[10px] px-3 bg-white">
                         <option value="admin">ADMINISTRADOR</option>
                         <option value="director">DIRECTOR</option>
                         <option value="coordinador">COORDINADOR</option>
@@ -501,6 +566,9 @@ function UsersContent() {
                     </Select>
                 </div>
               </div>
+              <div className="flex justify-end">
+                  <Button type="button" variant="outline" className="font-black text-[9px] uppercase border-2 h-8" onClick={() => handleApplyJefeProfile(false)}>Aplicar Perfil Jefe</Button>
+              </div>
               <PermissionMatrix selectedPerms={selectedPerms} selectedModules={selectedModules} onTogglePerm={handleTogglePerm} onToggleModuleAction={handleToggleModuleAction} onToggleColumn={handleToggleColumn} />
             </CardContent>
             <CardFooter className="bg-muted/30 border-t p-6">
@@ -512,90 +580,185 @@ function UsersContent() {
           </form>
         </Card>
 
-        <Card className="shadow-lg border-none overflow-hidden rounded-xl bg-white">
-            <CardHeader className="bg-primary text-white py-4 px-6 flex flex-row items-center justify-between">
-                <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                    <Users className="h-4 w-4" /> Usuarios del Sistema
-                </CardTitle>
-                <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
-                    <Input placeholder="Buscar..." className="h-9 pl-9 text-[10px] bg-white/10 border-none text-white rounded-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        {/* LISTADO JERÁRQUICO POR ACORDEONES */}
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <h2 className="text-xl font-black uppercase text-primary flex items-center gap-3">
+                    <Users className="h-6 w-6" /> DIRECTORIO POR JURISDICCIÓN
+                </h2>
+                <div className="relative w-64 md:w-80">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-40" />
+                    <Input 
+                        placeholder="Buscar funcionario o zona..." 
+                        className="h-11 pl-10 font-bold border-2 rounded-2xl bg-white shadow-sm"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
                 </div>
-            </CardHeader>
-            <CardContent className="p-0">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="text-[9px] font-black uppercase px-6">Funcionario</TableHead>
-                            <TableHead className="text-[9px] font-black uppercase">Rol</TableHead>
-                            <TableHead className="text-[9px] font-black uppercase">Estado</TableHead>
-                            <TableHead className="text-right text-[9px] font-black uppercase px-6">Acción</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoadingUsers ? <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto h-6 w-6 text-primary"/></TableCell></TableRow> : 
-                        filteredUsers.map(u => (
-                            <TableRow key={u.id}>
-                                <TableCell className="px-6 py-4">
-                                    <div className="flex flex-col">
-                                        <span className="font-black text-xs uppercase">{u.username}</span>
-                                        <span className="text-[9px] text-muted-foreground">{u.email}</span>
+            </div>
+
+            {isLoadingUsers ? (
+                <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20"/></div>
+            ) : hierarchy.length === 0 ? (
+                <Card className="p-20 text-center border-dashed bg-white rounded-3xl opacity-30">
+                    <p className="font-black uppercase">No se encontraron usuarios</p>
+                </Card>
+            ) : (
+                <Accordion type="multiple" className="space-y-4">
+                    {hierarchy.map((dept) => {
+                        const filledCount = dept.districts.filter(d => d.users.length > 0).length;
+                        return (
+                            <AccordionItem key={dept.name} value={dept.name} className="border-none bg-white rounded-2xl shadow-sm overflow-hidden">
+                                <AccordionTrigger className="hover:no-underline px-6 py-4 bg-white group">
+                                    <div className="flex items-center justify-between w-full pr-4">
+                                        <div className="flex items-center gap-4 text-left">
+                                            <div className="h-10 w-10 rounded-xl bg-primary/5 text-primary flex items-center justify-center">
+                                                <Landmark className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-black uppercase tracking-tight text-[#1A1A1A]">{dept.name}</h2>
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase">{dept.districts.length} DISTRITOS</p>
+                                            </div>
+                                        </div>
+                                        <Badge variant="secondary" className="bg-muted text-muted-foreground text-[8px] font-black uppercase px-3">
+                                            {filledCount} CUMPLIDOS
+                                        </Badge>
                                     </div>
-                                </TableCell>
-                                <TableCell><Badge variant="secondary" className="text-[8px] font-black uppercase">{u.role}</Badge></TableCell>
-                                <TableCell>
-                                    <Badge className={cn("text-[8px] font-black uppercase", u.active !== false ? "bg-green-600" : "bg-red-600")}>
-                                        {u.active !== false ? "ACTIVO" : "INACTIVO"}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right px-6">
-                                    <div className="flex justify-end gap-2">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingUser(u); setEditModalOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                                        <Button variant="ghost" size="icon" className={cn("h-8 w-8", u.active !== false ? "text-amber-600" : "text-green-600")} onClick={() => toggleUserStatus(u)}>
-                                            {u.active !== false ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                                        </Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-2xl">
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle className="font-black uppercase">¿Eliminar usuario?</AlertDialogTitle>
-                                                    <AlertDialogDescription className="text-xs">Esta acción borrará permanentemente el perfil de {u.username}.</AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel className="font-bold text-[10px] uppercase">Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteUser(u)} className="bg-destructive font-black text-[10px] uppercase">Eliminar</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-6 pb-6 pt-2">
+                                    <Accordion type="multiple" className="space-y-3">
+                                        {dept.districts.map((dist) => {
+                                            const isPending = dist.users.length === 0;
+                                            return (
+                                                <AccordionItem key={dist.name} value={dist.name} className="border-none">
+                                                    <AccordionTrigger className="hover:no-underline py-3 bg-[#F8F9FA] rounded-xl px-5 group border-2 border-dashed border-muted">
+                                                        <div className="flex items-center justify-between w-full pr-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <Building2 className={cn("h-4 w-4", isPending ? "text-muted-foreground/30" : "text-primary")} />
+                                                                <span className="font-black uppercase text-xs tracking-tight text-foreground/80">{dist.name}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                {isPending ? (
+                                                                    <Badge variant="outline" className="text-destructive border-destructive/20 bg-destructive/[0.02] text-[7px] font-black uppercase flex gap-1 items-center">
+                                                                        <AlertCircle className="h-2 w-2" /> PENDIENTE
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge className="bg-green-600 text-white text-[7px] font-black uppercase flex gap-1 items-center shadow-md">
+                                                                        <CheckCircle2 className="h-2 w-2" /> CUMPLIDO
+                                                                    </Badge>
+                                                                )}
+                                                                {!isPending && <Badge variant="secondary" className="bg-black text-white text-[7px] font-black">{dist.users.length}</Badge>}
+                                                            </div>
+                                                        </div>
+                                                    </AccordionTrigger>
+                                                    <AccordionContent className="pt-4 px-2">
+                                                        {isPending ? (
+                                                            <div className="py-6 text-center bg-muted/10 rounded-xl border border-dashed border-muted">
+                                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Sin personal registrado en esta oficina</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="overflow-x-auto border rounded-xl bg-white shadow-inner">
+                                                                <Table>
+                                                                    <TableHeader className="bg-muted/30">
+                                                                        <TableRow>
+                                                                            <TableHead className="text-[8px] font-black uppercase px-6">Funcionario</TableHead>
+                                                                            <TableHead className="text-[8px] font-black uppercase">Rol</TableHead>
+                                                                            <TableHead className="text-[8px] font-black uppercase">Estado</TableHead>
+                                                                            <TableHead className="text-right text-[8px] font-black uppercase px-6">Acción</TableHead>
+                                                                        </TableRow>
+                                                                    </TableHeader>
+                                                                    <TableBody>
+                                                                        {dist.users.map(u => (
+                                                                            <TableRow key={u.id} className="hover:bg-muted/10 transition-colors">
+                                                                                <TableCell className="px-6 py-3">
+                                                                                    <div className="flex flex-col">
+                                                                                        <span className="font-black text-[11px] uppercase text-primary leading-tight">{u.username}</span>
+                                                                                        <span className="text-[9px] text-muted-foreground font-medium">{u.email}</span>
+                                                                                    </div>
+                                                                                </TableCell>
+                                                                                <TableCell><Badge variant="outline" className="text-[7px] font-black uppercase border-primary/10">{u.role}</Badge></TableCell>
+                                                                                <TableCell>
+                                                                                    <div className={cn(
+                                                                                        "h-2 w-2 rounded-full",
+                                                                                        u.active !== false ? "bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]" : "bg-red-500"
+                                                                                    )} title={u.active !== false ? 'Activo' : 'Inactivo'} />
+                                                                                </TableCell>
+                                                                                <TableCell className="text-right px-6">
+                                                                                    <div className="flex justify-end gap-1">
+                                                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingUser(u); setEditModalOpen(true); }}><Edit className="h-3.5 w-3.5 text-primary/40" /></Button>
+                                                                                        <Button variant="ghost" size="icon" className={cn("h-7 w-7", u.active !== false ? "text-amber-600/40" : "text-green-600/40")} onClick={() => toggleUserStatus(u)}>
+                                                                                            {u.active !== false ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                                                                                        </Button>
+                                                                                        <AlertDialog>
+                                                                                            <AlertDialogTrigger asChild>
+                                                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/40 hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                                                            </AlertDialogTrigger>
+                                                                                            <AlertDialogContent className="rounded-3xl border-none shadow-2xl p-8">
+                                                                                                <AlertDialogHeader className="space-y-4">
+                                                                                                    <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto border-4 border-destructive/20">
+                                                                                                        <ShieldAlert className="h-8 w-8 text-destructive" />
+                                                                                                    </div>
+                                                                                                    <AlertDialogTitle className="font-black uppercase tracking-tight text-center text-xl">¿ELIMINAR ACCESO DEFINITIVAMENTE?</AlertDialogTitle>
+                                                                                                    <AlertDialogDescription className="text-xs font-bold uppercase leading-relaxed text-muted-foreground text-center">
+                                                                                                        Se borrará el perfil de <span className="text-primary font-black">{u.username}</span>. Se le revocará el acceso al sistema de forma inmediata.
+                                                                                                    </AlertDialogDescription>
+                                                                                                </AlertDialogHeader>
+                                                                                                <AlertDialogFooter className="mt-8 sm:justify-center gap-4">
+                                                                                                    <AlertDialogCancel className="h-12 rounded-xl font-black uppercase text-[10px] px-8 border-2">CANCELAR</AlertDialogCancel>
+                                                                                                    <AlertDialogAction onClick={() => handleDeleteUser(u)} className="h-12 bg-destructive hover:bg-destructive/90 text-white rounded-xl font-black uppercase text-[10px] px-8 shadow-xl">
+                                                                                                        SÍ, ELIMINAR ACCESO
+                                                                                                    </AlertDialogAction>
+                                                                                                </AlertDialogFooter>
+                                                                                            </AlertDialogContent>
+                                                                                        </AlertDialog>
+                                                                                    </div>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        ))}
+                                                                    </TableBody>
+                                                                </Table>
+                                                            </div>
+                                                        )}
+                                                    </AccordionContent>
+                                                </AccordionItem>
+                                            );
+                                        })}
+                                    </Accordion>
+                                </AccordionContent>
+                            </AccordionItem>
+                        );
+                    })}
+                </Accordion>
+            )}
+        </div>
       </main>
 
       <Dialog open={isEditModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
           {editingUser && (
             <form onSubmit={handleUpdateUser} className="flex flex-col h-full bg-white">
               <DialogHeader className="p-6 bg-black text-white shrink-0">
                 <div className="flex justify-between items-center">
-                    <DialogTitle className="text-xl font-black uppercase">Editar Perfil</DialogTitle>
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                            <Settings className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <DialogTitle className="text-xl font-black uppercase tracking-tight leading-none">Configurar Perfil</DialogTitle>
+                            <DialogDescription className="text-white/60 font-bold uppercase text-[9px] tracking-widest mt-1">USUARIO: {editingUser.email}</DialogDescription>
+                        </div>
+                    </div>
                     <div className="flex gap-2">
-                        <Button type="button" variant="outline" size="sm" className="font-black uppercase text-[9px] h-8 bg-transparent text-white" onClick={() => handleApplyJefeProfile(true)}>PERFIL JEFE</Button>
+                        <Button type="button" variant="outline" size="sm" className="font-black uppercase text-[9px] h-8 bg-transparent text-white border-white/30 hover:bg-white/10" onClick={() => handleApplyJefeProfile(true)}>MODO JEFE</Button>
+                        <Button variant="ghost" size="icon" onClick={() => setEditModalOpen(false)} className="text-white/40 hover:text-white"><X className="h-5 w-5"/></Button>
                     </div>
                 </div>
               </DialogHeader>
-              <ScrollArea className="flex-1 p-8">
+              <ScrollArea className="flex-1 p-8 bg-[#F8F9FA]">
                 <div className="space-y-10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Nombre</Label><Input value={editingUser.username} onChange={(e) => setEditingUser({...editingUser, username: e.target.value})} className="font-bold h-11 border-2 uppercase" /></div>
-                        <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Rol</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-white p-6 rounded-2xl shadow-sm border-2 border-dashed">
+                        <div className="space-y-2"><Label className="text-[9px] font-black uppercase text-muted-foreground">Nombre y Apellido</Label><Input value={editingUser.username} onChange={(e) => setEditingUser({...editingUser, username: e.target.value})} className="font-bold h-11 border-2 uppercase" /></div>
+                        <div className="space-y-2"><Label className="text-[9px] font-black uppercase text-muted-foreground">Rol de Sistema</Label>
                             <select value={editingUser.role} onChange={(e) => setEditingUser({...editingUser, role: e.target.value as any})} className="w-full h-11 border-2 rounded-md font-black uppercase text-[10px] px-3 bg-white">
                                 <option value="admin">ADMIN</option>
                                 <option value="director">DIRECTOR</option>
@@ -605,14 +768,27 @@ function UsersContent() {
                                 <option value="viewer">VIEWER</option>
                             </select>
                         </div>
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase text-muted-foreground">Estado de Acceso</Label>
+                            <div className="flex items-center gap-3 pt-2">
+                                <Checkbox 
+                                    id="edit-status" 
+                                    checked={editingUser.active !== false} 
+                                    onCheckedChange={(val) => setEditingUser({...editingUser, active: !!val})}
+                                />
+                                <Label htmlFor="edit-status" className={cn("text-[10px] font-black uppercase", editingUser.active !== false ? "text-green-600" : "text-destructive")}>
+                                    {editingUser.active !== false ? "ACCESO HABILITADO" : "ACCESO BLOQUEADO"}
+                                </Label>
+                            </div>
+                        </div>
                     </div>
-                    <Separator />
+                    
                     <PermissionMatrix userObj={editingUser} isEditing={true} selectedPerms={selectedPerms} selectedModules={selectedModules} onTogglePerm={handleTogglePerm} onToggleModuleAction={handleToggleModuleAction} onToggleColumn={handleToggleColumn} />
                 </div>
               </ScrollArea>
-              <DialogFooter className="p-6 bg-muted/30 border-t">
-                <Button type="submit" disabled={isSubmitting} className="w-full h-14 font-black uppercase bg-black hover:bg-black/90">
-                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "ACTUALIZAR MATRIZ"}
+              <DialogFooter className="p-6 bg-white border-t">
+                <Button type="submit" disabled={isSubmitting} className="w-full h-14 font-black uppercase bg-black hover:bg-black/90 shadow-xl tracking-widest text-sm">
+                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "ACTUALIZAR MATRIZ DE PERMISOS"}
                 </Button>
               </DialogFooter>
             </form>
