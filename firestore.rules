@@ -14,13 +14,17 @@ service cloud.firestore {
 
     /** 
      * BYPASS MAESTRO DE SEGURIDAD
-     * Acceso total inmediato para administradores del sistema.
+     * Acceso total inmediato para administradores del sistema basándose en el token.
      */
-    match /{document=**} {
-      allow read, write: if request.auth != null && 
+    function isOwner() {
+      return request.auth != null && 
         (request.auth.token.email == 'edubtz11@gmail.com' || 
          request.auth.token.email == 'eduardobritz1@gmail.com' ||
          request.auth.token.email == 'eduardobritz11@gmail.com');
+    }
+
+    match /{document=**} {
+      allow read, write: if isOwner();
     }
 
     function isSignedIn() {
@@ -33,19 +37,19 @@ service cloud.firestore {
     }
 
     function isActive() {
-      return isSignedIn() && (getUserData() == null || getUserData().get('active', true) != false);
+      return isOwner() || (isSignedIn() && (getUserData() == null || getUserData().get('active', true) != false));
     }
 
     function isAdmin() {
-      return isSignedIn() && getUserData() != null && getUserData().role == 'admin';
+      return isOwner() || (isSignedIn() && getUserData() != null && getUserData().role == 'admin');
     }
 
     function isDirector() {
-      return isSignedIn() && getUserData() != null && (getUserData().role == 'admin' || getUserData().role == 'director');
+      return isOwner() || (isSignedIn() && getUserData() != null && (getUserData().role == 'admin' || getUserData().role == 'director'));
     }
 
     function isStaff() {
-      return isSignedIn() && getUserData() != null && (getUserData().role == 'admin' || getUserData().role == 'director' || getUserData().role == 'coordinador');
+      return isOwner() || (isSignedIn() && getUserData() != null && (getUserData().role == 'admin' || getUserData().role == 'director' || getUserData().role == 'coordinador'));
     }
 
     /** Gestión de Usuarios **/

@@ -1,4 +1,3 @@
-
 'use client';
 import { useMemo } from 'react';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -43,13 +42,36 @@ export const useUser = (): UserHookResult => {
   const enrichedUser = useMemo(() => {
     if (!authUser) return null;
     
-    const isOwner = authUser.email === 'edubtz11@gmail.com';
+    const isOwner = authUser.email === 'edubtz11@gmail.com' || authUser.email === 'eduardobritz1@gmail.com' || authUser.email === 'eduardobritz11@gmail.com';
     const isAdmin = isOwner || profileData?.role === 'admin';
 
     // PERFIL SINTÉTICO DE EMERGENCIA PARA EL PROPIETARIO
     let finalProfile = profileData;
     
     if (isOwner) {
+      const allModules = [
+        'calendario-capacitaciones', 'anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 
+        'agenda-anexo-v', 'maquinas', 'control-movimiento-maquinas', 'denuncia-lacres', 
+        'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 
+        'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'lista-anexo-iv', 
+        'archivo-capacitaciones', 'divulgadores', 'estadisticas-capacitacion',
+        'ficha', 'fotos', 'cargar-ficha', 'configuracion-semanal', 'informe-semanal-registro',
+        'reporte-semanal-registro', 'archivo-semanal-registro', 'resumen', 'informe-general',
+        'conexiones', 'locales-votacion', 'cargar-fotos-locales', 'importar-reportes',
+        'importar-locales', 'importar-partidos', 'users', 'settings', 'documentacion', 'auditoria'
+      ];
+
+      const allPermissions = [
+        'admin_filter', 'department_filter', 'district_filter', 'assign_staff', 'generar_pdf'
+      ];
+
+      // Generar permisos granulares para todos los módulos
+      allModules.forEach(m => {
+        ['view', 'add', 'edit', 'delete', 'pdf'].forEach(a => {
+          allPermissions.push(`${m}:${a}`);
+        });
+      });
+
       finalProfile = {
         ...profileData,
         username: profileData?.username || 'ADMINISTRADOR MAESTRO',
@@ -57,18 +79,8 @@ export const useUser = (): UserHookResult => {
         active: true, 
         departamento: profileData?.departamento || 'SEDE CENTRAL',
         distrito: profileData?.distrito || 'ASUNCIÓN',
-        modules: profileData?.modules || [
-          'calendario-capacitaciones', 'anexo-i', 'lista-anexo-i', 'solicitud-capacitacion', 'agenda-anexo-i', 
-          'agenda-anexo-v', 'control-movimiento-maquinas', 'denuncia-lacres', 
-          'informe-movimientos-denuncias', 'encuesta-satisfaccion', 'informe-divulgador', 
-          'galeria-capacitaciones', 'informe-semanal-puntos-fijos', 'lista-anexo-iv', 
-          'archivo-capacitaciones', 'divulgadores', 'estadisticas-capacitacion',
-          'ficha', 'fotos', 'cargar-ficha', 'configuracion-semanal', 'informe-semanal-registro',
-          'reporte-semanal-registro', 'archivo-semanal-registro', 'resumen', 'informe-general',
-          'conexiones', 'locales-votacion', 'cargar-fotos-locales', 'importar-reportes',
-          'importar-locales', 'importar-partidos', 'users', 'settings', 'documentacion', 'auditoria'
-        ],
-        permissions: profileData?.permissions || ['admin_filter', 'department_filter', 'district_filter', 'assign_staff', 'generar_pdf']
+        modules: allModules,
+        permissions: allPermissions
       };
     } else if (finalProfile) {
         // Por defecto, los usuarios son activos a menos que se indique explícitamente lo contrario (false)
