@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -57,6 +58,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { type Dato } from '@/lib/data';
 import { initializeApp, deleteApp, type FirebaseApp } from 'firebase/app';
@@ -636,7 +638,6 @@ function UsersContent() {
       const newUid = userCredential.user.uid;
 
       // REGLA CRÍTICA: Escribimos en Firestore usando la sesión actual del administrador logueado
-      // Corregimos la ruta para asegurar que se guarde en la colección 'users'
       await setDoc(doc(firestore, 'users', newUid), newUserProfile);
       
       await signOut(tempAuth);
