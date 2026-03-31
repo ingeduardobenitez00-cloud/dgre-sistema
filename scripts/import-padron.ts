@@ -1,7 +1,7 @@
 
 /**
  * @fileOverview Script de importación masiva optimizado para el Padrón Electoral.
- * Procesa archivos de gran volumen en bloques de 10,000 registros con pausas de enfriamiento.
+ * Procesa archivos de gran volumen en bloques de 5,000 registros con pausas de enfriamiento.
  */
 
 import { initializeApp } from 'firebase/app';
@@ -30,7 +30,7 @@ const password = process.env.ADMIN_PASSWORD;
 
 async function run() {
   console.log('\n=================================================');
-  console.log('   MOTOR DE IMPORTACIÓN MASIVA V5.0 - PADRÓN');
+  console.log('   MOTOR DE IMPORTACIÓN MASIVA V5.1 - PADRÓN');
   console.log('=================================================\n');
 
   if (!email || !password) {
@@ -45,7 +45,7 @@ async function run() {
     console.log('✅ Acceso concedido.\n');
 
     let filesProcessedCount = 0;
-    // Escaneamos hasta 30 archivos para detectar cedula18.xlsx
+    // Escaneamos hasta 30 archivos para detectar el archivo correspondiente
     for (let i = 1; i <= 30; i++) {
       const fileName = `cedula${i}.xlsx`;
       const filePath = path.join(process.cwd(), 'scripts', fileName);
@@ -86,9 +86,9 @@ async function importFile(fileName: string, filePath: string): Promise<boolean> 
 
     const colRef = collection(db, 'padron');
     
-    // Configuración de límites de carga
-    const BATCH_SIZE = 400; // Reducido para evitar saturación de payload
-    const COOLDOWN_CHUNK = 10000; // Pausa cada 10k registros como solicitó el usuario
+    // Configuración de límites de carga optimizada
+    const BATCH_SIZE = 400; // Documentos por cada commit individual
+    const COOLDOWN_CHUNK = 5000; // Pausa cada 5k registros para evitar saturación de gRPC
     
     let processedCount = 0;
 
@@ -121,13 +121,13 @@ async function importFile(fileName: string, filePath: string): Promise<boolean> 
       const percent = Math.round((processedCount / total) * 100);
       process.stdout.write(`\r🚀 Progreso: ${processedCount.toLocaleString()} / ${total.toLocaleString()} (${percent}%)`);
       
-      // Lógica de pausas de estabilidad
+      // Lógica de pausas de estabilidad cada 5,000 registros
       if (processedCount % COOLDOWN_CHUNK === 0) {
-          process.stdout.write(`\n⏸️ Pausa de estabilidad (3s) para enfriar conexión...`);
+          process.stdout.write(`\n⏸️ Pausa de estabilidad (3s) para liberar conexión...`);
           await new Promise(res => setTimeout(res, 3000));
           console.log('\n');
       } else {
-          // Micro-pausa entre batches
+          // Micro-pausa obligatoria entre batches para suavizar el stream
           await new Promise(res => setTimeout(res, 150));
       }
     }
