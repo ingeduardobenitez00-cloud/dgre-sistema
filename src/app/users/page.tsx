@@ -629,6 +629,9 @@ function UsersContent() {
       } catch (authErr: any) {
           if (authErr.code === 'auth/email-already-in-use') {
               toast({ title: "Cuenta ya existe en Auth", description: "Intentando sincronizar perfil en base de datos..." });
+              // Si ya existe en Auth, intentamos obtener el ID de alguna manera o simplemente fallamos informando.
+              // En este caso, no tenemos el UID si no se acaba de crear, a menos que lo busquemos por email en Auth (requeriría Admin SDK).
+              // Como estamos en Client SDK, asumimos que si falla aquí, el Admin debe gestionar el perfil existente.
               setIsSubmitting(false);
               return;
           }
@@ -682,7 +685,7 @@ function UsersContent() {
         role: editingUser.role, 
         modules: editingUser.modules || [], 
         permissions: editingUser.permissions || [], 
-        departamento: editingUser.departamento || 'ALCIONAL', 
+        departamento: editingUser.departamento || 'ALCANCE NACIONAL', 
         distrito: editingUser.distrito || 'TODOS LOS DISTRITOS' 
     };
     const docRef = doc(firestore, 'users', editingUser.id);
@@ -697,6 +700,8 @@ function UsersContent() {
       })
       .finally(() => setIsSubmitting(false));
   };
+
+  if (isAuthLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/5">
