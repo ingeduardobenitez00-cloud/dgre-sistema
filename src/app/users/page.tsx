@@ -637,7 +637,6 @@ function UsersContent() {
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       const newUid = userCredential.user.uid;
 
-      // REGLA CRÍTICA: Escribimos en Firestore usando la sesión actual del administrador logueado
       const userRef = doc(firestore, 'users', newUid);
       await setDoc(userRef, newUserProfile);
       

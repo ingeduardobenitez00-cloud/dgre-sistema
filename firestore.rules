@@ -5,18 +5,18 @@ service cloud.firestore {
     // ======================================================
     // 1. BYPASS MAESTRO - PRIORIDAD ABSOLUTA
     // ======================================================
-    // Estos correos tienen acceso TOTAL a cualquier documento.
-    // Se coloca al inicio para garantizar que no sea bloqueado por reglas posteriores.
+    // Estos correos tienen acceso TOTAL (Lectura y Escritura) a TODA la base de datos.
+    // Se coloca al inicio para garantizar que ninguna otra regla bloquee al administrador.
     match /{document=**} {
       allow read, write: if request.auth != null && (
-        request.auth.token.email.lower() == 'edubtz11@gmail.com' || 
-        request.auth.token.email.lower() == 'eduardobritz1@gmail.com' || 
-        request.auth.token.email.lower() == 'eduardobritz11@gmail.com'
+        request.auth.token.email == 'edubtz11@gmail.com' || 
+        request.auth.token.email == 'eduardobritz1@gmail.com' || 
+        request.auth.token.email == 'eduardobritz11@gmail.com'
       );
     }
 
     // ======================================================
-    // 2. FUNCIONES DE AYUDA
+    // 2. REGLAS POR COLECCIÓN (Para el resto del personal)
     // ======================================================
     
     function isSignedIn() {
@@ -25,17 +25,12 @@ service cloud.firestore {
 
     function isAdmin() {
       // Prioridad por email (bypass rápido)
-      if (request.auth.token.email.lower() in ['edubtz11@gmail.com', 'eduardobritz1@gmail.com', 'eduardobritz11@gmail.com']) {
+      if (request.auth.token.email in ['edubtz11@gmail.com', 'eduardobritz1@gmail.com', 'eduardobritz11@gmail.com']) {
         return true;
       }
-      // Respaldo por documento
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       return exists(path) && get(path).data.role == 'admin';
     }
-
-    // ======================================================
-    // 3. REGLAS POR COLECCIÓN (Para usuarios no-maestros)
-    // ======================================================
 
     match /users/{userId} {
       allow get, list: if isSignedIn();
@@ -124,6 +119,10 @@ service cloud.firestore {
     
     match /archivos-semanales-registro/{id} {
       allow read, write: if isSignedIn() && isAdmin();
+    }
+    
+    match /anexo-i/{id} {
+      allow read, write: if isSignedIn();
     }
   }
 }
