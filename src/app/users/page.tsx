@@ -143,14 +143,6 @@ const MODULE_STRUCTURE = [
     ]
   },
   {
-    category: "GESTIÓN DE DATOS",
-    items: [
-      { id: 'importar-reportes', label: 'IMPORTAR REPORTES' },
-      { id: 'importar-locales', label: 'IMPORTAR LOCALES' },
-      { id: 'importar-partidos', label: 'IMPORTAR PARTIDOS' },
-    ]
-  },
-  {
     category: "SISTEMA",
     items: [
       { id: 'users', label: 'GESTIÓN USUARIOS' },
@@ -301,7 +293,6 @@ function UsersContent() {
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Inicializar búsqueda si viene por URL (desde notificaciones)
   useEffect(() => {
     const searchVal = searchParams.get('search');
     if (searchVal) {
@@ -550,7 +541,7 @@ function UsersContent() {
         batch.update(docRef, {
           modules: jefeModules,
           permissions: standardPerms,
-          active: true // Aseguramos que durante la sincronización queden activos
+          active: true 
         });
         count++;
       }
@@ -604,9 +595,32 @@ function UsersContent() {
 
     setIsSubmitting(true);
     const formData = new FormData(form);
-    const email = (formData.get('email') as string || '').trim();
+    const email = (formData.get('email') as string || '').trim().toLowerCase();
     const password = formData.get('password') as string;
     const username = (formData.get('username') as string || '').toUpperCase();
+    
+    // VALIDACIÓN: Evitar que el admin intente crear su propio correo
+    if (email === currentUser.email?.toLowerCase()) {
+        toast({ 
+            variant: 'destructive', 
+            title: 'Operación no permitida', 
+            description: 'Usted ya está autenticado con este correo. Use la opción de Editar en su perfil si necesita cambios.' 
+        });
+        setIsSubmitting(false);
+        return;
+    }
+
+    // VALIDACIÓN: Verificar si el correo ya existe en la lista de perfiles local
+    const exists = users?.some(u => u.email.toLowerCase() === email);
+    if (exists) {
+        toast({ 
+            variant: 'destructive', 
+            title: 'Perfil existente', 
+            description: 'Este correo ya tiene un perfil registrado en la base de datos. Por favor, búsquelo en la lista inferior y use Editar.' 
+        });
+        setIsSubmitting(false);
+        return;
+    }
     
     const newUserProfile = { 
       username, 
@@ -630,7 +644,13 @@ function UsersContent() {
       await signOut(tempAuth);
       toast({ title: 'Usuario Creado con Éxito' });
       form.reset(); setSelectedModules(new Set()); setSelectedPerms(new Set());
-    } catch (error: any) { toast({ variant: 'destructive', title: 'Error', description: error.message }); }
+    } catch (error: any) { 
+        let errorDesc = error.message;
+        if (error.code === 'auth/email-already-in-use') {
+            errorDesc = "Este correo ya está registrado en la Autenticación de Firebase. Si no aparece en la lista de abajo, es un registro huérfano que debe ser eliminado desde la consola de Firebase antes de volver a crearlo aquí.";
+        }
+        toast({ variant: 'destructive', title: 'Error de Firebase', description: errorDesc }); 
+    }
     finally { if (tempApp) await deleteApp(tempApp); setIsSubmitting(false); }
   };
 
