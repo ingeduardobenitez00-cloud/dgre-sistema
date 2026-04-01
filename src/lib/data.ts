@@ -197,6 +197,7 @@ export type InformeDivulgador = {
   hora_hasta: string;
   nombre_divulgador: string;
   cedula_divulgador: string;
+  divulgador_id: string;
   vinculo: string;
   oficina: string;
   departamento: string;

@@ -455,7 +455,7 @@ function UsersContent() {
       'denuncia-lacres', 'informe-divulgador', 'informe-semanal-puntos-fijos', 
       'lista-anexo-iv', 'encuesta-satisfaccion', 'archivo-capacitaciones'
     ];
-    const actions = ['view', 'add', 'pdf'];
+    const actions = ['view', 'add', 'edit', 'delete', 'pdf'];
     const newPerms = new Set<string>();
     jefeModules.forEach(m => actions.forEach(a => newPerms.add(`${m}:${a}`)));
     newPerms.add('district_filter');

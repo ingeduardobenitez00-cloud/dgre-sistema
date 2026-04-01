@@ -416,7 +416,11 @@ export default function ControlMovimientoMaquinasPage() {
         setIsSubmitting(false);
       })
       .catch(error => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'movimientos-maquinas', operation: 'create' }));
+        if (error.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'movimientos-maquinas', operation: 'create' }));
+        } else {
+          toast({ variant: 'destructive', title: 'Error al registrar salida', description: error.message });
+        }
         setIsSubmitting(false);
       });
   };
@@ -451,7 +455,11 @@ export default function ControlMovimientoMaquinasPage() {
         setIsSubmitting(false);
       })
       .catch(error => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: currentMovimiento.id, operation: 'update' }));
+        if (error.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: currentMovimiento.id, operation: 'update' }));
+        } else {
+          toast({ variant: 'destructive', title: 'Error al registrar devolución', description: error.message });
+        }
         setIsSubmitting(false);
       });
   };
@@ -502,7 +510,11 @@ export default function ControlMovimientoMaquinasPage() {
             setIsSubmitting(false);
         })
         .catch(error => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'denuncias-lacres', operation: 'create' }));
+            if (error.code === 'permission-denied') {
+              errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'denuncias-lacres', operation: 'create' }));
+            } else {
+              toast({ variant: 'destructive', title: 'Error al registrar denuncia', description: error.message });
+            }
             setIsSubmitting(false);
         });
   };
@@ -638,7 +650,7 @@ export default function ControlMovimientoMaquinasPage() {
             doc.text("ESTADO LACRE:", margin + 60, y + 6);
             doc.setDrawColor(0); doc.setLineWidth(0.2);
             doc.circle(margin + 85, y + 5.5, 2);
-            if (maq.lacre_estado === 'correcto') { doc.setFillColor(0); doc.circle(margin + 85, y + 5.5, 1.2, 'F'); }
+            if (maq.lacre_estado === 'correcto') { doc.setFillColor(0, 0, 0); doc.circle(margin + 85, y + 5.5, 1.2, 'F'); }
             doc.text("CORRECTO", margin + 89, y + 6);
 
             doc.circle(margin + 115, y + 5.5, 2);

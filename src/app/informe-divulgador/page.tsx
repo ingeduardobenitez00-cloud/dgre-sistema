@@ -268,13 +268,19 @@ function InformeContent() {
       }, 2000);
 
     } catch (error: any) {
-      // Manejo de errores de permisos o tamaño excedido
-      const isSizeError = error.message?.includes('too large') || error.code === 'out-of-range';
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ 
-        path: 'informes-divulgador', 
-        operation: 'create',
-        requestResourceData: isSizeError ? { error: "El informe excede el tamaño máximo permitido por Firestore (1MB). Intente con fotos más ligeras." } : undefined
-      }));
+      if (error.code === 'permission-denied') {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+          path: 'informes-divulgador', 
+          operation: 'create'
+        }));
+      } else {
+        const isSizeError = error.message?.includes('too large') || error.code === 'out-of-range';
+        toast({ 
+          variant: 'destructive', 
+          title: isSizeError ? 'Error de Tamaño' : 'Error al enviar informe', 
+          description: isSizeError ? "El informe excede el tamaño máximo (1MB). Use fotos más ligeras." : error.message 
+        });
+      }
       setIsSubmitting(false);
     }
   };

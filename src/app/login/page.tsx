@@ -197,6 +197,8 @@ export default function LoginPage() {
       jefeModules.forEach(mod => {
         jefePermissions.push(`${mod}:view`);
         jefePermissions.push(`${mod}:add`);
+        jefePermissions.push(`${mod}:edit`);
+        jefePermissions.push(`${mod}:delete`);
         jefePermissions.push(`${mod}:pdf`);
       });
 

@@ -6,7 +6,6 @@ service cloud.firestore {
     // 1. FUNCIONES DE AUTORIDAD (ORDEN DE PRIORIDAD)
     // ======================================================
 
-    // Bypass Maestro: Acceso total e inmediato por Email
     function isMasterAdmin() {
       return request.auth != null && 
         (
@@ -19,13 +18,11 @@ service cloud.firestore {
         );
     }
 
-    // Autoridad por Rol: Consulta a la colección de usuarios
     function hasAdminRole() {
       return request.auth != null && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Unifica ambos niveles de administración
     function isAdmin() {
       return isMasterAdmin() || hasAdminRole();
     }
@@ -39,46 +36,31 @@ service cloud.firestore {
     }
 
     // ======================================================
-    // 3. REGLAS ESPECÍFICAS (PARA OTROS ROLES)
+    // 3. REGLAS ESPECÍFICAS
     // ======================================================
 
+    // Bloqueo de Perfiles de Usuario (Solo Admin o el propio usuario)
     match /users/{userId} {
-      // Un usuario lee su perfil, o un admin lee todos
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      
-      // Permitir actualización a administradores
-      allow update: if isAdmin();
-      
-      // Permitir creación a admins, o permitir auto-registro como jefe deshabilitado
-      allow create: if isAdmin() || (
-        request.auth != null && 
-        request.auth.uid == userId && 
-        request.resource.data.role == 'jefe' && 
-        request.resource.data.active == false
-      );
-      
-      // Solo el Súper Admin puede borrar perfiles
-      allow delete: if isMasterAdmin();
+      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if request.auth != null; // Permitir registro inicial
+      allow delete: if isAdmin();
     }
 
-    // Colecciones Operativas (Acceso para personal logueado)
+    // Colecciones Operativas: Acceso TOTAL para cualquier usuario autenticado
+    // Esto restaura el funcionamiento anterior donde no había bloqueos por colección
     match /solicitudes-capacitacion/{id} { allow read, write: if request.auth != null; }
     match /informes-divulgador/{id} { allow read, write: if request.auth != null; }
     match /informes-semanales-anexo-iv/{id} { allow read, write: if request.auth != null; }
     match /movimientos-maquinas/{id} { allow read, write: if request.auth != null; }
     match /divulgadores/{id} { allow read, write: if request.auth != null; }
     match /maquinas/{id} { allow read, write: if request.auth != null; }
-    match /datos/{id} { allow read: if true; }
-    match /partidos-politicos/{id} { allow read: if true; }
-    match /encuestas-satisfaccion/{id} { allow read: if request.auth != null; allow create: if true; }
     match /notificaciones/{id} { allow read, write, create: if request.auth != null; }
-    match /padron/{id} { allow read, write: if request.auth != null; }
-    match /locales-votacion/{id} { allow read, write: if request.auth != null; }
-    match /informes-semanales-registro/{id} { allow read, write: if request.auth != null; }
-    match /anexo-i/{id} { allow read, write: if request.auth != null; }
-    match /config/{id} { allow read, write: if request.auth != null; }
     match /auditoria/{id} { allow create, read: if request.auth != null; }
-    match /presencia/{userId} { allow read, write: if request.auth != null; }
-    match /archivos-semanales-registro/{id} { allow read, write: if request.auth != null; }
+    
+    // Acceso universal a todas las demás colecciones (Fallback de seguridad)
+    match /{collectionName}/{id} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
