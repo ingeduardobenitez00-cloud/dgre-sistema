@@ -252,7 +252,13 @@ function UsersContent() {
   const searchParams = useSearchParams();
 
   const isMasterAdmin = useMemo(() => {
-    return ['edubtz11@gmail.com', 'ing.eduardobenitez00@gmail.com', 'eduardobritz1@gmail.com'].includes(currentUser?.email?.toLowerCase() || '');
+    return [
+      'edubtz11@gmail.com',
+      'eduardobritz1@gmail.com',
+      'eduardobritz11@gmail.com',
+      'ing.eduardobenitez00@gmail.com',
+      'ingeduardobenitez00-cloud@gmail.com'
+    ].includes(currentUser?.email?.toLowerCase() || '');
   }, [currentUser]);
 
   const isAdminView = useMemo(() => {

@@ -10,10 +10,12 @@ service cloud.firestore {
     function isMasterAdmin() {
       return request.auth != null && 
         (
-          request.auth.token.email == 'edubtz11@gmail.com' || 
-          request.auth.token.email == 'ing.eduardobenitez00@gmail.com' ||
-          request.auth.token.email == 'eduardobritz1@gmail.com' || 
-          request.auth.token.email == 'eduardobritz11@gmail.com'
+          request.auth.uid == 'Hhp2XXVG1fTNC8baD1HdBIwrJLt1' ||
+          request.auth.token.email.matches('(?i)edubtz11@gmail.com') || 
+          request.auth.token.email.matches('(?i)ing.eduardobenitez00@gmail.com') ||
+          request.auth.token.email.matches('(?i)ingeduardobenitez00-cloud@gmail.com') ||
+          request.auth.token.email.matches('(?i)eduardobritz1@gmail.com') || 
+          request.auth.token.email.matches('(?i)eduardobritz11@gmail.com')
         );
     }
 
