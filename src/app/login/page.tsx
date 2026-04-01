@@ -23,7 +23,7 @@ import {
 import { collection, doc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, UserPlus, LogIn, MapPin, ShieldAlert } from 'lucide-react';
+import { Eye, EyeOff, Loader2, UserPlus, LogIn, ShieldAlert } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type Dato } from '@/lib/data';
 import { recordAuditLog } from '@/lib/audit';
@@ -395,7 +395,7 @@ export default function LoginPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-muted-foreground">
-                        <MapPin className="h-3 w-3"/> Dpto. <span className="text-destructive">*</span>
+                        Dpto. <span className="text-destructive">*</span>
                     </Label>
                     <Select onValueChange={(v) => setRegData(p => ({...p, departamento: v, distrito: ''}))}>
                       <SelectTrigger className="font-bold border-2 text-[10px] h-10">
@@ -408,7 +408,7 @@ export default function LoginPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase flex items-center gap-1 text-muted-foreground">
-                        <MapPin className="h-3 w-3"/> Distrito <span className="text-destructive">*</span>
+                        Distrito <span className="text-destructive">*</span>
                     </Label>
                     <Select onValueChange={(v) => setRegData(p => ({...p, distrito: v}))} disabled={!regData.departamento}>
                       <SelectTrigger className="font-bold border-2 text-[10px] h-10">
