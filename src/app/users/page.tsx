@@ -18,6 +18,7 @@ import {
   Building2, 
   Settings, 
   X, 
+  MapPin,
   Landmark, 
   Zap, 
   Power, 
