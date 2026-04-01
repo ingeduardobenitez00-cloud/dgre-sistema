@@ -6,8 +6,11 @@ if (!admin.apps.length) {
   try {
     // En entornos de producción (Firebase App Hosting, Vercel), las credenciales por defecto se detectan automáticamente.
     admin.initializeApp();
-  } catch (error) {
-    console.error('Error inicializando firebase-admin:', error);
+  } catch (error: any) {
+    console.error('Error inicializando firebase-admin en el servidor:', error.message);
+    if (error?.message?.includes('credential')) {
+      console.warn('TIP: Ejecuta "gcloud auth application-default login" en tu terminal local para habilitar permisos administrativos.');
+    }
   }
 }
 

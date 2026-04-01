@@ -364,6 +364,29 @@ function UsersContent() {
       .filter(dept => dept.districts.length > 0)
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [datosData, users, searchTerm]);
+  
+  const userStats = useMemo(() => {
+    if (!datosData || !users) return null;
+    
+    // Contamos distritos únicos
+    const uniqueDistricts = new Set(datosData.map(d => d.distrito));
+    const totalRegistries = uniqueDistricts.size;
+    const targetJefes = 509; // Meta fija: 509 jefes en total
+    
+    const activeJefes = users.filter(u => u.role === 'jefe' && u.active !== false).length;
+    const pendingJefes = Math.max(0, targetJefes - activeJefes);
+    const totalUsersInSystem = users.length;
+    const coveragePercentage = targetJefes > 0 ? (activeJefes / targetJefes) * 100 : 0;
+
+    return {
+      totalRegistries,
+      targetJefes,
+      activeJefes,
+      pendingJefes,
+      totalUsersInSystem,
+      coveragePercentage: Math.round(coveragePercentage * 10) / 10
+    };
+  }, [datosData, users]);
 
   const handleTogglePerm = (permId: string, isEditing = false) => {
     if (isEditing && editingUser) {
@@ -474,16 +497,32 @@ function UsersContent() {
     const presRef = doc(firestore, 'presencia', user.id);
 
     // Eliminación en Firebase Auth vía Server Action
-    deleteUserFromAuth(user.id).catch(err => console.error("Error con Server Action:", err));
+    deleteUserFromAuth(user.id).then(res => {
+        if (!res.success) {
+            toast({ 
+                variant: 'destructive', 
+                title: 'Aviso: Solo Firestore', 
+                description: 'Se borró de la lista, pero no de Authentication: ' + res.error 
+            });
+        } else {
+            toast({ title: 'Usuario eliminado (Base de datos y Acceso)' });
+        }
+    }).catch(err => {
+        console.error("Error con Server Action:", err);
+        toast({ 
+            variant: 'destructive', 
+            title: 'Error de Conexión', 
+            description: 'No se pudo comunicar con el servidor para borrar el acceso.' 
+        });
+    });
 
-    // Eliminación no bloqueante sincronizada
+    // Eliminación no bloqueante sincronizada en Firestore
     const batch = writeBatch(firestore);
     batch.delete(userRef);
     batch.delete(presRef);
     
     batch.commit()
         .then(() => {
-            toast({ title: 'Usuario eliminado del directorio' });
             setIsSubmitting(false);
         })
         .catch(async (error) => {
@@ -656,6 +695,77 @@ function UsersContent() {
             </div>
         )}
 
+        {/* PANEL DE ESTADÍSTICAS DE COBERTURA */}
+        {userStats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-4 duration-1000">
+                <Card className="bg-white border-none shadow-lg overflow-hidden flex flex-col justify-center p-6 transition-all hover:shadow-2xl group">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-primary/5 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Landmark className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Total Registros</p>
+                            <h4 className="text-2xl font-black text-primary leading-none">{userStats.totalRegistries}</h4>
+                        </div>
+                    </div>
+                </Card>
+                <Card className="bg-white border-none shadow-lg overflow-hidden flex flex-col justify-center p-6 transition-all hover:shadow-2xl group">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-black/5 text-black flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Users className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Meta de Usuarios</p>
+                            <h4 className="text-2xl font-black text-black leading-none">{userStats.targetJefes} <span className="text-[10px] opacity-40 font-bold">NACIONAL</span></h4>
+                        </div>
+                    </div>
+                </Card>
+                <Card className="bg-white border-none shadow-lg overflow-hidden flex flex-col justify-center p-6 transition-all hover:shadow-2xl group border-l-4 border-l-green-500">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <UserCheck className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Jefes Activos</p>
+                            <h4 className="text-2xl font-black text-green-600 leading-none">{userStats.activeJefes}</h4>
+                        </div>
+                    </div>
+                </Card>
+                <Card className="bg-white border-none shadow-lg overflow-hidden flex flex-col justify-center p-6 transition-all hover:shadow-2xl group border-l-4 border-l-amber-500">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <AlertCircle className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Pendientes</p>
+                            <h4 className="text-2xl font-black text-amber-600 leading-none">{userStats.pendingJefes}</h4>
+                        </div>
+                    </div>
+                </Card>
+
+                {/* BARRA DE PROGRESO GLOBAL */}
+                <Card className="col-span-full bg-black text-white border-none shadow-2xl p-8 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 h-full w-1/2 bg-gradient-to-l from-white/5 to-transparent skew-x-12 transform translate-x-20"></div>
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+                        <div className="space-y-1 text-center md:text-left">
+                            <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Cobertura Nacional de Jefaturas</h3>
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Seguimiento de cumplimiento sobre meta de 509 Jefes</p>
+                        </div>
+                        <div className="flex flex-col items-center md:items-end">
+                            <span className="text-5xl font-black tracking-tighter text-green-400 group-hover:scale-110 transition-transform duration-500">{userStats.coveragePercentage}%</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Capacidad Total Desplegada</span>
+                        </div>
+                    </div>
+                    <div className="mt-8 h-4 bg-white/10 rounded-full overflow-hidden border border-white/5">
+                        <div 
+                            className="h-full bg-gradient-to-r from-green-600 to-green-400 transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(74,222,128,0.3)]"
+                            style={{ width: `${userStats.coveragePercentage}%` }}
+                        ></div>
+                    </div>
+                </Card>
+            </div>
+        )}
+
         <Card className="shadow-xl border-none rounded-[2rem] bg-white overflow-hidden">
           <form onSubmit={handleSubmit}>
             <CardHeader className="border-b bg-muted/10 p-8">
@@ -737,7 +847,18 @@ function UsersContent() {
             ) : (
                 <Accordion type="multiple" className="space-y-6">
                     {hierarchy.map((dept) => {
-                        const filledCount = dept.districts.filter(d => d.users.length > 0).length;
+                        // Cálculos por departamento
+                        const deptDistrictsCount = dept.districts.length;
+                        const deptTarget = deptDistrictsCount * 2;
+                        
+                        let deptActive = 0;
+                        dept.districts.forEach(d => {
+                            deptActive += d.users.filter((u: any) => u.role === 'jefe' && u.active !== false).length;
+                        });
+                        
+                        const deptMissing = Math.max(0, deptTarget - deptActive);
+                        const isPerfect = deptActive >= deptTarget;
+
                         return (
                             <AccordionItem key={dept.name} value={dept.name} className="border-none bg-white rounded-[2rem] shadow-sm overflow-hidden">
                                 <AccordionTrigger className="hover:no-underline px-8 py-6 bg-white group">
@@ -748,12 +869,31 @@ function UsersContent() {
                                             </div>
                                             <div>
                                                 <h2 className="text-2xl font-black uppercase tracking-tight text-[#1A1A1A]">{dept.name}</h2>
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{dept.districts.length} DISTRITOS EN JURISDICCIÓN</p>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{deptDistrictsCount} DISTRITOS EN JURISDICCIÓN</p>
                                             </div>
                                         </div>
-                                        <Badge variant="secondary" className="bg-black text-white text-[9px] font-black uppercase px-4 h-7 rounded-full shadow-lg">
-                                            {filledCount} CUMPLIDOS
-                                        </Badge>
+                                        
+                                        <div className="flex items-center gap-3">
+                                            <div className="hidden md:flex flex-col items-end mr-4">
+                                                <div className="flex gap-2">
+                                                    <span className="text-[8px] font-black uppercase opacity-40">M: {deptTarget}</span>
+                                                    <span className="text-[8px] font-black uppercase text-green-600">A: {deptActive}</span>
+                                                    <span className="text-[8px] font-black uppercase text-amber-600">F: {deptMissing}</span>
+                                                </div>
+                                                <div className="w-24 h-1 bg-muted rounded-full mt-1 overflow-hidden">
+                                                    <div 
+                                                        className={cn("h-full transition-all duration-1000", isPerfect ? "bg-green-500" : "bg-primary")} 
+                                                        style={{ width: `${Math.min(100, (deptActive / deptTarget) * 100)}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                            <Badge variant="secondary" className={cn(
+                                                "text-white text-[9px] font-black uppercase px-4 h-7 rounded-full shadow-lg transition-colors",
+                                                isPerfect ? "bg-green-600" : "bg-black"
+                                            )}>
+                                                {deptActive} / {deptTarget} CUMPLIDOS
+                                            </Badge>
+                                        </div>
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="px-8 pb-8 pt-2">
